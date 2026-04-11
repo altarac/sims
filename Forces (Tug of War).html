@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tug of War Simulator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+        canvas { 
+            display: block; 
+            width: 100%; 
+            max-width: 1200px; 
+            margin: 0 auto; 
+            border-radius: 12px;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+            background-color: #e0f2fe; /* light sky blue */
+            cursor: pointer;
+        }
+        input[type="range"] { accent-color: #64748b; }
+    </style>
+</head>
+<body class="bg-slate-50 min-h-screen p-4 md:p-8 flex flex-col items-center">
+
+    <div class="w-full max-w-6xl mx-auto mb-6 bg-white rounded-xl shadow-sm border border-slate-200 p-4">
+        <h1 class="text-3xl font-bold text-center text-slate-800 mb-6">Tug of War Simulator</h1>
+        
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 items-center text-center">
+            
+            <!-- Blue Team Controls -->
+            <div class="bg-blue-50 rounded-lg p-4 border border-blue-100 flex flex-col items-center">
+                <h2 class="text-xl font-semibold text-blue-700 mb-2">Blue Team</h2>
+                <div class="text-3xl font-bold text-blue-600 mb-4" id="blueForceDisplay">Force: 0</div>
+                <button onclick="addPerson('blue')" class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-6 rounded-full transition-colors shadow-sm active:scale-95">
+                    + Add Person
+                </button>
+            </div>
+
+            <!-- Central Controls -->
+            <div class="flex flex-col items-center gap-4 bg-slate-50 rounded-lg p-4 border border-slate-200">
+                <div class="w-full">
+                    <label class="block text-sm font-medium text-slate-600 mb-1" id="sliderLabel">
+                        Select a person to adjust size/force
+                    </label>
+                    <input type="range" id="sizeSlider" min="1" max="5" value="3" disabled
+                           class="w-full h-2 bg-slate-300 rounded-lg appearance-none cursor-not-allowed opacity-50 transition-all">
+                    <div class="flex justify-between text-xs text-slate-400 mt-1 px-1">
+                        <span>Small</span>
+                        <span>Medium</span>
+                        <span>Huge</span>
+                    </div>
+                    <!-- Delete Button Container -->
+                    <div id="deleteContainer" class="hidden mt-3">
+                        <button onclick="deleteSelected()" class="w-full bg-rose-100 hover:bg-rose-200 text-rose-700 font-medium py-1.5 px-4 rounded-lg transition-colors shadow-sm text-sm border border-rose-200">
+                            Remove Person
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="flex flex-wrap justify-center gap-2">
+                    <button onclick="togglePlay()" id="playBtn" class="bg-emerald-500 hover:bg-emerald-600 text-white font-medium py-2 px-4 rounded-lg transition-colors shadow-sm text-sm">
+                        Start Tug!
+                    </button>
+                    <button onclick="toggleArrows()" id="arrowBtn" class="bg-slate-200 hover:bg-slate-300 text-slate-700 font-medium py-2 px-4 rounded-lg transition-colors shadow-sm text-sm">
+                        Show Arrows
+                    </button>
+                    <button onclick="toggleValues()" id="valueBtn" class="bg-slate-200 hover:bg-slate-300 text-slate-700 font-medium py-2 px-4 rounded-lg transition-colors shadow-sm text-sm">
+                        Show Quantities
+                    </button>
+                    <button onclick="resetGame()" class="bg-red-100 hover:bg-red-200 text-red-700 font-medium py-2 px-4 rounded-lg transition-colors shadow-sm text-sm">
+                        Reset
+                    </button>
+                </div>
+            </div>
+
+            <!-- Red Team Controls -->
+            <div class="bg-red-50 rounded-lg p-4 border border-red-100 flex flex-col items-center">
+                <h2 class="text-xl font-semibold text-red-700 mb-2">Red Team</h2>
+                <div class="text-3xl font-bold text-red-600 mb-4" id="redForceDisplay">Force: 0</div>
+                <button onclick="addPerson('red')" class="bg-red-600 hover:bg-red-700 text-white font-medium py-2 px-6 rounded-full transition-colors shadow-sm active:scale-95">
+                    + Add Person
+                </button>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Simulation Canvas -->
+    <div class="relative w-full max-w-6xl mx-auto">
+        <canvas id="gameCanvas" width="1200" height="500"></canvas>
+        
+        <!-- Win Overlay -->
+        <div id="winOverlay" class="absolute inset-0 bg-white/80 backdrop-blur-sm hidden flex-col items-center justify-center rounded-xl z-10 transition-all">
+            <h2 id="winText" class="text-6xl font-extrabold mb-4 drop-shadow-md">Team Wins!</h2>
+            <button onclick="resetGame()" class="bg-slate-800 hover:bg-slate-900 text-white font-bold py-3 px-8 rounded-full text-xl shadow-lg transition-transform hover:scale-105 active:scale-95">
+                Play Again
+            </button>
+        </div>
+    </div>
+
+<script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const sizeSlider = document.getElementById('sizeSlider');
+    const sliderLabel = document.getElementById('sliderLabel');
+    const arrowBtn = document.getElementById('arrowBtn');
+    const blueForceDisplay = document.getElementById('blueForceDisplay');
+    const redForceDisplay = document.getElementById('redForceDisplay');
+    const winOverlay = document.getElementById('winOverlay');
+    const winText = document.getElementById('winText');
+
+    // Game Constants
+    const Y_GROUND = 350;
+    const Y_ROPE = 280;
+    const CENTER_X = canvas.width / 2;
+    const WIN_THRESHOLD = 300; // How far the flag must move to win
+    const GOAL_LEFT = CENTER_X - WIN_THRESHOLD;
+    const GOAL_RIGHT = CENTER_X + WIN_THRESHOLD;
+    
+    // State
+    let state = {
+        blueTeam: [],
+        redTeam: [],
+        ropeX: CENTER_X,
+        velocity: 0,
+        selectedId: null,
+        showArrows: false,
+        showValues: false,
+        isPlaying: false,
+        winner: null,
+        lastTime: performance.now()
+    };
+
+    // Initialize
+    function resetGame() {
+        state = {
+            blueTeam: [],
+            redTeam: [],
+            ropeX: CENTER_X,
+            velocity: 0,
+            selectedId: null,
+            showArrows: state.showArrows,
+            showValues: state.showValues,
+            isPlaying: false,
+            winner: null,
+            lastTime: performance.now()
+        };
+        const playBtn = document.getElementById('playBtn');
+        if (playBtn) {
+            playBtn.innerText = 'Start Tug!';
+            playBtn.classList.remove('bg-amber-500', 'hover:bg-amber-600');
+            playBtn.classList.add('bg-emerald-500', 'hover:bg-emerald-600');
+        }
+        
+        winOverlay.classList.add('hidden');
+        winOverlay.classList.remove('flex');
+        updateUI();
+    }
+
+    function togglePlay() {
+        if (state.winner) return;
+        state.isPlaying = !state.isPlaying;
+        const playBtn = document.getElementById('playBtn');
+        if (state.isPlaying) {
+            playBtn.innerText = 'Pause';
+            playBtn.classList.remove('bg-emerald-500', 'hover:bg-emerald-600');
+            playBtn.classList.add('bg-amber-500', 'hover:bg-amber-600');
+        } else {
+            playBtn.innerText = 'Resume';
+            playBtn.classList.remove('bg-amber-500', 'hover:bg-amber-600');
+            playBtn.classList.add('bg-emerald-500', 'hover:bg-emerald-600');
+        }
+        state.lastTime = performance.now();
+    }
+
+    function addPerson(team) {
+        if (state.winner) return;
+        
+        const arr = team === 'blue' ? state.blueTeam : state.redTeam;
+        const dir = team === 'blue' ? -1 : 1;
+        // Calculate offset along the rope so they don't overlap
+        const offset = dir * (80 + arr.length * 60); 
+        
+        const person = {
+            id: Date.now() + Math.random(),
+            team: team,
+            size: 3, // Starts Medium (1 to 5)
+            offset: offset,
+        };
+        
+        arr.push(person);
+        selectPerson(person);
+    }
+
+    // Interaction Logging
+    canvas.addEventListener('click', (e) => {
+        if (state.winner) return;
+        
+        const rect = canvas.getBoundingClientRect();
+        const scaleX = canvas.width / rect.width;
+        const scaleY = canvas.height / rect.height;
+        const clickX = (e.clientX - rect.left) * scaleX;
+        const clickY = (e.clientY - rect.top) * scaleY;
+
+        let clickedPerson = null;
+        const allPeople = [...state.blueTeam, ...state.redTeam];
+        
+        for (let p of allPeople) {
+            const pX = state.ropeX + p.offset;
+            // Rough bounding box for the person
+            if (Math.abs(clickX - pX) < 40 && clickY > Y_GROUND - 150 && clickY < Y_GROUND + 20) {
+                clickedPerson = p;
+                break;
+            }
+        }
+
+        if (clickedPerson) {
+            selectPerson(clickedPerson);
+        } else {
+            // Deselect
+            state.selectedId = null;
+            updateUI();
+        }
+    });
+
+    function selectPerson(person) {
+        state.selectedId = person.id;
+        updateUI();
+    }
+
+    function deleteSelected() {
+        if (!state.selectedId) return;
+        state.blueTeam = state.blueTeam.filter(p => p.id !== state.selectedId);
+        state.redTeam = state.redTeam.filter(p => p.id !== state.selectedId);
+        state.selectedId = null;
+        updateUI();
+    }
+
+    sizeSlider.addEventListener('input', (e) => {
+        if (!state.selectedId) return;
+        const allPeople = [...state.blueTeam, ...state.redTeam];
+        const p = allPeople.find(p => p.id === state.selectedId);
+        if (p) {
+            p.size = parseInt(e.target.value);
+            updateUI();
+        }
+    });
+
+    function toggleArrows() {
+        state.showArrows = !state.showArrows;
+        arrowBtn.innerText = state.showArrows ? 'Hide Arrows' : 'Show Arrows';
+        if(state.showArrows) {
+            arrowBtn.classList.replace('bg-slate-200', 'bg-emerald-200');
+        } else {
+            arrowBtn.classList.replace('bg-emerald-200', 'bg-slate-200');
+        }
+    }
+
+    function toggleValues() {
+        state.showValues = !state.showValues;
+        const valueBtn = document.getElementById('valueBtn');
+        valueBtn.innerText = state.showValues ? 'Hide Quantities' : 'Show Quantities';
+        if(state.showValues) {
+            valueBtn.classList.replace('bg-slate-200', 'bg-emerald-200');
+        } else {
+            valueBtn.classList.replace('bg-emerald-200', 'bg-slate-200');
+        }
+    }
+
+    function updateUI() {
+        const allPeople = [...state.blueTeam, ...state.redTeam];
+        const selected = allPeople.find(p => p.id === state.selectedId);
+        const deleteContainer = document.getElementById('deleteContainer');
+        
+        if (selected) {
+            sizeSlider.disabled = false;
+            sizeSlider.value = selected.size;
+            sizeSlider.classList.remove('opacity-50', 'cursor-not-allowed');
+            sliderLabel.innerText = `Adjusting ${selected.team === 'blue' ? 'Blue' : 'Red'} Person Size/Force`;
+            sliderLabel.className = `block text-sm font-bold mb-1 ${selected.team === 'blue' ? 'text-blue-600' : 'text-red-600'}`;
+            if(deleteContainer) deleteContainer.classList.remove('hidden');
+        } else {
+            sizeSlider.disabled = true;
+            sizeSlider.value = 3;
+            sizeSlider.classList.add('opacity-50', 'cursor-not-allowed');
+            sliderLabel.innerText = "Select a person to adjust size/force";
+            sliderLabel.className = "block text-sm font-medium text-slate-600 mb-1";
+            if(deleteContainer) deleteContainer.classList.add('hidden');
+        }
+
+        const bForce = state.blueTeam.reduce((sum, p) => sum + (p.size * 10), 0);
+        const rForce = state.redTeam.reduce((sum, p) => sum + (p.size * 10), 0);
+        blueForceDisplay.innerText = `Force: ${bForce}`;
+        redForceDisplay.innerText = `Force: ${rForce}`;
+    }
+
+    // Drawing Functions
+    function drawArrow(ctx, fromx, fromy, tox, toy, color, thickness) {
+        const headlen = Math.max(12, thickness * 2.5); 
+        const headwidth = Math.max(10, thickness * 2.5);
+        const dx = tox - fromx;
+        const dy = toy - fromy;
+        const angle = Math.atan2(dy, dx);
+        const len = Math.sqrt(dx*dx + dy*dy);
+        
+        if (len === 0) return;
+
+        ctx.save();
+        ctx.translate(fromx, fromy);
+        ctx.rotate(angle);
+        
+        ctx.beginPath();
+        // Arrow shaft
+        ctx.moveTo(0, -thickness/2);
+        ctx.lineTo(len - headlen, -thickness/2);
+        // Arrow head
+        ctx.lineTo(len - headlen, -headwidth);
+        ctx.lineTo(len, 0);
+        ctx.lineTo(len - headlen, headwidth);
+        ctx.lineTo(len - headlen, thickness/2);
+        // Bottom shaft
+        ctx.lineTo(0, thickness/2);
+        ctx.closePath();
+        
+        ctx.fillStyle = color;
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        
+        ctx.restore();
+    }
+
+    function drawPerson(ctx, person, time) {
+        const x = state.ropeX + person.offset;
+        
+        // Scale math: Size 1 = 0.6x, Size 3 = 1x, Size 5 = 1.4x
+        const scale = 0.4 + (person.size * 0.2); 
+        const legLen = 35 * scale;
+        const bodyLen = 45 * scale;
+        const headRadius = 14 * scale;
+
+        const isBlue = person.team === 'blue';
+        const dir = isBlue ? -1 : 1; 
+
+        // Selection Highlight
+        if (state.selectedId === person.id) {
+            ctx.beginPath();
+            ctx.ellipse(x, Y_GROUND - 5, 30 * scale, 10 * scale, 0, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(250, 204, 21, 0.4)';
+            ctx.fill();
+            ctx.strokeStyle = '#eab308';
+            ctx.lineWidth = 3;
+            ctx.stroke();
+        }
+
+        // Synchronized rocking logic (effort)
+        // If force is applied, rock back and forth. 
+        let rock = 0;
+        if (state.isPlaying && !state.winner) {
+            const rockAmplitude = 0.15;
+            const rockSpeed = 200; // ms
+            rock = Math.sin(time / rockSpeed) * rockAmplitude;
+        }
+        
+        // Base lean backward (calculate baseline + rock BEFORE flipping direction)
+        let leanAngle = (0.35 + rock) * dir;
+
+        const bodyEndX = x + Math.sin(leanAngle) * bodyLen;
+        const bodyEndY = Y_GROUND - legLen - Math.cos(leanAngle) * bodyLen;
+
+        ctx.strokeStyle = isBlue ? '#2563eb' : '#dc2626'; // Blue-600 or Red-600
+        ctx.lineWidth = 8 * scale;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+
+        // Legs
+        ctx.beginPath();
+        ctx.moveTo(x - 20 * dir * scale, Y_GROUND); // Back foot
+        ctx.lineTo(x, Y_GROUND - legLen);           // Pelvis
+        ctx.lineTo(x + 20 * dir * scale, Y_GROUND); // Front foot
+        ctx.stroke();
+
+        // Body
+        ctx.beginPath();
+        ctx.moveTo(x, Y_GROUND - legLen);
+        ctx.lineTo(bodyEndX, bodyEndY);
+        ctx.stroke();
+
+        // Arms
+        const gripX = state.ropeX + person.offset + 35 * dir; 
+        ctx.beginPath();
+        ctx.moveTo((x + bodyEndX) / 2, (Y_GROUND - legLen + bodyEndY) / 2); // Shoulder
+        ctx.lineTo(gripX, Y_ROPE); // Hands on rope
+        ctx.stroke();
+
+        // Head
+        ctx.beginPath();
+        ctx.arc(bodyEndX, bodyEndY - headRadius + 2, headRadius, 0, Math.PI * 2);
+        ctx.fillStyle = ctx.strokeStyle;
+        ctx.fill();
+
+        // Force Arrows & Quantities
+        if (state.showArrows || state.showValues) {
+            const force = person.size * 10;
+            const arrowLen = force * 1.5;
+            const arrowY = Y_GROUND - bodyLen - legLen - headRadius * 2 - 30;
+            
+            if (state.showArrows) {
+                // Draw individual arrow
+                drawArrow(ctx, x, arrowY, x + (arrowLen * dir), arrowY, isBlue ? '#3b82f6' : '#ef4444', 3 + person.size);
+            }
+            
+            if (state.showValues) {
+                // Draw numeric value
+                ctx.font = "bold 14px sans-serif";
+                ctx.fillStyle = isBlue ? '#1d4ed8' : '#b91c1c';
+                ctx.textAlign = "center";
+                const textY = state.showArrows ? arrowY - 15 : arrowY;
+                ctx.fillText(force, x, textY);
+            }
+        }
+    }
+
+    // Main Game Loop
+    function loop(time) {
+        const dt = (time - state.lastTime) / 1000;
+        state.lastTime = time;
+
+        // 1. Physics update
+        if (!state.winner && state.isPlaying) {
+            const bForce = state.blueTeam.reduce((sum, p) => sum + (p.size * 10), 0);
+            const rForce = state.redTeam.reduce((sum, p) => sum + (p.size * 10), 0);
+            const netForce = rForce - bForce; // Positive moves right
+            
+            // Velocity approaches netForce smoothly (simulates rope tension/friction)
+            state.velocity = state.velocity * 0.9 + netForce * 0.5 * dt;
+            state.ropeX += state.velocity;
+
+            // Check Win Condition
+            if (state.ropeX <= GOAL_LEFT) {
+                state.winner = 'Blue';
+                showWinner('Blue Team Wins!', 'text-blue-600');
+            } else if (state.ropeX >= GOAL_RIGHT) {
+                state.winner = 'Red';
+                showWinner('Red Team Wins!', 'text-red-600');
+            }
+        }
+
+        // 2. Clear & Draw Environment
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // Sky background handled by CSS, just draw ground
+        ctx.fillStyle = '#4ade80'; // Green-400
+        ctx.fillRect(0, Y_GROUND, canvas.width, canvas.height - Y_GROUND);
+        
+        // Dirt path under rope
+        ctx.fillStyle = '#d97706'; // Amber-600
+        ctx.fillRect(0, Y_GROUND, canvas.width, 25);
+        ctx.fillStyle = '#b45309'; 
+        ctx.fillRect(0, Y_GROUND+25, canvas.width, 10);
+
+        // Goal Lines
+        ctx.setLineDash([10, 10]);
+        ctx.lineWidth = 4;
+        
+        // Blue Goal Line
+        ctx.strokeStyle = 'rgba(59, 130, 246, 0.5)';
+        ctx.beginPath(); ctx.moveTo(GOAL_LEFT, Y_GROUND - 150); ctx.lineTo(GOAL_LEFT, Y_GROUND + 35); ctx.stroke();
+        
+        // Red Goal Line
+        ctx.strokeStyle = 'rgba(239, 68, 68, 0.5)';
+        ctx.beginPath(); ctx.moveTo(GOAL_RIGHT, Y_GROUND - 150); ctx.lineTo(GOAL_RIGHT, Y_GROUND + 35); ctx.stroke();
+        ctx.setLineDash([]);
+
+        // 3. Draw Rope
+        ctx.strokeStyle = '#d7ccc8'; // Rope color
+        ctx.lineWidth = 12;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        // Rope extends far out
+        ctx.moveTo(state.ropeX - 800, Y_ROPE);
+        ctx.lineTo(state.ropeX + 800, Y_ROPE);
+        ctx.stroke();
+        
+        // Rope texture lines
+        ctx.strokeStyle = '#a1887f';
+        ctx.lineWidth = 2;
+        for (let i = state.ropeX - 800; i < state.ropeX + 800; i += 20) {
+            ctx.beginPath();
+            ctx.moveTo(i, Y_ROPE - 4);
+            ctx.lineTo(i + 10, Y_ROPE + 4);
+            ctx.stroke();
+        }
+
+        // 4. Draw Center Flag
+        ctx.fillStyle = '#fde047'; // Yellow-300
+        ctx.fillRect(state.ropeX - 10, Y_ROPE - 5, 20, 40);
+        ctx.fillStyle = '#ca8a04';
+        ctx.fillRect(state.ropeX - 10, Y_ROPE + 30, 20, 5);
+
+        // 5. Draw People
+        // Sort back to front so overlaps look okay (furthest from center drawn first)
+        const allPeople = [...state.blueTeam, ...state.redTeam].sort((a, b) => Math.abs(b.offset) - Math.abs(a.offset));
+        for (let p of allPeople) {
+            drawPerson(ctx, p, time);
+        }
+
+        // 6. Net Force Bar Model HUD or Net Arrow
+        const bForce = state.blueTeam.reduce((sum, p) => sum + (p.size * 10), 0);
+        const rForce = state.redTeam.reduce((sum, p) => sum + (p.size * 10), 0);
+        
+        if (state.showValues && !state.winner) {
+            const maxForce = Math.max(bForce, rForce, 100);
+            const scaleFactor = 220 / maxForce; // Max width of a bar
+            
+            const hudW = 400;
+            const hudH = 140;
+            const hudX = CENTER_X - hudW / 2;
+            const hudY = 15;
+
+            // Box background
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+            ctx.shadowColor = 'rgba(0,0,0,0.1)';
+            ctx.shadowBlur = 10;
+            ctx.beginPath();
+            if (ctx.roundRect) {
+                ctx.roundRect(hudX, hudY, hudW, hudH, 12);
+            } else {
+                ctx.rect(hudX, hudY, hudW, hudH);
+            }
+            ctx.fill();
+            ctx.shadowBlur = 0;
+            
+            // Layout params
+            const startX = hudX + 80;
+            const row1Y = hudY + 25;
+            const row2Y = hudY + 60;
+            const row3Y = hudY + 105;
+            const barH = 20;
+
+            ctx.font = "bold 14px sans-serif";
+            ctx.textAlign = "left";
+            ctx.textBaseline = "middle";
+
+            // -- Blue Team Row --
+            if (state.showArrows) {
+                drawArrow(ctx, hudX + 50, row1Y + barH/2, hudX + 15, row1Y + barH/2, '#3b82f6', 6);
+            }
+            
+            ctx.fillStyle = '#93c5fd'; // bg blue
+            ctx.fillRect(startX, row1Y, bForce * scaleFactor, barH);
+            ctx.strokeStyle = '#2563eb'; // border blue
+            ctx.lineWidth = 2;
+            ctx.strokeRect(startX, row1Y, bForce * scaleFactor, barH);
+            
+            ctx.fillStyle = '#1e3a8a';
+            ctx.fillText(bForce, startX + bForce * scaleFactor + 10, row1Y + barH/2);
+
+            // -- Red Team Row --
+            if (state.showArrows) {
+                drawArrow(ctx, hudX + 15, row2Y + barH/2, hudX + 50, row2Y + barH/2, '#ef4444', 6);
+            }
+            
+            ctx.fillStyle = '#fca5a5'; // bg red
+            ctx.fillRect(startX, row2Y, rForce * scaleFactor, barH);
+            ctx.strokeStyle = '#dc2626'; // border red
+            ctx.strokeRect(startX, row2Y, rForce * scaleFactor, barH);
+            
+            ctx.fillStyle = '#7f1d1d';
+            ctx.fillText(rForce, startX + rForce * scaleFactor + 10, row2Y + barH/2);
+
+            // -- Net Pull Row (Bar Model Difference) --
+            if (bForce !== rForce) {
+                const diff = Math.abs(bForce - rForce);
+                const minForce = Math.min(bForce, rForce);
+                const diffStartX = startX + minForce * scaleFactor;
+                const diffWidth = diff * scaleFactor;
+                
+                const isBlue = bForce > rForce;
+                const color = isBlue ? '#3b82f6' : '#ef4444';
+                
+                // Vertical projection lines
+                ctx.strokeStyle = '#94a3b8';
+                ctx.lineWidth = 1;
+                ctx.setLineDash([4, 4]);
+                ctx.beginPath();
+                
+                const shorterBarY = isBlue ? row2Y : row1Y;
+                const longerBarY = isBlue ? row1Y : row2Y;
+                
+                ctx.moveTo(diffStartX, shorterBarY + barH);
+                ctx.lineTo(diffStartX, row3Y);
+                
+                ctx.moveTo(diffStartX + diffWidth, longerBarY + barH);
+                ctx.lineTo(diffStartX + diffWidth, row3Y);
+                ctx.stroke();
+                ctx.setLineDash([]);
+
+                // Difference bar (shaded)
+                ctx.fillStyle = isBlue ? 'rgba(59, 130, 246, 0.4)' : 'rgba(239, 68, 68, 0.4)';
+                ctx.fillRect(diffStartX, row3Y, diffWidth, barH/2);
+                ctx.strokeStyle = color;
+                ctx.strokeRect(diffStartX, row3Y, diffWidth, barH/2);
+                
+                ctx.textAlign = "center";
+                ctx.fillStyle = '#334155';
+                ctx.fillText(`Net Pull: ${diff}`, diffStartX + diffWidth/2, row3Y + barH + 5);
+            } else {
+                ctx.textAlign = "center";
+                ctx.fillStyle = '#64748b';
+                ctx.fillText(`Balanced (0 Net Pull)`, startX + (maxForce * scaleFactor)/2, row3Y + barH/2);
+            }
+        } else if (state.showArrows && !state.winner) {
+            // Draw ONLY the net force vector at the top if HUD values are hidden
+            const netForce = rForce - bForce;
+            if (netForce !== 0) {
+                const isNetRed = netForce > 0;
+                const netColor = isNetRed ? '#ef4444' : '#3b82f6';
+                const startX = CENTER_X;
+                const netArrowLen = Math.max(40, Math.abs(netForce) * 1.5);
+                const endX = CENTER_X + (isNetRed ? netArrowLen : -netArrowLen);
+                
+                drawArrow(ctx, startX - (isNetRed?20:-20), 50, endX, 50, netColor, 8);
+            }
+        }
+
+        requestAnimationFrame(loop);
+    }
+
+    function showWinner(text, colorClass) {
+        winText.className = `text-6xl font-extrabold mb-4 drop-shadow-md ${colorClass}`;
+        winText.innerText = text;
+        winOverlay.classList.remove('hidden');
+        winOverlay.classList.add('flex');
+    }
+
+    // Start
+    updateUI();
+    requestAnimationFrame(loop);
+
+</script>
+</body>
+</html>
