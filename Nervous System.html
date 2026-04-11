@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Nervous System Explorer</title>
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <!-- Custom Animations to replace React animate-in classes -->
+  <style>
+    @keyframes slideInRight {
+      from { opacity: 0; transform: translateX(20px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+    @keyframes slideInBottom {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes zoomIn {
+      from { opacity: 0; transform: scale(0.95); }
+      to { opacity: 1; transform: scale(1); }
+    }
+    .animate-slide-in-right { animation: slideInRight 0.5s ease-out forwards; }
+    .animate-slide-in-bottom { animation: slideInBottom 0.3s ease-out forwards; }
+    .animate-zoom-in { animation: zoomIn 0.3s ease-out forwards; }
+  </style>
+</head>
+<body class="min-h-screen bg-slate-50 text-slate-800 font-sans p-4 flex items-center justify-center">
+
+  <div class="max-w-6xl w-full bg-white rounded-3xl shadow-xl overflow-hidden grid grid-cols-1 md:grid-cols-2">
+    
+    <!-- LEFT COLUMN: VISUALIZATION -->
+    <div class="bg-slate-100 p-6 flex flex-col items-center justify-center relative border-b md:border-b-0 md:border-r border-slate-200">
+      <div class="w-full max-w-sm aspect-[4/5.8] relative bg-white rounded-2xl shadow-inner border border-slate-200 p-2 overflow-hidden">
+        
+        <!-- SVG Container -->
+        <div id="svg-container" class="w-full h-full"></div>
+        
+        <!-- Menu Overlay -->
+        <div id="menu-overlay" class="absolute inset-0 bg-white/60 backdrop-blur-[2px] flex items-center justify-center p-6 text-center">
+          <div>
+            <i data-lucide="brain" class="w-16 h-16 text-orange-500 mx-auto mb-4"></i>
+            <h2 class="text-2xl font-bold text-slate-800 mb-2">Nervous System Explorer</h2>
+            <p class="text-sm text-slate-600 mb-6">Discover how signals travel through your body during different actions.</p>
+            <button onclick="startRandomScenario()" class="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-full font-bold transition-all shadow-md mx-auto">
+              <i data-lucide="play" class="w-5 h-5 fill-current"></i>
+              Start Simulation
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT COLUMN: CONTROLS & QUIZ -->
+    <div class="p-8 flex flex-col justify-between">
+      <div>
+        <!-- Header -->
+        <div class="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 mb-8 border-b pb-4">
+          <h1 class="text-2xl font-black text-slate-800 flex items-center gap-2">
+            <i data-lucide="zap" class="w-6 h-6 text-yellow-500 fill-yellow-500"></i>
+            Signal Routing
+          </h1>
+          <div class="bg-slate-100 px-4 py-2 rounded-lg font-bold text-slate-600 flex items-center gap-4 text-sm whitespace-nowrap">
+            <div>Score: <span id="score-display" class="text-blue-600">0</span></div>
+            <div class="w-px h-4 bg-slate-300 hidden sm:block"></div>
+            <div>Completed: <span id="total-display" class="text-blue-600">0</span> / <span id="max-scenarios">14</span> Scenarios</div>
+          </div>
+        </div>
+
+        <!-- Dynamic Content Area -->
+        <div id="dynamic-panel">
+          <!-- Populated by JS -->
+        </div>
+
+      </div>
+      <div class="mt-8 text-center text-sm text-slate-400">
+        Interactive Biology Simulation
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    // --- ANATOMY & COORDINATES ---
+    const nodes = {
+      Brain: { x: 200, y: 65 },
+      Face: { x: 230, y: 70 }, 
+      SpineCervical: { x: 200, y: 160 },
+      SpineLumbar: { x: 200, y: 320 },
+      RightArm: { x: 355, y: 255 },
+      LeftArm: { x: 45, y: 255 },  
+      RightLeg: { x: 280, y: 480 },
+      LeftLeg: { x: 120, y: 480 }, 
+    };
+
+    const curves = {
+      FaceToBrain: { p0: nodes.Face, p1: { x: 215, y: 60 }, p2: nodes.Brain },
+      BrainToFace: { p0: nodes.Brain, p1: { x: 215, y: 75 }, p2: nodes.Face },
+      RightArmToSpine: { p0: nodes.RightArm, p1: { x: 290, y: 170 }, p2: nodes.SpineCervical },
+      SpineToRightArm: { p0: nodes.SpineCervical, p1: { x: 290, y: 170 }, p2: nodes.RightArm },
+      LeftArmToSpine: { p0: nodes.LeftArm, p1: { x: 110, y: 170 }, p2: nodes.SpineCervical },
+      SpineToLeftArm: { p0: nodes.SpineCervical, p1: { x: 110, y: 170 }, p2: nodes.LeftArm },
+      RightLegToSpine: { p0: nodes.RightLeg, p1: { x: 250, y: 370 }, p2: nodes.SpineLumbar },
+      SpineToRightLeg: { p0: nodes.SpineLumbar, p1: { x: 250, y: 370 }, p2: nodes.RightLeg },
+      LeftLegToSpine: { p0: nodes.LeftLeg, p1: { x: 150, y: 370 }, p2: nodes.SpineLumbar },
+      SpineToLeftLeg: { p0: nodes.SpineLumbar, p1: { x: 150, y: 370 }, p2: nodes.LeftLeg },
+      SpineLumbarToCervical: { p0: nodes.SpineLumbar, p1: { x: 200, y: 240 }, p2: nodes.SpineCervical },
+      SpineCervicalToLumbar: { p0: nodes.SpineCervical, p1: { x: 200, y: 240 }, p2: nodes.SpineLumbar },
+      SpineCervicalToBrain: { p0: nodes.SpineCervical, p1: { x: 200, y: 110 }, p2: nodes.Brain },
+      BrainToSpineCervical: { p0: nodes.Brain, p1: { x: 200, y: 110 }, p2: nodes.SpineCervical },
+    };
+
+    // --- SCENARIOS ---
+    const scenarios = [
+      { id: 1, title: "Touching a Hot Stove", description: "You accidentally touch a burning hot pan with your right hand. Watch the signal travel.", type: "reflex", icon: "flame", iconColor: "text-red-500", stimulusPos: nodes.RightArm, path: [{ curve: curves.RightArmToSpine, duration: 600 }, { curve: curves.SpineToRightArm, duration: 600 }], explanation: "This is a Reflex Arc! The signal travelled only to the spinal cord and immediately back out to the muscles to pull your hand away quickly, bypassing the brain to save precious milliseconds." },
+      { id: 2, title: "Feeling a Mosquito", description: "You feel a mosquito land on your left leg. You decide to swat it with your left hand.", type: "voluntary", icon: "bug", iconColor: "text-green-600", stimulusPos: nodes.LeftLeg, path: [{ curve: curves.LeftLegToSpine, duration: 600 }, { curve: curves.SpineLumbarToCervical, duration: 500 }, { curve: curves.SpineCervicalToBrain, duration: 500 }, { pause: 600 }, { curve: curves.BrainToSpineCervical, duration: 500 }, { curve: curves.SpineToLeftArm, duration: 600 }], explanation: "This is a Voluntary Act! The sensory signal had to travel all the way up the spinal cord to the brain so you could consciously perceive the bug and decide to move your arm." },
+      { id: 3, title: "Stepping on a Sharp Tack", description: "You are walking barefoot and step on a sharp tack with your right foot.", type: "reflex", icon: "target", iconColor: "text-gray-700", stimulusPos: nodes.RightLeg, path: [{ curve: curves.RightLegToSpine, duration: 600 }, { curve: curves.SpineToRightLeg, duration: 600 }], explanation: "This is a Reflex Arc! The pain signal hit the lower spinal cord, which instantly fired a motor command to lift your leg before your brain even registered the pain." },
+      { id: 4, title: "Catching a Ball", description: "A friend throws a ball to you. You see it and reach out your right arm to catch it.", type: "voluntary", icon: "activity", iconColor: "text-blue-500", stimulusPos: nodes.Face, path: [{ curve: curves.FaceToBrain, duration: 400 }, { pause: 400 }, { curve: curves.BrainToSpineCervical, duration: 600 }, { curve: curves.SpineToRightArm, duration: 600 }], explanation: "This is a Voluntary Act! Your brain processed the visual information (seeing the ball) and then sent a conscious command down your spine to your arm muscles." },
+      { id: 5, title: "Pupil Constriction", description: "A bright light suddenly shines in your eyes, causing your pupils to immediately shrink.", type: "reflex", icon: "sun", iconColor: "text-yellow-500", stimulusPos: nodes.Face, path: [{ curve: curves.FaceToBrain, duration: 400 }, { curve: curves.BrainToFace, duration: 400 }], explanation: "This is a Reflex Arc (specifically a cranial reflex)! The optic nerve detected bright light and triggered an immediate reflex in the midbrain to constrict the pupil, protecting your retina without conscious thought." },
+      { id: 6, title: "Kicking a Soccer Ball", description: "You line up a shot on goal and consciously decide to kick the ball with your right foot.", type: "voluntary", icon: "footprints", iconColor: "text-emerald-600", stimulusPos: { x: 200, y: 20 }, path: [{ curve: curves.BrainToSpineCervical, duration: 400 }, { curve: curves.SpineCervicalToLumbar, duration: 400 }, { curve: curves.SpineToRightLeg, duration: 600 }], explanation: "This is a Voluntary Act! Your motor cortex in the brain initiated the complex sequence of muscle movements, sending the signal all the way down the spinal cord to your leg." },
+      { id: 7, title: "Knee-Jerk Test", description: "A doctor taps just below your left kneecap with a small rubber hammer.", type: "reflex", icon: "zap", iconColor: "text-indigo-500", stimulusPos: nodes.LeftLeg, path: [{ curve: curves.LeftLegToSpine, duration: 600 }, { curve: curves.SpineToLeftLeg, duration: 600 }], explanation: "This is a Reflex Arc (the patellar reflex)! The tap stretches a tendon, sending a signal to the lumbar spinal cord, which immediately fires a signal back to the thigh muscle to kick." },
+      { id: 8, title: "Smelling Fresh Cookies", description: "You smell fresh cookies baking and decide to reach out with your left hand to grab one.", type: "voluntary", icon: "coffee", iconColor: "text-amber-700", stimulusPos: nodes.Face, path: [{ curve: curves.FaceToBrain, duration: 400 }, { pause: 600 }, { curve: curves.BrainToSpineCervical, duration: 500 }, { curve: curves.SpineToLeftArm, duration: 600 }], explanation: "This is a Voluntary Act! Your olfactory (smell) nerves sent signals to your brain, which processed the delicious scent and consciously decided to initiate arm movement." },
+      { id: 9, title: "Dropping a Scalding Mug", description: "You pick up a mug of tea with your left hand, realize it's scalding hot, and instantly drop it.", type: "reflex", icon: "flame", iconColor: "text-orange-500", stimulusPos: nodes.LeftArm, path: [{ curve: curves.LeftArmToSpine, duration: 600 }, { curve: curves.SpineToLeftArm, duration: 600 }], explanation: "This is a Reflex Arc! To prevent severe tissue damage, the spinal cord loops the extreme pain signal directly back to your hand muscles to release the grip before the brain even feels the burn." },
+      { id: 10, title: "Typing on a Keyboard", description: "You think of a funny message and use your right hand to type it out on your phone.", type: "voluntary", icon: "keyboard", iconColor: "text-slate-600", stimulusPos: { x: 200, y: 20 }, path: [{ curve: curves.BrainToSpineCervical, duration: 500 }, { curve: curves.SpineToRightArm, duration: 600 }], explanation: "This is a Voluntary Act! Composing a message and moving your fingers to the correct keys requires high-level conscious processing and precise motor control from the brain." },
+      { id: 11, title: "Blinking at a Gnat", description: "A small bug flies right at your face, and your eyelids instantly snap shut.", type: "reflex", icon: "eye", iconColor: "text-blue-400", stimulusPos: nodes.Face, path: [{ curve: curves.FaceToBrain, duration: 300 }, { curve: curves.BrainToFace, duration: 300 }], explanation: "This is a Reflex Arc! The blink reflex is a rapid, involuntary response processed in the brain stem to protect the eye from potential hazards." },
+      { id: 12, title: "Raising Your Hand", description: "You know the answer to the teacher's question and enthusiastically raise your right arm.", type: "voluntary", icon: "hand", iconColor: "text-yellow-600", stimulusPos: { x: 200, y: 20 }, path: [{ curve: curves.BrainToSpineCervical, duration: 500 }, { curve: curves.SpineToRightArm, duration: 600 }], explanation: "This is a Voluntary Act! You consciously recalled the information, made a decision to answer, and commanded your arm muscles to raise." },
+      { id: 13, title: "Stepping in Ice Water", description: "You accidentally step into a freezing puddle with your left foot and yank it back instantly.", type: "reflex", icon: "target", iconColor: "text-cyan-500", stimulusPos: nodes.LeftLeg, path: [{ curve: curves.LeftLegToSpine, duration: 600 }, { curve: curves.SpineToLeftLeg, duration: 600 }], explanation: "This is a Reflex Arc! Extreme temperature, much like pain, triggers a withdrawal reflex in the spinal cord to quickly remove the body part from the damaging stimulus." },
+      { id: 14, title: "Tapping to the Beat", description: "You hear your favorite song playing and decide to start tapping your left foot to the rhythm.", type: "voluntary", icon: "music", iconColor: "text-purple-500", stimulusPos: nodes.Face, path: [{ curve: curves.FaceToBrain, duration: 400 }, { pause: 400 }, { curve: curves.BrainToSpineCervical, duration: 400 }, { curve: curves.SpineCervicalToLumbar, duration: 400 }, { curve: curves.SpineToLeftLeg, duration: 600 }], explanation: "This is a Voluntary Act! Auditory signals went to your brain, which processed the music and sent conscious rhythmic commands all the way down to your foot." }
+    ];
+
+    document.getElementById('max-scenarios').innerText = scenarios.length;
+
+    // --- STATE ---
+    let appState = 'menu'; // menu, simulating, quiz, feedback
+    let currentScenario = null;
+    let score = 0;
+    let totalQuizzes = 0;
+    let cancelAnim = false;
+    let lastAnswerCorrect = null;
+
+    // --- UTILS ---
+    const getQuadraticBezierPoint = (t, p0, p1, p2) => {
+      const x = Math.pow(1 - t, 2) * p0.x + 2 * (1 - t) * t * p1.x + Math.pow(t, 2) * p2.x;
+      const y = Math.pow(1 - t, 2) * p0.y + 2 * (1 - t) * t * p1.y + Math.pow(t, 2) * p2.y;
+      return { x, y };
+    };
+
+    // --- RENDER SVG ---
+    function initSVG() {
+      const bodyPath = `M 200 5 C 260 5, 275 30, 265 70 C 255 95, 230 100, 220 105 C 260 110, 310 115, 330 130 C 360 150, 380 210, 380 260 C 380 300, 340 300, 335 260 C 330 190, 310 160, 280 150 C 280 220, 280 280, 280 340 C 280 410, 310 500, 310 530 C 310 560, 260 560, 250 530 C 240 450, 220 380, 200 380 C 180 380, 160 450, 150 530 C 140 560, 90 560, 90 530 C 90 500, 120 410, 120 340 C 120 280, 120 220, 120 150 C 90 160, 70 190, 65 260 C 60 300, 20 300, 20 260 C 20 210, 40 150, 70 130 C 90 115, 140 110, 180 105 C 170 100, 145 95, 135 70 C 125 30, 140 5, 200 5 Z`;
+      
+      let thoracicNerves = '';
+      for(let i=0; i<9; i++) {
+        thoracicNerves += `
+          <path d="M 200 ${170 + i * 15} Q 235 ${175 + i * 18} 255 ${165 + i * 15}" />
+          <path d="M 200 ${170 + i * 15} Q 165 ${175 + i * 18} 145 ${165 + i * 15}" />
+        `;
+      }
+
+      let vertebrae = '';
+      for(let i=0; i<16; i++) {
+        vertebrae += `<line x1="195" y1="${115 + i * 15}" x2="205" y2="${115 + i * 15}" stroke="#fdba74" stroke-width="1.5" />`;
+      }
+
+      const svgHTML = `
+        <svg viewBox="0 0 400 580" class="w-full h-full drop-shadow-sm">
+          <defs>
+            <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+              <feGaussianBlur stdDeviation="4" result="blur" />
+              <feComposite in="SourceGraphic" in2="blur" operator="over" />
+            </filter>
+          </defs>
+
+          <!-- Anatomical Body Silhouette -->
+          <path d="${bodyPath}" fill="#f8efe6" stroke="#dcd0c0" stroke-width="3" stroke-linejoin="round" />
+
+          <!-- PERIPHERAL NERVOUS SYSTEM (Secondary Thinner Branches) -->
+          <g stroke="#d97706" stroke-width="1.2" opacity="0.6" fill="none" stroke-linecap="round">
+            ${thoracicNerves}
+            <path d="M 215 65 Q 230 55 235 65" /><path d="M 210 75 Q 230 80 235 85" /><path d="M 205 80 Q 215 90 220 100" />
+            <path d="M 290 170 Q 330 200 345 230" /><path d="M 290 170 Q 350 180 365 240" />
+            <path d="M 110 170 Q 70 200 55 230" /><path d="M 110 170 Q 50 180 35 240" />
+            <path d="M 355 255 Q 360 270 355 280" /><path d="M 355 255 Q 370 265 365 275" /><path d="M 355 255 Q 345 265 340 275" />
+            <path d="M 45 255 Q 40 270 45 280" /><path d="M 45 255 Q 30 265 35 275" /><path d="M 45 255 Q 55 265 60 275" />
+            <path d="M 250 370 Q 285 420 280 470" /><path d="M 250 370 Q 260 430 265 470" />
+            <path d="M 150 370 Q 115 420 120 470" /><path d="M 150 370 Q 140 430 135 470" />
+            <path d="M 280 480 Q 270 500 275 515" /><path d="M 280 480 Q 285 500 290 515" /><path d="M 280 480 Q 295 490 300 505" />
+            <path d="M 120 480 Q 130 500 125 515" /><path d="M 120 480 Q 115 500 110 515" /><path d="M 120 480 Q 105 490 100 505" />
+          </g>
+
+          <!-- Main PNS Trunks -->
+          <g stroke="#eab308" stroke-width="3.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M ${curves.RightArmToSpine.p0.x} ${curves.RightArmToSpine.p0.y} Q ${curves.RightArmToSpine.p1.x} ${curves.RightArmToSpine.p1.y} ${curves.RightArmToSpine.p2.x} ${curves.RightArmToSpine.p2.y}" />
+            <path d="M ${curves.LeftArmToSpine.p0.x} ${curves.LeftArmToSpine.p0.y} Q ${curves.LeftArmToSpine.p1.x} ${curves.LeftArmToSpine.p1.y} ${curves.LeftArmToSpine.p2.x} ${curves.LeftArmToSpine.p2.y}" />
+            <path d="M ${curves.RightLegToSpine.p0.x} ${curves.RightLegToSpine.p0.y} Q ${curves.RightLegToSpine.p1.x} ${curves.RightLegToSpine.p1.y} ${curves.RightLegToSpine.p2.x} ${curves.RightLegToSpine.p2.y}" />
+            <path d="M ${curves.LeftLegToSpine.p0.x} ${curves.LeftLegToSpine.p0.y} Q ${curves.LeftLegToSpine.p1.x} ${curves.LeftLegToSpine.p1.y} ${curves.LeftLegToSpine.p2.x} ${curves.LeftLegToSpine.p2.y}" />
+          </g>
+
+          <!-- CENTRAL NERVOUS SYSTEM -->
+          <path d="M 194 95 L 206 95 L 203 350 L 197 350 Z" fill="#f97316" stroke="#c2410c" stroke-width="2" stroke-linejoin="round" />
+          ${vertebrae}
+          
+          <circle cx="215" cy="165" r="5" fill="#f59e0b" stroke="#d97706" stroke-width="1.5" />
+          <circle cx="185" cy="165" r="5" fill="#f59e0b" stroke="#d97706" stroke-width="1.5" />
+          <circle cx="215" cy="335" r="5" fill="#f59e0b" stroke="#d97706" stroke-width="1.5" />
+          <circle cx="185" cy="335" r="5" fill="#f59e0b" stroke="#d97706" stroke-width="1.5" />
+
+          <!-- Brain -->
+          <g transform="translate(200, 60)">
+            <path d="M 0 -40 C 40 -40, 50 -10, 45 15 C 40 35, 15 35, 0 35 C -15 35, -40 35, -45 15 C -50 -10, -40 -40, 0 -40 Z" fill="#fca5a5" stroke="#ef4444" stroke-width="2" stroke-linejoin="round" />
+            <g stroke="#ef4444" stroke-width="1.5" fill="none" stroke-linecap="round">
+              <path d="M -15 -35 Q -5 -20 -25 -10" /><path d="M 15 -35 Q 5 -20 25 -10" />
+              <path d="M -35 0 Q -20 5 -30 20" /><path d="M 35 0 Q 20 5 30 20" />
+              <path d="M -10 10 Q 0 0 10 10" /><path d="M -15 -15 Q 0 -5 15 -15" />
+            </g>
+            <path d="M -25 25 C -35 40, -10 50, -5 40 C 0 35, -10 25, -25 25 Z" fill="#fdba74" stroke="#ea580c" stroke-width="1.5" stroke-linejoin="round" />
+            <path d="M 25 25 C 35 40, 10 50, 5 40 C 0 35, 10 25, 25 25 Z" fill="#fdba74" stroke="#ea580c" stroke-width="1.5" stroke-linejoin="round" />
+            <path d="M -8 30 L 8 30 L 6 45 L -6 45 Z" fill="#f97316" stroke="#c2410c" stroke-width="1.5" stroke-linejoin="round" />
+          </g>
+
+          <!-- Labels -->
+          <g class="text-xs font-semibold fill-gray-600 select-none">
+            <text x="270" y="45">Brain</text><path d="M 265 40 L 235 40" stroke="#4b5563" stroke-width="1" />
+            <text x="290" y="220">Spinal cord</text><path d="M 285 215 L 208 215" stroke="#4b5563" stroke-width="1" />
+            <text x="280" y="168">Ganglion</text><path d="M 275 165 L 225 165" stroke="#4b5563" stroke-width="1" />
+            <text x="315" y="380">Nerve</text><path d="M 310 375 L 265 360" stroke="#4b5563" stroke-width="1" />
+          </g>
+
+          <!-- Legend -->
+          <g transform="translate(10, 10)" class="text-[10px] font-bold fill-gray-700 select-none bg-white p-2">
+            <rect x="0" y="0" width="12" height="12" fill="#eab308" rx="2" />
+            <text x="18" y="10">Peripheral nervous system</text>
+            <rect x="0" y="18" width="12" height="12" fill="#f97316" rx="2" />
+            <text x="18" y="28">Central nervous system</text>
+          </g>
+
+          <!-- Stimulus Icon Overlay (Hidden by default) -->
+          <g id="stimulus-ping" style="display: none;">
+            <circle cx="16" cy="16" r="20" fill="white" opacity="0.8" class="animate-ping" />
+          </g>
+
+          <!-- The Animated Signal Dot (Hidden by default) -->
+          <circle id="signal-dot" cx="-100" cy="-100" r="6" fill="#06b6d4" filter="url(#glow)" style="display: none;" />
+
+          <!-- Brain Processing Indication (Hidden by default) -->
+          <circle id="brain-thinking" cx="200" cy="60" r="30" fill="#06b6d4" opacity="0.4" class="animate-ping" style="display: none;" />
+        </svg>
+      `;
+      document.getElementById('svg-container').innerHTML = svgHTML;
+    }
+
+    // --- DOM UPDATES ---
+    function renderUI() {
+      const panel = document.getElementById('dynamic-panel');
+      const menuOverlay = document.getElementById('menu-overlay');
+
+      document.getElementById('score-display').innerText = score;
+      document.getElementById('total-display').innerText = totalQuizzes;
+
+      if (appState === 'menu') {
+        menuOverlay.style.display = 'flex';
+        panel.innerHTML = `
+          <div class="space-y-6">
+            <p class="text-lg text-slate-600 leading-relaxed">
+              The nervous system is divided into two main parts:
+            </p>
+            <ul class="space-y-4">
+              <li class="flex gap-3 items-start">
+                <div class="w-4 h-4 rounded mt-1 shrink-0 bg-orange-500"></div>
+                <div>
+                  <strong class="block text-slate-800">Central Nervous System (CNS)</strong>
+                  <span class="text-slate-600 text-sm">The brain and spinal cord. It processes information and makes decisions.</span>
+                </div>
+              </li>
+              <li class="flex gap-3 items-start">
+                <div class="w-4 h-4 rounded mt-1 shrink-0 bg-yellow-400"></div>
+                <div>
+                  <strong class="block text-slate-800">Peripheral Nervous System (PNS)</strong>
+                  <span class="text-slate-600 text-sm">The nerves extending to your limbs. They send sensory data to the CNS and carry motor commands to muscles.</span>
+                </div>
+              </li>
+            </ul>
+          </div>
+        `;
+      } else {
+        menuOverlay.style.display = 'none';
+        
+        let headerHtml = `
+          <div class="animate-slide-in-right">
+            <div class="flex items-center gap-4 mb-4">
+              <div class="p-3 bg-slate-100 rounded-xl">
+                <i data-lucide="${currentScenario.icon}" class="w-8 h-8 ${currentScenario.iconColor}"></i>
+              </div>
+              <div>
+                <h2 class="text-xl font-bold text-slate-800">${currentScenario.title}</h2>
+                <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">Scenario ${currentScenario.id}</span>
+              </div>
+            </div>
+            <p class="text-slate-600 mb-8 p-4 bg-slate-50 border border-slate-100 rounded-xl leading-relaxed">
+              ${currentScenario.description}
+            </p>
+        `;
+
+        let contentHtml = '';
+
+        if (appState === 'simulating') {
+          contentHtml = `
+            <div class="text-center p-8 bg-blue-50 text-blue-800 rounded-2xl border border-blue-100 font-medium animate-pulse">
+              <i data-lucide="activity" class="w-8 h-8 mx-auto mb-2 opacity-50"></i>
+              Watch the signal travel on the diagram...
+            </div>
+          `;
+        } else if (appState === 'quiz') {
+          contentHtml = `
+            <div class="space-y-4 animate-slide-in-bottom">
+              <div class="flex justify-between items-center mb-6">
+                <h3 class="text-lg font-bold text-slate-800">What type of action was this?</h3>
+                <button onclick="replayAnimation()" class="flex items-center gap-1.5 text-sm font-bold text-slate-500 hover:text-blue-600 transition-colors">
+                  <i data-lucide="rotate-ccw" class="w-4 h-4"></i> Replay Animation
+                </button>
+              </div>
+              <div class="grid grid-cols-2 gap-4">
+                <button onclick="handleAnswer('reflex')" class="group flex flex-col items-center gap-2 p-6 bg-white border-2 border-slate-200 hover:border-yellow-500 hover:bg-yellow-50 rounded-2xl transition-all">
+                  <i data-lucide="zap" class="w-10 h-10 text-slate-400 group-hover:text-yellow-500 transition-colors"></i>
+                  <span class="font-bold text-slate-700 group-hover:text-yellow-700">Reflex Arc</span>
+                </button>
+                <button onclick="handleAnswer('voluntary')" class="group flex flex-col items-center gap-2 p-6 bg-white border-2 border-slate-200 hover:border-orange-500 hover:bg-orange-50 rounded-2xl transition-all">
+                  <i data-lucide="brain" class="w-10 h-10 text-slate-400 group-hover:text-orange-500 transition-colors"></i>
+                  <span class="font-bold text-slate-700 group-hover:text-orange-700">Voluntary Act</span>
+                </button>
+              </div>
+            </div>
+          `;
+        } else if (appState === 'feedback') {
+          const isCorrect = lastAnswerCorrect;
+          const bgClass = isCorrect ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200';
+          const textClass = isCorrect ? 'text-green-800' : 'text-red-800';
+          const pClass = isCorrect ? 'text-green-700' : 'text-red-700';
+          const btnClass = isCorrect ? 'text-green-600 hover:text-green-800' : 'text-red-600 hover:text-red-800';
+          const iconStr = isCorrect ? `<i data-lucide="check-circle-2" class="w-8 h-8 text-green-600"></i>` : `<i data-lucide="x-circle" class="w-8 h-8 text-red-600"></i>`;
+          const headingTxt = isCorrect ? 'Correct!' : 'Not quite!';
+
+          contentHtml = `
+            <div class="animate-zoom-in">
+              <div class="p-6 rounded-2xl border-2 mb-6 ${bgClass}">
+                <div class="flex justify-between items-start mb-3">
+                  <div class="flex items-center gap-3">
+                    ${iconStr}
+                    <h3 class="text-xl font-bold ${textClass}">${headingTxt}</h3>
+                  </div>
+                  <button onclick="replayAnimation()" class="flex items-center gap-1.5 text-sm font-bold transition-colors ${btnClass}">
+                    <i data-lucide="rotate-ccw" class="w-4 h-4"></i> Replay
+                  </button>
+                </div>
+                <p class="leading-relaxed ${pClass}">${currentScenario.explanation}</p>
+              </div>
+              <button onclick="startRandomScenario()" class="w-full flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-900 text-white p-4 rounded-xl font-bold transition-all">
+                Next Scenario <i data-lucide="arrow-right" class="w-5 h-5"></i>
+              </button>
+            </div>
+          `;
+        }
+
+        panel.innerHTML = headerHtml + contentHtml + `</div>`;
+      }
+      
+      lucide.createIcons();
+    }
+
+    function updateVisuals(isDotVisible, isThinking) {
+      const dot = document.getElementById('signal-dot');
+      const thinking = document.getElementById('brain-thinking');
+      const ping = document.getElementById('stimulus-ping');
+
+      if(dot) dot.style.display = isDotVisible ? 'block' : 'none';
+      if(thinking) thinking.style.display = isThinking ? 'block' : 'none';
+      
+      if(ping) {
+        // Only show ping if in simulating state AND the sequence hasn't finished (isDotVisible/isThinking)
+        if(appState === 'simulating' && currentScenario && currentScenario.stimulusPos && !isDotVisible && !isThinking) {
+           ping.style.display = 'block';
+           ping.setAttribute('transform', `translate(${currentScenario.stimulusPos.x - 16}, ${currentScenario.stimulusPos.y - 16})`);
+        } else {
+           ping.style.display = 'none';
+        }
+      }
+    }
+
+    // --- ANIMATION LOGIC ---
+    const animateSegment = (curve, duration) => {
+      return new Promise((resolve) => {
+        let startTime = null;
+        const dot = document.getElementById('signal-dot');
+        const step = (timestamp) => {
+          if (cancelAnim) return resolve();
+          if (!startTime) startTime = timestamp;
+          const progress = Math.min((timestamp - startTime) / duration, 1);
+          
+          const currentPos = getQuadraticBezierPoint(progress, curve.p0, curve.p1, curve.p2);
+          if(dot) {
+            dot.setAttribute('cx', currentPos.x);
+            dot.setAttribute('cy', currentPos.y);
+          }
+
+          if (progress < 1) {
+            requestAnimationFrame(step);
+          } else {
+            resolve();
+          }
+        };
+        requestAnimationFrame(step);
+      });
+    };
+
+    const runAnimation = async (scenario, finalState) => {
+      cancelAnim = true;
+      await new Promise(r => setTimeout(r, 50)); 
+      cancelAnim = false;
+
+      appState = 'simulating';
+      renderUI();
+      updateVisuals(false, false);
+
+      await new Promise(r => setTimeout(r, 600));
+      if (cancelAnim) return;
+
+      updateVisuals(true, false);
+
+      for (let i = 0; i < scenario.path.length; i++) {
+        const step = scenario.path[i];
+        if (step.pause) {
+          updateVisuals(false, true);
+          await new Promise(r => setTimeout(r, step.pause));
+          updateVisuals(true, false);
+        } else {
+          await animateSegment(step.curve, step.duration);
+        }
+        if (cancelAnim) return;
+      }
+
+      // SET STATE BEFORE UPDATING VISUALS to ensure the ping doesn't flash back on
+      appState = finalState;
+      updateVisuals(false, false);
+      renderUI();
+    };
+
+    // --- INTERACTIONS ---
+    function startRandomScenario() {
+      let nextScenario;
+      do {
+        nextScenario = scenarios[Math.floor(Math.random() * scenarios.length)];
+      } while (currentScenario && nextScenario.id === currentScenario.id && scenarios.length > 1);
+      
+      currentScenario = nextScenario;
+      lastAnswerCorrect = null;
+      runAnimation(nextScenario, 'quiz');
+    }
+
+    function replayAnimation() {
+      runAnimation(currentScenario, appState);
+    }
+
+    function handleAnswer(answerType) {
+      const isCorrect = answerType === currentScenario.type;
+      lastAnswerCorrect = isCorrect;
+      if (isCorrect) score += 1;
+      totalQuizzes += 1;
+      appState = 'feedback';
+      renderUI();
+    }
+
+    // --- INITIALIZATION ---
+    window.onload = () => {
+      initSVG();
+      renderUI();
+    };
+
+  </script>
+</body>
+</html>
