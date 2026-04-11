@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Photosynthesis Simulator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Hide scrollbars for a cleaner look */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8; 
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans h-screen flex flex-col overflow-hidden">
+    
+    <!-- Header -->
+    <header class="bg-emerald-600 text-white p-2 px-4 shadow-md flex justify-between items-center z-10 shrink-0 flex-wrap gap-2">
+        <div>
+            <h1 class="text-xl font-bold tracking-tight">Photosynthesis Simulator</h1>
+            <p class="text-emerald-100 text-xs">Interactive Synthesis Reaction</p>
+        </div>
+        <div id="reaction-formula" class="text-xs md:text-sm bg-emerald-700/80 font-mono px-3 py-1 rounded-lg border border-emerald-500 shadow-inner transition-colors duration-500">
+            <span id="form-reactants">6CO₂ + 6H₂O</span> + <span id="form-energy" class="text-yellow-300">Light</span> → <span id="form-products">C₆H₁₂O₆ + 6O₂</span>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-1 flex flex-col lg:flex-row p-2 gap-2 overflow-hidden min-h-0">
+        
+        <!-- Simulation Canvas Area -->
+        <div class="flex-1 min-h-[250px] relative bg-white rounded-xl shadow-md border border-slate-200 overflow-hidden flex flex-col" id="canvas-container">
+            
+            <!-- Abstract Chloroplast Background -->
+            <div class="absolute inset-0 flex items-center justify-center pointer-events-none opacity-30">
+                <div class="w-[80%] h-[80%] bg-gradient-to-br from-green-300 to-emerald-100 rounded-[100%] blur-3xl transform -rotate-12"></div>
+            </div>
+            
+            <canvas id="sim-canvas" class="block w-full h-full relative z-10"></canvas>
+            
+            <!-- Atmospheric / Sunlight effects -->
+            <div id="sunbeam" class="absolute inset-x-0 top-0 h-full bg-gradient-to-b from-yellow-300/50 via-yellow-100/20 to-transparent opacity-0 pointer-events-none transition-opacity duration-1000 z-20"></div>
+            <div id="flash" class="absolute inset-0 bg-white opacity-0 pointer-events-none z-30"></div>
+            
+            <!-- Floating Message Toast -->
+            <div id="message-box" class="absolute bottom-8 left-1/2 -translate-x-1/2 bg-slate-800/90 backdrop-blur text-white px-6 py-3 rounded-full shadow-xl transition-all duration-300 opacity-0 translate-y-4 z-40 font-medium text-center max-w-[90%] pointer-events-none">
+                Welcome to the simulation!
+            </div>
+        </div>
+
+        <!-- Dashboard / Controls -->
+        <aside class="w-full lg:w-72 bg-white rounded-xl shadow-md border border-slate-200 p-3 flex flex-col gap-4 z-10 overflow-y-auto shrink-0">
+            
+            <!-- Reactants Section -->
+            <div>
+                <h2 class="text-base font-bold text-slate-700 mb-2 border-b pb-1 flex items-center gap-2">
+                    <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 11V9a2 2 0 00-2-2m2 4v4a2 2 0 104 0v-1m-4-3H9m2 0h4m6 1a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    Reactants (Inputs)
+                </h2>
+                
+                <div class="flex justify-between items-center mb-1">
+                    <span class="flex items-center gap-2 text-sm font-medium">
+                        <div class="w-3 h-3 rounded-full bg-slate-700 border-2 border-red-500"></div> Carbon Dioxide
+                    </span>
+                    <span id="count-co2" class="font-bold text-base bg-slate-100 px-2 rounded min-w-[2rem] text-center transition-colors">0</span>
+                </div>
+                
+                <div class="flex justify-between items-center mb-3">
+                    <span class="flex items-center gap-2 text-sm font-medium">
+                        <div class="relative w-4 h-4 flex items-center justify-center">
+                            <div class="w-2 h-2 rounded-full bg-blue-400 absolute bottom-0 left-[-2px]"></div>
+                            <div class="w-3 h-3 rounded-full bg-red-500 absolute top-0 z-10"></div>
+                            <div class="w-2 h-2 rounded-full bg-blue-400 absolute bottom-0 right-[-2px]"></div>
+                        </div> Water (H₂O)
+                    </span>
+                    <span id="count-h2o" class="font-bold text-base bg-slate-100 px-2 rounded min-w-[2rem] text-center transition-colors">0</span>
+                </div>
+                
+                <div class="grid grid-cols-2 gap-2">
+                    <button onclick="addMolecules('CO2', 1)" class="bg-slate-50 hover:bg-slate-100 active:bg-slate-200 text-slate-600 py-1 rounded text-xs transition-colors border border-slate-200 shadow-sm">+1 CO₂</button>
+                    <button onclick="addMolecules('CO2', 6)" class="bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-800 font-bold py-1 rounded text-xs transition-colors border border-slate-300 shadow-sm">+6 CO₂</button>
+                    <button onclick="addMolecules('H2O', 1)" class="bg-slate-50 hover:bg-slate-100 active:bg-slate-200 text-slate-600 py-1 rounded text-xs transition-colors border border-slate-200 shadow-sm">+1 H₂O</button>
+                    <button onclick="addMolecules('H2O', 6)" class="bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-800 font-bold py-1 rounded text-xs transition-colors border border-slate-300 shadow-sm">+6 H₂O</button>
+                </div>
+            </div>
+            
+            <!-- Reaction Trigger -->
+            <div class="bg-emerald-50 p-3 rounded-xl border border-emerald-100 relative overflow-hidden group">
+                <div class="absolute inset-0 bg-yellow-300/10 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                <h2 class="text-sm font-bold text-emerald-800 mb-1 text-center relative z-10">Trigger Synthesis</h2>
+                <p class="text-[10px] text-emerald-600 mb-2 text-center relative z-10 font-medium tracking-wide">Needs 6 CO₂ + 6 H₂O</p>
+                <button onclick="triggerSunlight()" class="w-full bg-gradient-to-b from-yellow-400 to-amber-500 hover:from-yellow-300 hover:to-amber-400 text-amber-950 font-bold py-2 px-3 rounded-lg shadow-md hover:shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2 relative z-10 border border-yellow-500">
+                    <span class="text-lg drop-shadow-sm">☀️</span>
+                    <span class="text-sm">Shine Sunlight</span>
+                </button>
+            </div>
+            
+            <!-- Products Section -->
+            <div>
+                <h2 class="text-base font-bold text-slate-700 mb-2 border-b pb-1 flex items-center gap-2">
+                    <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                    Products (Outputs)
+                </h2>
+                
+                <div class="flex justify-between items-center mb-1">
+                    <span class="flex items-center gap-2 text-sm font-medium">
+                        <div class="w-4 h-4 rounded-[4px] bg-green-50 border-2 border-green-500 flex items-center justify-center rotate-45"><div class="w-1 h-1 bg-green-700 rounded-full"></div></div> Sugar (C₆H₁₂O₆)
+                    </span>
+                    <span id="count-glucose" class="font-bold text-base text-emerald-600 bg-emerald-50 px-2 rounded min-w-[2rem] text-center">0</span>
+                </div>
+                
+                <div class="flex justify-between items-center mb-2">
+                    <span class="flex items-center gap-2 text-sm font-medium">
+                        <div class="w-5 h-3 flex items-center justify-between"><div class="w-3 h-3 rounded-full bg-red-500"></div><div class="w-3 h-3 rounded-full bg-red-500 -ml-1"></div></div> Oxygen (O₂)
+                    </span>
+                    <span id="count-o2" class="font-bold text-base text-sky-600 bg-sky-50 px-2 rounded min-w-[2rem] text-center">0</span>
+                </div>
+            </div>
+            
+            <!-- Clear Button -->
+            <div class="mt-auto pt-2 border-t border-slate-100">
+                <button onclick="resetSimulation()" class="w-full text-slate-400 hover:text-red-500 hover:bg-red-50 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                    Clear Canvas
+                </button>
+            </div>
+        </aside>
+    </main>
+
+    <script>
+        // --- Core Application Logic & Physics Engine --- //
+
+        const canvas = document.getElementById('sim-canvas');
+        const ctx = canvas.getContext('2d');
+        let molecules = [];
+        let simState = 'IDLE'; // IDLE, GATHERING, FLASHING
+        let reactingSubset = [];
+        let messageTimeout;
+
+        // Molecule definition class
+        class Molecule {
+            constructor(type, x, y) {
+                this.type = type; // 'CO2', 'H2O', 'O2', 'Glucose'
+                this.x = x;
+                this.y = y;
+                
+                // Define physical properties
+                switch(type) {
+                    case 'Glucose': this.radius = 28; break;
+                    case 'CO2': this.radius = 20; break;
+                    case 'H2O': this.radius = 16; break;
+                    case 'O2': this.radius = 16; break;
+                }
+
+                // Random gentle starting velocity
+                this.vx = (Math.random() - 0.5) * 2;
+                this.vy = (Math.random() - 0.5) * 2;
+                
+                // Reaction transition variables
+                this.targetX = null;
+                this.targetY = null;
+                this.isReacting = false;
+                
+                // Visual rotation
+                this.rotation = Math.random() * Math.PI * 2;
+                this.rotationSpeed = (Math.random() - 0.5) * 0.05;
+            }
+
+            update(width, height) {
+                // Apply friction to fast moving particles (used for the explosion/burst effect)
+                let speedSq = this.vx * this.vx + this.vy * this.vy;
+                if (speedSq > 6) {
+                    this.vx *= 0.98;
+                    this.vy *= 0.98;
+                }
+
+                if (this.isReacting && this.targetX !== null) {
+                    // Smoothly pull particles to the reaction center
+                    this.x += (this.targetX - this.x) * 0.04;
+                    this.y += (this.targetY - this.y) * 0.04;
+                    this.rotation += this.rotationSpeed * 4; // Spin faster while reacting
+                } else {
+                    // Normal idle drifting physics
+                    this.x += this.vx;
+                    this.y += this.vy;
+                    this.rotation += this.rotationSpeed;
+
+                    // Boundary collision with radius padding
+                    if (this.x < this.radius) { this.x = this.radius; this.vx *= -1; }
+                    if (this.x > width - this.radius) { this.x = width - this.radius; this.vx *= -1; }
+                    if (this.y < this.radius) { this.y = this.radius; this.vy *= -1; }
+                    if (this.y > height - this.radius) { this.y = height - this.radius; this.vy *= -1; }
+                }
+            }
+
+            draw(ctx) {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                ctx.rotate(this.rotation);
+
+                // Add a glow if reacting
+                if (this.isReacting) {
+                    ctx.shadowColor = '#FEF08A'; // Yellow glow
+                    ctx.shadowBlur = 15;
+                }
+
+                // Drawing logic for different molecule types
+                if (this.type === 'CO2') {
+                    // Carbon Dioxide: O=C=O (Linear)
+                    ctx.beginPath();
+                    ctx.moveTo(-14, 0); ctx.lineTo(14, 0);
+                    ctx.lineWidth = 4; ctx.strokeStyle = '#94A3B8'; ctx.stroke();
+                    
+                    ctx.fillStyle = '#EF4444'; // Oxygen (Red)
+                    ctx.beginPath(); ctx.arc(-14, 0, 7, 0, Math.PI*2); ctx.fill();
+                    ctx.beginPath(); ctx.arc(14, 0, 7, 0, Math.PI*2); ctx.fill();
+                    
+                    ctx.fillStyle = '#334155'; // Carbon (Dark Gray)
+                    ctx.beginPath(); ctx.arc(0, 0, 9, 0, Math.PI*2); ctx.fill();
+
+                } else if (this.type === 'H2O') {
+                    // Water: H-O-H (Bent)
+                    ctx.beginPath();
+                    ctx.moveTo(0, -3); ctx.lineTo(-10, 7);
+                    ctx.moveTo(0, -3); ctx.lineTo(10, 7);
+                    ctx.lineWidth = 3; ctx.strokeStyle = '#94A3B8'; ctx.stroke();
+                    
+                    ctx.fillStyle = '#60A5FA'; // Hydrogen (Blue for better visibility)
+                    ctx.beginPath(); ctx.arc(-10, 7, 5, 0, Math.PI*2); ctx.fill();
+                    ctx.shadowBlur = 0; // Remove shadow for overlapping atoms
+                    ctx.beginPath(); ctx.arc(10, 7, 5, 0, Math.PI*2); ctx.fill();
+                    
+                    ctx.fillStyle = '#EF4444'; // Oxygen (Red)
+                    ctx.beginPath(); ctx.arc(0, -3, 9, 0, Math.PI*2); ctx.fill();
+
+                } else if (this.type === 'O2') {
+                    // Oxygen: O=O (Diatomic linear)
+                    ctx.beginPath();
+                    ctx.moveTo(-8, 0); ctx.lineTo(8, 0);
+                    ctx.lineWidth = 4; ctx.strokeStyle = '#94A3B8'; ctx.stroke();
+                    
+                    ctx.fillStyle = '#EF4444'; // Oxygen (Red)
+                    ctx.beginPath(); ctx.arc(-8, 0, 8, 0, Math.PI*2); ctx.fill();
+                    ctx.beginPath(); ctx.arc(8, 0, 8, 0, Math.PI*2); ctx.fill();
+
+                } else if (this.type === 'Glucose') {
+                    // Sugar/Glucose: Simplified as a large hexagonal complex
+                    ctx.fillStyle = '#F0FDF4'; // Pale green fill
+                    ctx.strokeStyle = '#22C55E'; // Green edge
+                    ctx.lineWidth = 2.5;
+                    
+                    // Hexagon base
+                    ctx.beginPath();
+                    for(let i=0; i<6; i++) {
+                        let angle = (i/6) * Math.PI * 2;
+                        ctx.lineTo(Math.cos(angle)*24, Math.sin(angle)*24);
+                    }
+                    ctx.closePath();
+                    ctx.fill();
+                    ctx.stroke();
+
+                    // Decorative chemical nodes around the ring
+                    ctx.fillStyle = '#334155'; ctx.beginPath(); ctx.arc(-15, -10, 4, 0, Math.PI*2); ctx.fill();
+                    ctx.fillStyle = '#EF4444'; ctx.beginPath(); ctx.arc(15, 10, 4, 0, Math.PI*2); ctx.fill();
+                    ctx.fillStyle = '#334155'; ctx.beginPath(); ctx.arc(15, -10, 4, 0, Math.PI*2); ctx.fill();
+                    ctx.fillStyle = '#EF4444'; ctx.beginPath(); ctx.arc(-15, 10, 4, 0, Math.PI*2); ctx.fill();
+                    ctx.fillStyle = '#60A5FA'; ctx.beginPath(); ctx.arc(0, 15, 3, 0, Math.PI*2); ctx.fill();
+
+                    // Center label
+                    ctx.shadowBlur = 0;
+                    ctx.fillStyle = '#166534'; // Dark green text
+                    ctx.font = 'bold 12px sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText('Sugar', 0, 0);
+                }
+
+                ctx.restore();
+            }
+        }
+
+        // --- Core Functions --- //
+
+        function resize() {
+            const container = canvas.parentElement;
+            canvas.width = container.clientWidth;
+            canvas.height = container.clientHeight;
+        }
+
+        function showMessage(text, duration = 3000) {
+            const msgEl = document.getElementById('message-box');
+            msgEl.textContent = text;
+            
+            // Animate In
+            msgEl.classList.remove('opacity-0', 'translate-y-4');
+            msgEl.classList.add('opacity-100', 'translate-y-0');
+            
+            clearTimeout(messageTimeout);
+            
+            // Animate Out
+            messageTimeout = setTimeout(() => {
+                msgEl.classList.remove('opacity-100', 'translate-y-0');
+                msgEl.classList.add('opacity-0', 'translate-y-4');
+            }, duration);
+        }
+
+        function updateCounts() {
+            let counts = { CO2: 0, H2O: 0, O2: 0, Glucose: 0 };
+            molecules.forEach(m => counts[m.type]++);
+            
+            document.getElementById('count-co2').textContent = counts.CO2;
+            document.getElementById('count-h2o').textContent = counts.H2O;
+            document.getElementById('count-o2').textContent = counts.O2;
+            document.getElementById('count-glucose').textContent = counts.Glucose;
+            
+            // Visual feedback on requirements (highlight green if >= 6)
+            const co2El = document.getElementById('count-co2');
+            const h2oEl = document.getElementById('count-h2o');
+            
+            if (counts.CO2 >= 6) {
+                co2El.classList.add('bg-green-100', 'text-green-700', 'ring-1', 'ring-green-400');
+                co2El.classList.remove('bg-slate-100');
+            } else {
+                co2El.classList.remove('bg-green-100', 'text-green-700', 'ring-1', 'ring-green-400');
+                co2El.classList.add('bg-slate-100');
+            }
+
+            if (counts.H2O >= 6) {
+                h2oEl.classList.add('bg-green-100', 'text-green-700', 'ring-1', 'ring-green-400');
+                h2oEl.classList.remove('bg-slate-100');
+            } else {
+                h2oEl.classList.remove('bg-green-100', 'text-green-700', 'ring-1', 'ring-green-400');
+                h2oEl.classList.add('bg-slate-100');
+            }
+        }
+
+        function addMolecules(type, count) {
+            if (simState !== 'IDLE') {
+                showMessage("Wait for the current reaction to finish!");
+                return;
+            }
+            if (molecules.length > 120) {
+                showMessage("Maximum particles reached. Clear canvas to add more.");
+                return;
+            }
+            
+            for(let i=0; i<count; i++) {
+                // Spawn randomly within inner bounds
+                let x = Math.random() * (canvas.width - 100) + 50;
+                let y = Math.random() * (canvas.height - 100) + 50;
+                molecules.push(new Molecule(type, x, y));
+            }
+            updateCounts();
+        }
+
+        function resetSimulation() {
+            if (simState === 'FLASHING') return; // Don't interrupt flash
+            molecules = [];
+            simState = 'IDLE';
+            document.getElementById('sunbeam').style.opacity = '0';
+            document.getElementById('reaction-formula').classList.remove('ring-4', 'ring-yellow-400', 'bg-emerald-800');
+            updateCounts();
+            showMessage("Canvas cleared.");
+        }
+
+        function triggerSunlight() {
+            if (simState !== 'IDLE') return;
+
+            let co2List = molecules.filter(m => m.type === 'CO2');
+            let h2oList = molecules.filter(m => m.type === 'H2O');
+
+            if (co2List.length >= 6 && h2oList.length >= 6) {
+                // Phase 1: Gathering
+                simState = 'GATHERING';
+                document.getElementById('sunbeam').style.opacity = '1';
+                document.getElementById('reaction-formula').classList.add('ring-4', 'ring-yellow-400', 'bg-emerald-800');
+                showMessage("Sunlight absorbed! Gathering molecules for synthesis...");
+
+                // Select exactly 6 of each for the reaction stoichiometry
+                let reactingCO2 = co2List.slice(0, 6);
+                let reactingH2O = h2oList.slice(0, 6);
+                reactingSubset = [...reactingCO2, ...reactingH2O];
+
+                // Assign target coordinates in a circle in the center of the canvas
+                let cx = canvas.width / 2;
+                let cy = canvas.height / 2;
+
+                reactingSubset.forEach((m, i) => {
+                    m.isReacting = true;
+                    let angle = (i / 12) * Math.PI * 2;
+                    let radius = 60; // Gathering circle radius
+                    m.targetX = cx + Math.cos(angle) * radius;
+                    m.targetY = cy + Math.sin(angle) * radius;
+                });
+            } else {
+                // Calculate and report what is missing
+                let missingCO2 = Math.max(0, 6 - co2List.length);
+                let missingH2O = Math.max(0, 6 - h2oList.length);
+                let msg = "Not enough reactants! Need ";
+                if (missingCO2 > 0) msg += `${missingCO2} more CO₂`;
+                if (missingCO2 > 0 && missingH2O > 0) msg += " and ";
+                if (missingH2O > 0) msg += `${missingH2O} more H₂O`;
+                msg += " to run the synthesis.";
+                showMessage(msg);
+            }
+        }
+
+        // --- Main Animation Loop --- //
+
+        function animate() {
+            // Clear frame
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            if (simState === 'GATHERING') {
+                // Check if all reacting molecules have reached the center
+                let allArrived = true;
+                reactingSubset.forEach(m => {
+                    let dx = m.targetX - m.x;
+                    let dy = m.targetY - m.y;
+                    let dist = Math.sqrt(dx*dx + dy*dy);
+                    if (dist > 5) allArrived = false;
+                });
+                
+                if (allArrived) {
+                    // Phase 2 & 3: Flashing and Transforming
+                    simState = 'FLASHING';
+                    
+                    const flashEl = document.getElementById('flash');
+                    flashEl.style.transition = 'none'; // Instant on
+                    flashEl.style.opacity = '1';
+                    
+                    // Brief delay to allow the flash to obscure the swap
+                    setTimeout(() => {
+                        // 1. Remove the 12 reacting inputs
+                        molecules = molecules.filter(m => !m.isReacting);
+                        
+                        const cx = canvas.width / 2;
+                        const cy = canvas.height / 2;
+                        
+                        // 2. Spawn 1 Glucose molecule at the center
+                        let glucose = new Molecule('Glucose', cx, cy);
+                        glucose.vx = (Math.random() - 0.5) * 4; // Gentle drift
+                        glucose.vy = (Math.random() - 0.5) * 4;
+                        molecules.push(glucose);
+                        
+                        // 3. Spawn 6 Oxygen molecules exploding outwards
+                        for(let i=0; i<6; i++) {
+                            let o2 = new Molecule('O2', cx, cy);
+                            o2.vx = (Math.random() - 0.5) * 16; // High velocity burst
+                            o2.vy = (Math.random() - 0.5) * 16;
+                            molecules.push(o2);
+                        }
+                        
+                        // 4. Fade everything out and reset state
+                        flashEl.style.transition = 'opacity 1.5s ease-out';
+                        flashEl.style.opacity = '0';
+                        document.getElementById('sunbeam').style.opacity = '0';
+                        document.getElementById('reaction-formula').classList.remove('ring-4', 'ring-yellow-400', 'bg-emerald-800');
+                        
+                        simState = 'IDLE';
+                        updateCounts();
+                        showMessage("Synthesis Complete! 1 Sugar and 6 Oxygen created.", 4000);
+                        
+                    }, 150); // Flash duration
+                }
+            }
+
+            // Update physics and draw all molecules
+            molecules.forEach(m => {
+                m.update(canvas.width, canvas.height);
+                m.draw(ctx);
+            });
+            
+            requestAnimationFrame(animate);
+        }
+
+        // --- Initialization --- //
+
+        window.addEventListener('resize', resize);
+        
+        window.onload = () => {
+            resize();
+            // Pre-seed canvas with 6 of each to allow instant play
+            addMolecules('CO2', 6);
+            addMolecules('H2O', 6);
+            updateCounts();
+            
+            // Start the physics loop
+            animate();
+        };
+
+    </script>
+</body>
+</html>
