@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blood Typing Virtual Lab</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f4f8;
+            background-image: radial-gradient(#cbd5e1 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+
+        /* 3D Plate styling */
+        .spot-plate {
+            background: #ffffff;
+            border-radius: 20px;
+            box-shadow: 
+                0 10px 15px -3px rgba(0, 0, 0, 0.1), 
+                0 4px 6px -2px rgba(0, 0, 0, 0.05),
+                inset 0 -4px 6px rgba(0,0,0,0.05),
+                inset 0 4px 6px rgba(255,255,255,0.5);
+            border: 1px solid #e2e8f0;
+        }
+
+        .well-container {
+            position: relative;
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            background: #f8fafc;
+            box-shadow: 
+                inset 0 8px 10px rgba(0,0,0,0.1), 
+                inset 0 2px 4px rgba(0,0,0,0.1),
+                0 2px 0 rgba(255,255,255,1);
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Blood visuals */
+        .blood-pool {
+            position: absolute;
+            width: 90%;
+            height: 90%;
+            border-radius: 50%;
+            transition: all 1s ease-in-out;
+            background: radial-gradient(circle at 40% 40%, #dc2626 0%, #991b1b 70%, #7f1d1d 100%);
+            box-shadow: inset 0 -4px 6px rgba(0,0,0,0.3);
+        }
+
+        .blood-pool.reacted {
+            background: radial-gradient(circle at 50% 50%, #fef08a 0%, #fde047 100%);
+            box-shadow: inset 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .blood-pool.unreacted {
+            background: radial-gradient(circle at 40% 40%, #ef4444 0%, #b91c1c 80%, #991b1b 100%);
+            opacity: 0.95;
+        }
+
+        .clump {
+            position: absolute;
+            border-radius: 50%;
+            background: radial-gradient(circle at 30% 30%, #f87171 0%, #dc2626 30%, #7f1d1d 100%);
+            box-shadow: 1px 1px 3px rgba(0,0,0,0.3), inset -1px -1px 2px rgba(0,0,0,0.4);
+            transition: transform 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
+            transform: scale(0);
+        }
+
+        /* Animations */
+        @keyframes dropFall {
+            0% { transform: translateY(0) scale(1); opacity: 1; }
+            80% { transform: translateY(120px) scale(0.8); opacity: 1; }
+            100% { transform: translateY(130px) scale(0); opacity: 0; }
+        }
+
+        .drop-animation {
+            animation: dropFall 0.5s ease-in forwards;
+        }
+
+        /* Custom Radio Buttons */
+        .diagnosis-btn {
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .diagnosis-btn input:checked + div {
+            background-color: #3b82f6;
+            color: white;
+            border-color: #2563eb;
+            box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.5);
+            transform: translateY(-2px);
+        }
+        
+    </style>
+</head>
+<body class="min-h-screen text-slate-800 pb-12">
+
+    <!-- Header -->
+    <header class="bg-white shadow-sm mb-8 border-b border-slate-200">
+        <div class="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="bg-red-100 p-2 rounded-lg">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z"/></svg>
+                </div>
+                <h1 class="text-xl font-bold text-slate-800">Virtual Blood Typing Lab</h1>
+            </div>
+            <div class="flex items-center gap-4">
+                <span class="text-sm font-medium bg-slate-100 px-3 py-1 rounded-full text-slate-600 border border-slate-200" id="patient-id">Patient #1042</span>
+                <button onclick="generatePatient()" class="text-sm bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 py-1.5 px-4 rounded-md shadow-sm transition-colors flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+                    New Sample
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-5xl mx-auto px-4 grid grid-cols-1 lg:grid-cols-3 gap-8">
+        
+        <!-- Left Column: Lab Bench -->
+        <div class="lg:col-span-2 space-y-6">
+            
+            <!-- Instructions -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                <h2 class="text-lg font-bold mb-2 flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-blue-500"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+                    Procedure
+                </h2>
+                <p class="text-slate-600 text-sm">
+                    Three drops of the patient's blood have been placed on the spot plate. Use the droppers to add Anti-A, Anti-B, and Anti-Rh (Anti-D) reagents to the respective wells. Observe if agglutination (clumping) occurs. Clumping indicates the presence of that specific antigen on the red blood cells.
+                </p>
+            </div>
+
+            <!-- The Testing Plate Area -->
+            <div class="bg-slate-100 rounded-2xl p-8 border border-slate-200 flex flex-col items-center justify-center min-h-[400px]">
+                
+                <!-- Droppers Row -->
+                <div class="flex gap-6 md:gap-12 mb-4 items-end">
+                    <!-- Anti-A Dropper -->
+                    <div class="flex flex-col items-center relative w-[120px]">
+                        <button id="btn-anti-A" onclick="applyReagent('A')" class="relative group outline-none focus:ring-4 ring-blue-100 rounded-lg transition-transform hover:-translate-y-2 active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0 p-2 z-10">
+                            <div class="flex flex-col items-center relative z-10 drop-shadow-md">
+                                <!-- Rubber Bulb -->
+                                <div class="w-7 h-10 bg-gradient-to-r from-slate-800 via-slate-700 to-slate-900 rounded-t-[14px] rounded-b-sm border border-slate-900 z-20"></div>
+                                <!-- Ribbed Cap -->
+                                <div class="w-9 h-5 bg-slate-800 border-y-2 border-slate-900 rounded-sm flex justify-evenly items-center z-20 shadow-sm">
+                                    <div class="w-[1px] h-full bg-slate-600/50"></div>
+                                    <div class="w-[1px] h-full bg-slate-600/50"></div>
+                                    <div class="w-[1px] h-full bg-slate-600/50"></div>
+                                    <div class="w-[1px] h-full bg-slate-600/50"></div>
+                                    <div class="w-[1px] h-full bg-slate-600/50"></div>
+                                </div>
+                                <!-- Glass Tube -->
+                                <div class="w-3.5 h-20 bg-gradient-to-r from-white/90 via-slate-50/90 to-slate-200/90 border border-slate-300 rounded-b-full relative overflow-hidden -mt-1 z-10 shadow-sm">
+                                    <!-- Liquid inside -->
+                                    <div class="absolute bottom-0 w-full h-12 bg-blue-500/90"></div>
+                                </div>
+                            </div>
+                            <!-- Falling Drop -->
+                            <div id="drop-A" class="absolute bottom-1 left-1/2 -translate-x-1/2 w-3 h-4 bg-blue-500 rounded-b-full rounded-t-sm opacity-0 pointer-events-none z-0"></div>
+                        </button>
+                    </div>
+
+                    <!-- Anti-B Dropper -->
+                    <div class="flex flex-col items-center relative w-[120px]">
+                        <button id="btn-anti-B" onclick="applyReagent('B')" class="relative group outline-none focus:ring-4 ring-yellow-100 rounded-lg transition-transform hover:-translate-y-2 active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0 p-2 z-10">
+                            <div class="flex flex-col items-center relative z-10 drop-shadow-md">
+                                <!-- Rubber Bulb -->
+                                <div class="w-7 h-10 bg-gradient-to-r from-slate-800 via-slate-700 to-slate-900 rounded-t-[14px] rounded-b-sm border border-slate-900 z-20"></div>
+                                <!-- Ribbed Cap -->
+                                <div class="w-9 h-5 bg-slate-800 border-y-2 border-slate-900 rounded-sm flex justify-evenly items-center z-20 shadow-sm">
+                                    <div class="w-[1px] h-full bg-slate-600/50"></div>
+                                    <div class="w-[1px] h-full bg-slate-600/50"></div>
+                                    <div class="w-[1px] h-full bg-slate-600/50"></div>
+                                    <div class="w-[1px] h-full bg-slate-600/50"></div>
+                                    <div class="w-[1px] h-full bg-slate-600/50"></div>
+                                </div>
+                                <!-- Glass Tube -->
+                                <div class="w-3.5 h-20 bg-gradient-to-r from-white/90 via-slate-50/90 to-slate-200/90 border border-slate-300 rounded-b-full relative overflow-hidden -mt-1 z-10 shadow-sm">
+                                    <!-- Liquid inside -->
+                                    <div class="absolute bottom-0 w-full h-12 bg-yellow-400/90"></div>
+                                </div>
+                            </div>
+                            <!-- Falling Drop -->
+                            <div id="drop-B" class="absolute bottom-1 left-1/2 -translate-x-1/2 w-3 h-4 bg-yellow-400 rounded-b-full rounded-t-sm opacity-0 pointer-events-none z-0"></div>
+                        </button>
+                    </div>
+
+                    <!-- Anti-Rh Dropper -->
+                    <div class="flex flex-col items-center relative w-[120px]">
+                        <button id="btn-anti-Rh" onclick="applyReagent('Rh')" class="relative group outline-none focus:ring-4 ring-slate-200 rounded-lg transition-transform hover:-translate-y-2 active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0 p-2 z-10">
+                            <div class="flex flex-col items-center relative z-10 drop-shadow-md">
+                                <!-- Rubber Bulb -->
+                                <div class="w-7 h-10 bg-gradient-to-r from-slate-800 via-slate-700 to-slate-900 rounded-t-[14px] rounded-b-sm border border-slate-900 z-20"></div>
+                                <!-- Ribbed Cap -->
+                                <div class="w-9 h-5 bg-slate-800 border-y-2 border-slate-900 rounded-sm flex justify-evenly items-center z-20 shadow-sm">
+                                    <div class="w-[1px] h-full bg-slate-600/50"></div>
+                                    <div class="w-[1px] h-full bg-slate-600/50"></div>
+                                    <div class="w-[1px] h-full bg-slate-600/50"></div>
+                                    <div class="w-[1px] h-full bg-slate-600/50"></div>
+                                    <div class="w-[1px] h-full bg-slate-600/50"></div>
+                                </div>
+                                <!-- Glass Tube -->
+                                <div class="w-3.5 h-20 bg-gradient-to-r from-white/90 via-slate-50/90 to-slate-200/90 border border-slate-300 rounded-b-full relative overflow-hidden -mt-1 z-10 shadow-sm">
+                                    <!-- Liquid inside -->
+                                    <div class="absolute bottom-0 w-full h-12 bg-slate-100/90 border-t border-slate-200"></div>
+                                </div>
+                            </div>
+                            <!-- Falling Drop -->
+                            <div id="drop-Rh" class="absolute bottom-1 left-1/2 -translate-x-1/2 w-3 h-4 bg-white border border-slate-300 rounded-b-full rounded-t-sm opacity-0 pointer-events-none z-0"></div>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Spot Plate -->
+                <div class="spot-plate px-8 py-10 relative z-0">
+                    <div class="flex gap-6 md:gap-12">
+                        
+                        <!-- Well A -->
+                        <div class="flex flex-col items-center gap-4 w-[120px]">
+                            <h3 class="font-bold text-slate-700 text-lg tracking-wide">Anti-A</h3>
+                            <div class="well-container">
+                                <div id="well-A" class="blood-pool"></div>
+                            </div>
+                        </div>
+
+                        <!-- Well B -->
+                        <div class="flex flex-col items-center gap-4 w-[120px]">
+                            <h3 class="font-bold text-slate-700 text-lg tracking-wide">Anti-B</h3>
+                            <div class="well-container">
+                                <div id="well-B" class="blood-pool"></div>
+                            </div>
+                        </div>
+
+                        <!-- Well Rh -->
+                        <div class="flex flex-col items-center gap-4 w-[120px]">
+                            <h3 class="font-bold text-slate-700 text-lg tracking-wide">Anti-Rh</h3>
+                            <div class="well-container">
+                                <div id="well-Rh" class="blood-pool"></div>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- Right Column: Assessment -->
+        <div class="space-y-6">
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col h-full">
+                <div class="bg-slate-800 text-white p-4">
+                    <h2 class="font-bold flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="m9 15 2 2 4-4"/></svg>
+                        Diagnosis Report
+                    </h2>
+                </div>
+                
+                <div class="p-6 flex-1 flex flex-col">
+                    <p class="text-sm text-slate-500 mb-6">Based on your observations of the spot plate, diagnose the patient's blood type.</p>
+
+                    <div class="space-y-6 flex-1">
+                        <!-- ABO Group Selection -->
+                        <div>
+                            <label class="block text-sm font-semibold text-slate-700 mb-3">1. Select ABO Blood Group</label>
+                            <div class="grid grid-cols-2 gap-3">
+                                <label class="diagnosis-btn">
+                                    <input type="radio" name="aboGroup" value="A" class="peer sr-only">
+                                    <div class="py-3 text-center border-2 border-slate-200 rounded-lg font-bold text-slate-600 bg-white">Type A</div>
+                                </label>
+                                <label class="diagnosis-btn">
+                                    <input type="radio" name="aboGroup" value="B" class="peer sr-only">
+                                    <div class="py-3 text-center border-2 border-slate-200 rounded-lg font-bold text-slate-600 bg-white">Type B</div>
+                                </label>
+                                <label class="diagnosis-btn">
+                                    <input type="radio" name="aboGroup" value="AB" class="peer sr-only">
+                                    <div class="py-3 text-center border-2 border-slate-200 rounded-lg font-bold text-slate-600 bg-white">Type AB</div>
+                                </label>
+                                <label class="diagnosis-btn">
+                                    <input type="radio" name="aboGroup" value="O" class="peer sr-only">
+                                    <div class="py-3 text-center border-2 border-slate-200 rounded-lg font-bold text-slate-600 bg-white">Type O</div>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Rh Factor Selection -->
+                        <div>
+                            <label class="block text-sm font-semibold text-slate-700 mb-3">2. Select Rh Factor</label>
+                            <div class="grid grid-cols-2 gap-3">
+                                <label class="diagnosis-btn">
+                                    <input type="radio" name="rhFactor" value="+" class="peer sr-only">
+                                    <div class="py-3 text-center border-2 border-slate-200 rounded-lg font-bold text-slate-600 bg-white">Positive (+)</div>
+                                </label>
+                                <label class="diagnosis-btn">
+                                    <input type="radio" name="rhFactor" value="-" class="peer sr-only">
+                                    <div class="py-3 text-center border-2 border-slate-200 rounded-lg font-bold text-slate-600 bg-white">Negative (-)</div>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Submit & Feedback -->
+                    <div class="mt-8 pt-6 border-t border-slate-100">
+                        <button onclick="checkDiagnosis()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg shadow-md transition-colors flex justify-center items-center gap-2">
+                            Submit Diagnosis
+                        </button>
+                        
+                        <div id="feedback-area" class="mt-4 hidden p-4 rounded-lg text-sm font-medium border">
+                            <!-- Feedback injected here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <script>
+        // Data & State
+        const bloodGroups = ['A', 'B', 'AB', 'O'];
+        const rhFactors = ['+', '-'];
+        
+        let state = {
+            patientAbo: '',
+            patientRh: '',
+            tested: { A: false, B: false, Rh: false },
+            isAnimating: false
+        };
+
+        // Initialization
+        function generatePatient() {
+            // Pick random blood type
+            state.patientAbo = bloodGroups[Math.floor(Math.random() * bloodGroups.length)];
+            state.patientRh = rhFactors[Math.floor(Math.random() * rhFactors.length)];
+            state.tested = { A: false, B: false, Rh: false };
+            state.isAnimating = false;
+
+            // Update UI patient ID
+            document.getElementById('patient-id').innerText = `Patient #${Math.floor(1000 + Math.random() * 9000)}`;
+
+            // Reset Wells
+            ['A', 'B', 'Rh'].forEach(type => {
+                const well = document.getElementById(`well-${type}`);
+                well.className = 'blood-pool'; // Reset to default unreacted blood
+                well.innerHTML = ''; // Remove clumps
+                
+                // Enable droppers
+                document.getElementById(`btn-anti-${type}`).disabled = false;
+            });
+
+            // Reset Form
+            document.querySelectorAll('input[type="radio"]').forEach(radio => radio.checked = false);
+            
+            // Hide feedback
+            const feedbackArea = document.getElementById('feedback-area');
+            feedbackArea.classList.add('hidden');
+            feedbackArea.className = 'mt-4 hidden p-4 rounded-lg text-sm font-medium border';
+            feedbackArea.innerHTML = '';
+            
+            // For cheating/debugging, log the answer:
+            console.log(`Current Patient: ${state.patientAbo}${state.patientRh}`);
+        }
+
+        // Reagent Interaction
+        function applyReagent(type) {
+            if (state.tested[type] || state.isAnimating) return;
+            
+            state.isAnimating = true;
+            state.tested[type] = true;
+            
+            const btn = document.getElementById(`btn-anti-${type}`);
+            btn.disabled = true;
+
+            // Trigger drop animation
+            const drop = document.getElementById(`drop-${type}`);
+            drop.classList.remove('hidden');
+            
+            // Re-trigger CSS animation
+            drop.style.animation = 'none';
+            drop.offsetHeight; /* trigger reflow */
+            drop.style.animation = null; 
+            drop.classList.add('drop-animation');
+
+            // Wait for drop to "hit" the well before showing reaction
+            setTimeout(() => {
+                drop.classList.remove('drop-animation');
+                resolveReaction(type);
+                state.isAnimating = false;
+            }, 500);
+        }
+
+        function resolveReaction(type) {
+            const well = document.getElementById(`well-${type}`);
+            let reacts = false;
+
+            // Determine if agglutination occurs
+            if (type === 'A' && (state.patientAbo === 'A' || state.patientAbo === 'AB')) reacts = true;
+            if (type === 'B' && (state.patientAbo === 'B' || state.patientAbo === 'AB')) reacts = true;
+            if (type === 'Rh' && state.patientRh === '+') reacts = true;
+
+            if (reacts) {
+                // Change background to clear/yellowish
+                well.classList.add('reacted');
+                well.classList.remove('unreacted');
+
+                // Generate clumps
+                generateClumps(well);
+            } else {
+                // Just slightly change color to indicate it was mixed but didn't react
+                well.classList.add('unreacted');
+            }
+        }
+
+        function generateClumps(wellContainer) {
+            const numClumps = 35 + Math.random() * 15; // 35-50 clumps
+            
+            for (let i = 0; i < numClumps; i++) {
+                const clump = document.createElement('div');
+                
+                // Randomize size
+                const size = 6 + Math.random() * 18; // 6px to 24px
+                clump.style.width = `${size}px`;
+                clump.style.height = `${size}px`;
+                
+                // Randomize position within circle
+                // Use polar coordinates to ensure they stay mostly within the visual circle
+                const radius = 45 * Math.random(); // up to 45% distance from center
+                const angle = Math.random() * 2 * Math.PI;
+                const top = 50 + radius * Math.sin(angle);
+                const left = 50 + radius * Math.cos(angle);
+                
+                clump.style.top = `calc(${top}% - ${size/2}px)`;
+                clump.style.left = `calc(${left}% - ${size/2}px)`;
+                
+                clump.className = 'clump';
+                wellContainer.appendChild(clump);
+                
+                // Staggered animation entrance
+                setTimeout(() => {
+                    clump.style.transform = `scale(${0.8 + Math.random() * 0.4})`; // scale to 0.8 - 1.2
+                }, 50 + Math.random() * 600);
+            }
+        }
+
+        // Assessment Logic
+        function checkDiagnosis() {
+            // Ensure all tests are run
+            if (!state.tested.A || !state.tested.B || !state.tested.Rh) {
+                showFeedback("warning", "Please test all three wells before submitting your diagnosis.");
+                return;
+            }
+
+            const selectedAbo = document.querySelector('input[name="aboGroup"]:checked');
+            const selectedRh = document.querySelector('input[name="rhFactor"]:checked');
+
+            if (!selectedAbo || !selectedRh) {
+                showFeedback("warning", "Please select both a blood group and an Rh factor.");
+                return;
+            }
+
+            const isAboCorrect = selectedAbo.value === state.patientAbo;
+            const isRhCorrect = selectedRh.value === state.patientRh;
+
+            if (isAboCorrect && isRhCorrect) {
+                showFeedback("success", `Correct! The patient's blood type is <strong>${state.patientAbo}${state.patientRh}</strong>. Excellent work.`);
+            } else {
+                let hint = "";
+                if (!isAboCorrect) {
+                    hint += "Review the ABO rules: Type A reacts with Anti-A, Type B with Anti-B, Type AB with both, and Type O with neither. ";
+                }
+                if (!isRhCorrect) {
+                    hint += "Review Rh rules: Rh+ reacts with Anti-Rh, Rh- does not. ";
+                }
+                showFeedback("error", `Incorrect diagnosis. ${hint}`);
+            }
+        }
+
+        function showFeedback(type, message) {
+            const feedbackArea = document.getElementById('feedback-area');
+            feedbackArea.classList.remove('hidden');
+            
+            // Clear previous color classes
+            feedbackArea.className = 'mt-4 p-4 rounded-lg text-sm border';
+            
+            if (type === 'success') {
+                feedbackArea.classList.add('bg-green-50', 'text-green-800', 'border-green-200');
+                feedbackArea.innerHTML = `<div class="flex items-start gap-2"><svg class="w-5 h-5 text-green-600 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg> <span>${message}</span></div>`;
+            } else if (type === 'error') {
+                feedbackArea.classList.add('bg-red-50', 'text-red-800', 'border-red-200');
+                feedbackArea.innerHTML = `<div class="flex items-start gap-2"><svg class="w-5 h-5 text-red-600 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg> <span>${message}</span></div>`;
+            } else if (type === 'warning') {
+                feedbackArea.classList.add('bg-yellow-50', 'text-yellow-800', 'border-yellow-200');
+                feedbackArea.innerHTML = `<div class="flex items-start gap-2"><svg class="w-5 h-5 text-yellow-600 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg> <span>${message}</span></div>`;
+            }
+        }
+
+        // Start app
+        window.onload = generatePatient;
+
+    </script>
+</body>
+</html>
