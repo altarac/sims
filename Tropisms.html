@@ -1,0 +1,831 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Plant Tropisms Simulator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <style>
+        body {
+            background-color: #f0fdf4;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow-x: hidden;
+        }
+        
+        #sim-container {
+            width: 100%;
+            max-width: 800px;
+            aspect-ratio: 1 / 1;
+            margin: 0 auto;
+            position: relative;
+            border-radius: 1rem;
+            overflow: hidden;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            background: linear-gradient(to bottom, #7dd3fc 0%, #bae6fd 50%, #78350f 50%, #451a03 100%);
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            cursor: crosshair;
+        }
+
+        /* Custom scrollbar for modal */
+        .scrollbar-hide::-webkit-scrollbar {
+            display: none;
+        }
+        .scrollbar-hide {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+
+        .pulse-btn {
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7); }
+            70% { transform: scale(1.05); box-shadow: 0 0 0 10px rgba(34, 197, 94, 0); }
+            100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+        }
+    </style>
+</head>
+<body class="text-slate-800 flex flex-col min-h-screen">
+
+    <!-- Header -->
+    <header class="bg-white shadow-sm py-4 px-6 mb-6">
+        <div class="max-w-5xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
+            <div class="flex items-center gap-3">
+                <i class="ph-fill ph-plant text-4xl text-green-600"></i>
+                <div>
+                    <h1 class="text-2xl font-bold text-slate-800 leading-tight">Tropism Simulator</h1>
+                    <p class="text-sm text-slate-500">Observe how plants respond to their environment</p>
+                </div>
+            </div>
+            <div class="flex gap-3">
+                <button id="playPauseBtn" onclick="togglePlayPause()" class="flex items-center gap-2 px-4 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg font-medium transition-colors border border-indigo-200">
+                    <i id="playPauseIcon" class="ph-fill ph-pause text-lg"></i> <span id="playPauseText">Pause</span>
+                </button>
+                <button onclick="resetSim()" class="flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-medium transition-colors">
+                    <i class="ph ph-arrow-counter-clockwise text-lg"></i> Reset Plant
+                </button>
+                <button onclick="openModal()" class="pulse-btn flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium shadow-md transition-all">
+                    <i class="ph-fill ph-magnifying-glass text-lg"></i> Reveal Tropisms
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-grow px-4 pb-8 w-full max-w-6xl mx-auto flex flex-col lg:flex-row gap-6">
+        
+        <!-- Controls Sidebar -->
+        <div class="w-full lg:w-64 flex flex-col gap-4">
+            <div class="bg-white rounded-xl p-5 shadow-sm border border-slate-100">
+                <h2 class="text-lg font-bold mb-4 flex items-center gap-2">
+                    <i class="ph-fill ph-sun text-yellow-500"></i> Light (Sun)
+                </h2>
+                <p class="text-sm text-slate-600 mb-3">Moves the primary light source to attract the shoot.</p>
+                <div class="grid grid-cols-2 gap-2">
+                    <button onclick="setSun('left')" class="btn-control px-3 py-2 bg-amber-50 hover:bg-amber-100 text-amber-700 rounded-md text-sm font-medium border border-amber-200 transition">Left Sky</button>
+                    <button onclick="setSun('right')" class="btn-control px-3 py-2 bg-amber-50 hover:bg-amber-100 text-amber-700 rounded-md text-sm font-medium border border-amber-200 transition">Right Sky</button>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl p-5 shadow-sm border border-slate-100">
+                <h2 class="text-lg font-bold mb-4 flex items-center gap-2">
+                    <i class="ph-fill ph-drop text-blue-500"></i> Water
+                </h2>
+                <p class="text-sm text-slate-600 mb-3">Adds a concentrated water source to attract roots.</p>
+                <div class="grid grid-cols-2 gap-2">
+                    <button onclick="addWaterBtn('left')" class="btn-control px-3 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-md text-sm font-medium border border-blue-200 transition">Left Soil</button>
+                    <button onclick="addWaterBtn('right')" class="btn-control px-3 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-md text-sm font-medium border border-blue-200 transition">Right Soil</button>
+                    <button onclick="addWaterBtn('deep')" class="col-span-2 px-3 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-md text-sm font-medium border border-blue-200 transition">Deep Soil</button>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl p-5 shadow-sm border border-slate-100">
+                <h2 class="text-lg font-bold mb-4 flex items-center gap-2">
+                    <i class="ph-fill ph-package text-stone-500"></i> Enclosure
+                </h2>
+                <p class="text-sm text-slate-600 mb-3">Place a box over the plant to test etiolation.</p>
+                <div class="grid grid-cols-2 gap-2">
+                    <button onclick="setBox('none')" id="btn-box-none" class="px-3 py-2 bg-stone-200 text-stone-800 rounded-md text-sm font-medium border border-stone-300 transition shadow-inner">No Box</button>
+                    <button onclick="setBox('solid')" id="btn-box-solid" class="px-3 py-2 bg-stone-50 hover:bg-stone-100 text-stone-700 rounded-md text-sm font-medium border border-stone-200 transition">Solid Box</button>
+                    <button onclick="setBox('hole_left')" id="btn-box-hole_left" class="px-3 py-2 bg-stone-50 hover:bg-stone-100 text-stone-700 rounded-md text-sm font-medium border border-stone-200 transition">Hole (Left)</button>
+                    <button onclick="setBox('hole_right')" id="btn-box-hole_right" class="px-3 py-2 bg-stone-50 hover:bg-stone-100 text-stone-700 rounded-md text-sm font-medium border border-stone-200 transition">Hole (Right)</button>
+                </div>
+            </div>
+
+            <div class="bg-slate-50 rounded-xl p-4 border border-slate-200 text-sm text-slate-600 mt-auto">
+                <i class="ph-fill ph-info block text-2xl text-slate-400 mb-2"></i>
+                <strong>Tip:</strong> You can also directly click on the Sky area to place the sun, or click on the Soil area to add water patches!
+            </div>
+        </div>
+
+        <!-- Simulation Canvas Area -->
+        <div class="flex-grow flex justify-center items-start">
+            <div id="sim-container">
+                <canvas id="simCanvas" width="800" height="800"></canvas>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Modal: Reveal Tropisms -->
+    <div id="tropismModal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 hidden opacity-0 transition-opacity duration-300 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto scrollbar-hide transform scale-95 transition-transform duration-300 relative" id="modalContent">
+            
+            <button onclick="closeModal()" class="absolute top-4 right-4 text-slate-400 hover:text-slate-600 transition-colors bg-slate-100 hover:bg-slate-200 rounded-full p-2">
+                <i class="ph ph-x text-xl"></i>
+            </button>
+
+            <div class="p-8">
+                <div class="flex items-center gap-3 mb-6">
+                    <div class="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center text-green-600">
+                        <i class="ph-fill ph-microscope text-2xl"></i>
+                    </div>
+                    <h2 class="text-3xl font-bold text-slate-800">Tropisms in Action</h2>
+                </div>
+                
+                <p class="text-slate-600 mb-8 text-lg">
+                    A tropism is a biological phenomenon indicating growth or turning movement of a biological organism, usually a plant, in response to an environmental stimulus.
+                </p>
+
+                <div class="space-y-6">
+                    <!-- Phototropism -->
+                    <div class="flex gap-4 p-4 rounded-xl bg-amber-50 border border-amber-100">
+                        <div class="text-amber-500 mt-1">
+                            <i class="ph-fill ph-sun text-3xl"></i>
+                        </div>
+                        <div>
+                            <h3 class="text-xl font-bold text-amber-900 flex items-center gap-2">
+                                Phototropism <span class="px-2 py-0.5 rounded text-xs bg-amber-200 text-amber-800 font-bold uppercase tracking-wider">Positive</span>
+                            </h3>
+                            <p class="text-amber-800/80 mt-1">
+                                Notice how the green stem bends and grows <strong>towards</strong> the light source. Plants produce a hormone called auxin that redistributes to the shaded side, causing those cells to elongate faster and bending the plant towards the light for maximum photosynthesis.
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Hydrotropism -->
+                    <div class="flex gap-4 p-4 rounded-xl bg-blue-50 border border-blue-100">
+                        <div class="text-blue-500 mt-1">
+                            <i class="ph-fill ph-drop text-3xl"></i>
+                        </div>
+                        <div>
+                            <h3 class="text-xl font-bold text-blue-900 flex items-center gap-2">
+                                Hydrotropism <span class="px-2 py-0.5 rounded text-xs bg-blue-200 text-blue-800 font-bold uppercase tracking-wider">Positive</span>
+                            </h3>
+                            <p class="text-blue-800/80 mt-1">
+                                Observe the roots seeking out the blue water patches. Roots will grow <strong>towards</strong> areas of higher moisture concentration. This survival mechanism ensures the plant can absorb the water necessary to live.
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Geotropism / Gravitropism -->
+                    <div class="flex gap-4 p-4 rounded-xl bg-slate-50 border border-slate-200">
+                        <div class="text-slate-500 mt-1">
+                            <i class="ph-fill ph-arrows-down-up text-3xl"></i>
+                        </div>
+                        <div>
+                            <h3 class="text-xl font-bold text-slate-800 flex flex-wrap items-center gap-2">
+                                Geotropism (Gravitropism)
+                            </h3>
+                            <div class="mt-2 space-y-3">
+                                <div>
+                                    <span class="inline-block px-2 py-0.5 rounded text-xs bg-slate-200 text-slate-700 font-bold uppercase tracking-wider mb-1">Negative (Stem)</span>
+                                    <p class="text-slate-600 text-sm">
+                                        Even without a light source, the stem naturally grows <strong>upwards</strong>, defying gravity to reach the surface.
+                                    </p>
+                                </div>
+                                <div>
+                                    <span class="inline-block px-2 py-0.5 rounded text-xs bg-slate-200 text-slate-700 font-bold uppercase tracking-wider mb-1">Positive (Roots)</span>
+                                    <p class="text-slate-600 text-sm">
+                                        Roots naturally grow <strong>downwards</strong> into the soil, pulled by gravity, which helps anchor the plant and reach deep nutrients.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-8 text-center">
+                    <button onclick="closeModal()" class="px-6 py-3 bg-slate-800 hover:bg-slate-900 text-white rounded-lg font-medium shadow transition-colors w-full sm:w-auto">
+                        Back to Simulation
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- Simulation State & Constants ---
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d');
+        const WIDTH = canvas.width;
+        const HEIGHT = canvas.height;
+        const GROUND_Y = HEIGHT / 2;
+
+        // Physics weights
+        const GRAVITY_SHOOT = { x: 0, y: -0.6 }; // Negative geotropism
+        const GRAVITY_ROOT = { x: 0, y: 0.8 };   // Positive geotropism
+        const PHOTO_STRENGTH = 2.0;              // Phototropism pull strength
+        const HYDRO_STRENGTH = 2.5;              // Hydrotropism pull strength
+        const GROW_SPEED_SHOOT = 0.3;            // Slowed down from 1.2
+        const GROW_SPEED_ROOT = 0.25;            // Slowed down from 1.0
+
+        // Box Enclosure Constants
+        const BOX_WIDTH = 160;
+        const BOX_HEIGHT = 220;
+        const BOX_LEFT = WIDTH/2 - BOX_WIDTH/2;
+        const BOX_RIGHT = WIDTH/2 + BOX_WIDTH/2;
+        const BOX_TOP = GROUND_Y - BOX_HEIGHT;
+        const HOLE_Y_TOP = GROUND_Y - 150;
+        const HOLE_Y_BOTTOM = GROUND_Y - 70;
+
+        let branches = [];
+        let leaves = [];
+        let sun = { active: false, x: WIDTH/2, y: 100, radius: 40 };
+        let waterPatches = [];
+        let animationId;
+        let isSimRunning = false;
+        let boxMode = 'none'; // 'none', 'solid', 'hole_left', 'hole_right'
+
+        // --- Initialization ---
+        function initSim() {
+            branches = [];
+            leaves = [];
+            
+            // Seed position
+            const startX = WIDTH / 2;
+            const startY = GROUND_Y;
+
+            // Initial Shoot
+            branches.push({
+                type: 'shoot',
+                points: [{ x: startX, y: startY - 5 }],
+                dx: 0,
+                dy: -1,
+                active: true,
+                length: 0,
+                maxLength: 400,
+                generation: 0,
+                thickness: 8
+            });
+
+            // Initial Root
+            branches.push({
+                type: 'root',
+                points: [{ x: startX, y: startY + 5 }],
+                dx: 0,
+                dy: 1,
+                active: true,
+                length: 0,
+                maxLength: 450,
+                generation: 0,
+                thickness: 4
+            });
+
+            sun.active = false;
+            waterPatches = [];
+            isSimRunning = false;
+            updatePlayPauseButton();
+            updateBoxButtons();
+
+            if(animationId) cancelAnimationFrame(animationId);
+            gameLoop();
+        }
+
+        // --- Core Logic ---
+        function update() {
+            if (!isSimRunning) return;
+
+            branches.forEach(b => {
+                if (!b.active) return;
+                
+                let head = b.points[b.points.length - 1];
+                let targetVector = { x: 0, y: 0 };
+
+                if (b.type === 'shoot') {
+                    // 1. Negative Geotropism (base upward pull)
+                    targetVector.x += GRAVITY_SHOOT.x;
+                    targetVector.y += GRAVITY_SHOOT.y;
+
+                    if (b.escapedBox === undefined) b.escapedBox = false;
+
+                    // A shoot has escaped if it is completely outside the outer bounds of the box
+                    if (!b.escapedBox && boxMode !== 'none') {
+                        if (head.x < BOX_LEFT - 10 || head.x > BOX_RIGHT + 10 || head.y < BOX_TOP - 10) {
+                            b.escapedBox = true;
+                        }
+                    }
+
+                    let isInsideBox = (head.x >= BOX_LEFT && head.x <= BOX_RIGHT && head.y >= BOX_TOP && head.y <= GROUND_Y);
+
+                    let pullToHole = false;
+                    let holeX = 0;
+                    let holeY = (HOLE_Y_TOP + HOLE_Y_BOTTOM) / 2;
+
+                    if (boxMode !== 'none' && !b.escapedBox) {
+                        if (boxMode === 'hole_left') {
+                            pullToHole = true;
+                            holeX = BOX_LEFT - 40; // Pull firmly outside the hole
+                        } else if (boxMode === 'hole_right') {
+                            pullToHole = true;
+                            holeX = BOX_RIGHT + 40; // Pull firmly outside the hole
+                        }
+                    }
+
+                    // 2. Positive Phototropism (pull towards sun or hole)
+                    if (boxMode === 'solid' && isInsideBox) {
+                        // Etiolation - completely dark, ignore sun.
+                    } else if (pullToHole) {
+                        let dx = holeX - head.x;
+                        let dy = holeY - head.y;
+                        let dist = Math.hypot(dx, dy);
+                        if (dist > 0) {
+                            targetVector.x += (dx / dist) * PHOTO_STRENGTH * 3.0; // Strong pull to escape hole
+                            targetVector.y += (dy / dist) * PHOTO_STRENGTH * 3.0;
+                        }
+                    } else if (sun.active) {
+                        let dx = sun.x - head.x;
+                        let dy = sun.y - head.y;
+                        let dist = Math.hypot(dx, dy);
+                        if (dist > 0) {
+                            targetVector.x += (dx / dist) * PHOTO_STRENGTH;
+                            targetVector.y += (dy / dist) * PHOTO_STRENGTH;
+                        }
+                    }
+                } 
+                else if (b.type === 'root') {
+                    // 1. Positive Geotropism (base downward pull)
+                    targetVector.x += GRAVITY_ROOT.x;
+                    targetVector.y += GRAVITY_ROOT.y;
+
+                    // 2. Positive Hydrotropism (pull towards nearest water)
+                    let strongestWaterPull = { x: 0, y: 0 };
+                    waterPatches.forEach(w => {
+                        let dx = w.x - head.x;
+                        let dy = w.y - head.y;
+                        let dist = Math.hypot(dx, dy);
+                        
+                        // Roots detect water within a radius
+                        if (dist > 0 && dist < 350) {
+                            // Inverse square-like law for attraction strength
+                            let strength = Math.pow((1 - dist/350), 2) * w.amount * HYDRO_STRENGTH;
+                            strongestWaterPull.x += (dx / dist) * strength;
+                            strongestWaterPull.y += (dy / dist) * strength;
+                        }
+                    });
+                    
+                    targetVector.x += strongestWaterPull.x;
+                    targetVector.y += strongestWaterPull.y;
+
+                    // Root Branching logic (lateral roots)
+                    if (Math.random() < 0.015 && b.generation < 2 && b.length > 30) {
+                        spawnRootBranch(b, head);
+                    }
+                }
+
+                // Normalize target vector
+                let tMag = Math.hypot(targetVector.x, targetVector.y);
+                if (tMag > 0) {
+                    targetVector.x /= tMag;
+                    targetVector.y /= tMag;
+                }
+
+                // Interpolate current direction towards target for smooth curving
+                let interpolationFactor = b.type === 'shoot' ? 0.08 : 0.05;
+                b.dx = b.dx * (1 - interpolationFactor) + targetVector.x * interpolationFactor;
+                b.dy = b.dy * (1 - interpolationFactor) + targetVector.y * interpolationFactor;
+
+                // Re-normalize current direction
+                let bMag = Math.hypot(b.dx, b.dy);
+                if (bMag > 0) {
+                    b.dx /= bMag;
+                    b.dy /= bMag;
+                }
+
+                // Move forward
+                let speed = b.type === 'shoot' ? (boxMode === 'solid' ? GROW_SPEED_SHOOT * 1.8 : GROW_SPEED_SHOOT) : GROW_SPEED_ROOT;
+                // Slow down growth as it reaches max length
+                let lengthFactor = 1 - Math.pow(b.length / b.maxLength, 3);
+                speed *= Math.max(0.1, lengthFactor);
+
+                let newHead = { x: head.x + b.dx * speed, y: head.y + b.dy * speed };
+
+                // --- Box Collision Logic ---
+                if (boxMode !== 'none' && b.type === 'shoot') {
+                    let canUseLeftHole = (boxMode === 'hole_left' && !b.escapedBox);
+                    let canUseRightHole = (boxMode === 'hole_right' && !b.escapedBox);
+
+                    // Left Wall
+                    let hitLeftInner = false;
+                    let hitLeftOuter = false;
+                    
+                    if (head.x >= BOX_LEFT && newHead.x < BOX_LEFT) {
+                        if (newHead.y >= BOX_TOP) hitLeftInner = true;
+                    } 
+                    else if (head.x <= BOX_LEFT - 10 && newHead.x > BOX_LEFT - 10) {
+                        if (newHead.y >= BOX_TOP - 10) hitLeftOuter = true;
+                    }
+
+                    if (hitLeftInner || hitLeftOuter) {
+                        if (canUseLeftHole && newHead.y >= HOLE_Y_TOP && newHead.y <= HOLE_Y_BOTTOM) {
+                            // Let it pass through
+                        } else {
+                            newHead.x = hitLeftInner ? BOX_LEFT : BOX_LEFT - 10;
+                            b.dx = 0;
+                        }
+                    }
+
+                    // Right Wall
+                    let hitRightInner = false;
+                    let hitRightOuter = false;
+
+                    if (head.x <= BOX_RIGHT && newHead.x > BOX_RIGHT) {
+                        if (newHead.y >= BOX_TOP) hitRightInner = true;
+                    } 
+                    else if (head.x >= BOX_RIGHT + 10 && newHead.x < BOX_RIGHT + 10) {
+                        if (newHead.y >= BOX_TOP - 10) hitRightOuter = true;
+                    }
+
+                    if (hitRightInner || hitRightOuter) {
+                        if (canUseRightHole && newHead.y >= HOLE_Y_TOP && newHead.y <= HOLE_Y_BOTTOM) {
+                            // Let it pass through
+                        } else {
+                            newHead.x = hitRightInner ? BOX_RIGHT : BOX_RIGHT + 10;
+                            b.dx = 0;
+                        }
+                    }
+
+                    // Top Wall
+                    let hitTop = false;
+                    // Hitting inner ceiling from below
+                    if (head.y >= BOX_TOP && newHead.y < BOX_TOP) {
+                        if (newHead.x > BOX_LEFT - 10 && newHead.x < BOX_RIGHT + 10) {
+                            newHead.y = BOX_TOP; hitTop = true;
+                        }
+                    } 
+                    // Hitting outer ceiling from above
+                    else if (head.y <= BOX_TOP - 10 && newHead.y > BOX_TOP - 10) {
+                        if (newHead.x > BOX_LEFT - 10 && newHead.x < BOX_RIGHT + 10) {
+                            newHead.y = BOX_TOP - 10; hitTop = true;
+                        }
+                    }
+                    
+                    if (hitTop) {
+                        b.dy = 0;
+                        if (boxMode === 'solid' && head.y >= BOX_TOP) b.active = false;
+                    }
+                }
+
+                b.points.push(newHead);
+                b.length += speed;
+
+                // Spawning Leaves for shoots
+                if (b.type === 'shoot' && b.length > 20) {
+                    if (boxMode === 'solid') {
+                        // Etiolation: small pale leaves spaced further apart
+                        if (b.length % 60 < speed) {
+                            leaves.push({
+                                x: newHead.x, y: newHead.y,
+                                angle: Math.atan2(b.dy, b.dx) + (Math.random() > 0.5 ? 1 : -1) * (Math.PI/4 + Math.random()*0.3),
+                                scale: 0.1, targetScale: 0.3 + Math.random()*0.2,
+                                isPale: true
+                            });
+                        }
+                    } else {
+                        // Normal green leaves
+                        if (b.length % 35 < speed) {
+                            leaves.push({
+                                x: newHead.x, y: newHead.y,
+                                angle: Math.atan2(b.dy, b.dx) + (Math.random() > 0.5 ? 1 : -1) * (Math.PI/4 + Math.random()*0.3),
+                                scale: 0.1, targetScale: 1.0 + Math.random()*0.5,
+                                isPale: false
+                            });
+                        }
+                    }
+                }
+
+                // Stop conditions
+                if (b.length >= b.maxLength || 
+                    newHead.x < 0 || newHead.x > WIDTH || 
+                    newHead.y < 0 || newHead.y > HEIGHT ||
+                    (b.type === 'shoot' && newHead.y > GROUND_Y) || // Shoots can't go underground
+                    (b.type === 'root' && newHead.y < GROUND_Y)) {  // Roots can't go above ground
+                    b.active = false;
+                }
+            });
+
+            // Animate leaves growing
+            leaves.forEach(leaf => {
+                if (leaf.scale < leaf.targetScale) {
+                    leaf.scale += 0.02;
+                }
+            });
+
+            // Deplete water slightly over time if root is near (visual effect of absorption)
+            waterPatches.forEach(w => {
+                if(w.amount > 0.1) {
+                    // check if any root tip is inside the water
+                    for(let b of branches) {
+                        if(b.type === 'root' && b.active) {
+                            let head = b.points[b.points.length-1];
+                            let dist = Math.hypot(w.x - head.x, w.y - head.y);
+                            if(dist < w.radius) {
+                                w.amount -= 0.005;
+                                w.radius -= 0.05;
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function spawnRootBranch(parentBranch, headPos) {
+            let angleOffset = (Math.random() * 0.8 + 0.4) * (Math.random() > 0.5 ? 1 : -1);
+            let currentAngle = Math.atan2(parentBranch.dy, parentBranch.dx);
+            let newAngle = currentAngle + angleOffset;
+
+            branches.push({
+                type: 'root',
+                points: [{ x: headPos.x, y: headPos.y }],
+                dx: Math.cos(newAngle),
+                dy: Math.sin(newAngle),
+                active: true,
+                length: 0,
+                maxLength: parentBranch.maxLength * 0.6 * (Math.random() * 0.4 + 0.8),
+                generation: parentBranch.generation + 1,
+                thickness: parentBranch.thickness * 0.6
+            });
+        }
+
+        // --- Rendering ---
+        function draw() {
+            ctx.clearRect(0, 0, WIDTH, HEIGHT);
+
+            // Background drawn by CSS gradient to save canvas operations, but we draw specific elements here.
+            // Draw Ground Line / Separation
+            ctx.fillStyle = 'rgba(0,0,0,0.1)';
+            ctx.fillRect(0, GROUND_Y, WIDTH, HEIGHT / 2);
+            
+            // Draw Box Enclosure
+            if (boxMode !== 'none') {
+                ctx.fillStyle = '#78716c'; // stone-500
+                
+                // Left Wall
+                if (boxMode === 'hole_left') {
+                    ctx.fillRect(BOX_LEFT - 10, BOX_TOP, 10, HOLE_Y_TOP - BOX_TOP);
+                    ctx.fillRect(BOX_LEFT - 10, HOLE_Y_BOTTOM, 10, GROUND_Y - HOLE_Y_BOTTOM);
+                } else {
+                    ctx.fillRect(BOX_LEFT - 10, BOX_TOP, 10, GROUND_Y - BOX_TOP);
+                }
+                
+                // Right Wall
+                if (boxMode === 'hole_right') {
+                    ctx.fillRect(BOX_RIGHT, BOX_TOP, 10, HOLE_Y_TOP - BOX_TOP);
+                    ctx.fillRect(BOX_RIGHT, HOLE_Y_BOTTOM, 10, GROUND_Y - HOLE_Y_BOTTOM);
+                } else {
+                    ctx.fillRect(BOX_RIGHT, BOX_TOP, 10, GROUND_Y - BOX_TOP);
+                }
+
+                // Top Wall
+                ctx.fillRect(BOX_LEFT - 10, BOX_TOP - 10, BOX_WIDTH + 20, 10);
+            }
+
+            // Draw Sun
+            if (sun.active) {
+                ctx.save();
+                ctx.translate(sun.x, sun.y);
+                
+                // Glow
+                let glow = ctx.createRadialGradient(0, 0, sun.radius/2, 0, 0, sun.radius * 2.5);
+                glow.addColorStop(0, 'rgba(253, 224, 71, 0.8)'); // yellow-300
+                glow.addColorStop(1, 'rgba(253, 224, 71, 0)');
+                ctx.fillStyle = glow;
+                ctx.beginPath();
+                ctx.arc(0, 0, sun.radius * 2.5, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Core
+                ctx.fillStyle = '#fbbf24'; // amber-400
+                ctx.beginPath();
+                ctx.arc(0, 0, sun.radius, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Rays
+                ctx.strokeStyle = '#f59e0b'; // amber-500
+                ctx.lineWidth = 4;
+                ctx.lineCap = 'round';
+                const time = Date.now() / 1000;
+                for(let i=0; i<8; i++) {
+                    let angle = (i * Math.PI / 4) + (time * 0.2);
+                    ctx.beginPath();
+                    ctx.moveTo(Math.cos(angle) * (sun.radius + 10), Math.sin(angle) * (sun.radius + 10));
+                    ctx.lineTo(Math.cos(angle) * (sun.radius + 25), Math.sin(angle) * (sun.radius + 25));
+                    ctx.stroke();
+                }
+                ctx.restore();
+            }
+
+            // Draw Water
+            waterPatches.forEach(w => {
+                if(w.radius <= 0) return;
+                ctx.save();
+                ctx.translate(w.x, w.y);
+                let waterGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, w.radius);
+                waterGrad.addColorStop(0, `rgba(56, 189, 248, ${0.7 * w.amount})`); // sky-400
+                waterGrad.addColorStop(1, 'rgba(56, 189, 248, 0)');
+                ctx.fillStyle = waterGrad;
+                ctx.beginPath();
+                ctx.arc(0, 0, w.radius, 0, Math.PI*2);
+                ctx.fill();
+                ctx.restore();
+            });
+
+            // Draw Seed
+            ctx.fillStyle = '#451a03'; // dark brown
+            ctx.beginPath();
+            ctx.ellipse(WIDTH/2, GROUND_Y, 12, 8, 0, 0, Math.PI*2);
+            ctx.fill();
+
+            // Draw Roots
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            branches.filter(b => b.type === 'root').forEach(b => {
+                if (b.points.length < 2) return;
+                ctx.beginPath();
+                ctx.moveTo(b.points[0].x, b.points[0].y);
+                for(let i=1; i<b.points.length; i++) {
+                    ctx.lineTo(b.points[i].x, b.points[i].y);
+                }
+                ctx.strokeStyle = '#d4d4d8'; // zinc-300 (pale root color)
+                ctx.lineWidth = Math.max(0.5, b.thickness * (1 - (b.length / (b.maxLength*1.5))));
+                ctx.stroke();
+            });
+
+            // Draw Shoots
+            branches.filter(b => b.type === 'shoot').forEach(b => {
+                if (b.points.length < 2) return;
+                ctx.beginPath();
+                ctx.moveTo(b.points[0].x, b.points[0].y);
+                for(let i=1; i<b.points.length; i++) {
+                    ctx.lineTo(b.points[i].x, b.points[i].y);
+                }
+                ctx.strokeStyle = boxMode === 'solid' ? '#d9f99d' : '#16a34a'; // pale green vs green
+                ctx.lineWidth = b.thickness;
+                ctx.stroke();
+            });
+
+            // Draw Leaves
+            leaves.forEach(leaf => {
+                ctx.save();
+                ctx.translate(leaf.x, leaf.y);
+                ctx.rotate(leaf.angle);
+                ctx.scale(leaf.scale, leaf.scale);
+                
+                ctx.fillStyle = leaf.isPale ? '#fef08a' : '#22c55e'; // yellow-200 or green-500
+                ctx.beginPath();
+                // Draw a leaf shape
+                ctx.moveTo(0, 0);
+                ctx.quadraticCurveTo(15, -15, 30, 0);
+                ctx.quadraticCurveTo(15, 15, 0, 0);
+                ctx.fill();
+                
+                // Leaf vein
+                ctx.strokeStyle = leaf.isPale ? '#ca8a04' : '#15803d'; // yellow-600 or green-700
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(0,0);
+                ctx.lineTo(28, 0);
+                ctx.stroke();
+
+                ctx.restore();
+            });
+        }
+
+        function gameLoop() {
+            update();
+            draw();
+            animationId = requestAnimationFrame(gameLoop);
+        }
+
+        // --- Interaction Handlers ---
+        function resetSim() {
+            initSim();
+        }
+
+        function setBox(mode) {
+            boxMode = mode;
+            initSim();
+        }
+
+        function updateBoxButtons() {
+            const modes = ['none', 'solid', 'hole_left', 'hole_right'];
+            modes.forEach(m => {
+                const btn = document.getElementById('btn-box-' + m);
+                if (!btn) return;
+                if (m === boxMode) {
+                    btn.className = 'px-3 py-2 bg-stone-200 text-stone-800 rounded-md text-sm font-medium border border-stone-400 transition shadow-inner';
+                } else {
+                    btn.className = 'px-3 py-2 bg-stone-50 hover:bg-stone-100 text-stone-700 rounded-md text-sm font-medium border border-stone-200 transition';
+                }
+            });
+        }
+
+        function togglePlayPause() {
+            isSimRunning = !isSimRunning;
+            updatePlayPauseButton();
+        }
+
+        function updatePlayPauseButton() {
+            const icon = document.getElementById('playPauseIcon');
+            const text = document.getElementById('playPauseText');
+            if (isSimRunning) {
+                icon.className = 'ph-fill ph-pause text-lg';
+                text.innerText = 'Pause';
+            } else {
+                icon.className = 'ph-fill ph-play text-lg';
+                text.innerText = 'Play';
+            }
+        }
+
+        function setSun(positionOrX, y = 100) {
+            sun.active = true;
+            if (typeof positionOrX === 'string') {
+                if (positionOrX === 'left') sun.x = WIDTH * 0.15;
+                if (positionOrX === 'right') sun.x = WIDTH * 0.85;
+                sun.y = 40; // Placed much higher in the sky (closer to y=0)
+            } else {
+                sun.x = positionOrX;
+                sun.y = y;
+            }
+        }
+
+        function addWaterBtn(pos) {
+            if (pos === 'left') addWaterObj(WIDTH * 0.25, HEIGHT * 0.75);
+            if (pos === 'right') addWaterObj(WIDTH * 0.75, HEIGHT * 0.75);
+            if (pos === 'deep') addWaterObj(WIDTH * 0.5, HEIGHT * 0.9);
+        }
+
+        function addWaterObj(x, y) {
+            waterPatches.push({
+                x: x,
+                y: y,
+                radius: 100,
+                amount: 1.0 // Strength multiplier
+            });
+        }
+
+        // Canvas Click Listener
+        canvas.addEventListener('click', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            // Calculate scale ratio to map screen coordinates to canvas internal (800x800) coords
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            
+            const x = (e.clientX - rect.left) * scaleX;
+            const y = (e.clientY - rect.top) * scaleY;
+
+            if (y < GROUND_Y) {
+                // Clicked in sky -> Move Sun
+                setSun(x, y);
+            } else {
+                // Clicked in soil -> Add Water
+                addWaterObj(x, y);
+            }
+        });
+
+        // --- Modal Handlers ---
+        const modal = document.getElementById('tropismModal');
+        const modalContent = document.getElementById('modalContent');
+
+        function openModal() {
+            modal.classList.remove('hidden');
+            // Small delay to allow display:block to apply before animating opacity
+            setTimeout(() => {
+                modal.classList.remove('opacity-0');
+                modalContent.classList.remove('scale-95');
+            }, 10);
+        }
+
+        function closeModal() {
+            modal.classList.add('opacity-0');
+            modalContent.classList.add('scale-95');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+            }, 300); // match duration-300
+        }
+
+        // Start sim on load
+        window.onload = () => {
+            initSim();
+        };
+
+    </script>
+</body>
+</html>
