@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Cell Division Simulator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            background-color: #f0fdfa; /* Light teal background */
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            overflow-x: hidden;
+        }
+        
+        /* Custom range slider styling */
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 28px;
+            width: 28px;
+            border-radius: 50%;
+            background: #0d9488;
+            cursor: pointer;
+            margin-top: -10px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            transition: transform 0.1s ease;
+        }
+        input[type=range]::-webkit-slider-thumb:hover {
+            transform: scale(1.1);
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 8px;
+            cursor: pointer;
+            background: #ccfbf1;
+            border-radius: 4px;
+            border: 1px solid #99f6e4;
+        }
+        
+        canvas {
+            background: white;
+            box-shadow: inset 0 0 40px rgba(0,0,0,0.03);
+            border-radius: 1rem;
+            max-width: 100%;
+            height: auto;
+        }
+
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.5);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center py-8 px-4">
+
+    <!-- Header & Controls -->
+    <div class="w-full max-w-4xl flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
+        <div>
+            <h1 class="text-3xl font-extrabold text-teal-900 tracking-tight">Cell Division Simulator</h1>
+            <p class="text-teal-700 font-medium mt-1">Drag the slider to animate the process</p>
+        </div>
+        
+        <div class="flex bg-teal-100 p-1 rounded-xl shadow-inner">
+            <button id="btn-mitosis" class="px-6 py-2 rounded-lg font-bold text-sm transition-all duration-300 bg-white text-teal-800 shadow-md">
+                Mitosis
+            </button>
+            <button id="btn-meiosis" class="px-6 py-2 rounded-lg font-bold text-sm transition-all duration-300 text-teal-600 hover:text-teal-800">
+                Meiosis
+            </button>
+        </div>
+    </div>
+
+    <!-- Timeline Slider (Moved to top) -->
+    <div class="w-full max-w-4xl mb-6 glass-panel p-6 rounded-2xl">
+        <div class="flex justify-between text-xs font-bold text-teal-600 mb-2 px-1 uppercase tracking-wider">
+            <span>Start</span>
+            <span>Completion</span>
+        </div>
+        <input type="range" id="timeSlider" min="0" max="100" value="0" class="w-full">
+    </div>
+
+    <!-- Main Canvas Area -->
+    <div class="w-full max-w-4xl flex flex-col gap-4">
+        <canvas id="simCanvas" width="800" height="500" class="w-full border border-teal-100"></canvas>
+        
+        <!-- Info Panel (Moved below canvas to prevent overlap) -->
+        <div id="infoBox" class="glass-panel w-full p-5 rounded-2xl transition-all duration-300 min-h-[130px]">
+            <h2 id="stageTitle" class="text-xl font-bold text-teal-900 mb-2 border-b border-teal-100 pb-2">Prophase</h2>
+            <p id="stageDesc" class="text-gray-700 text-sm leading-relaxed">Chromosomes condense and become visible. The nuclear envelope breaks down.</p>
+        </div>
+    </div>
+
+    <script>
+        // --- State ---
+        let mode = 'mitosis';
+        let targetProgress = 0;
+        let currentProgress = 0;
+
+        // --- DOM Elements ---
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d');
+        const slider = document.getElementById('timeSlider');
+        const btnMitosis = document.getElementById('btn-mitosis');
+        const btnMeiosis = document.getElementById('btn-meiosis');
+        const stageTitle = document.getElementById('stageTitle');
+        const stageDesc = document.getElementById('stageDesc');
+
+        // High DPI Canvas Scaling for crisp rendering
+        function resizeCanvas() {
+            const rect = canvas.getBoundingClientRect();
+            const dpr = window.devicePixelRatio || 1;
+            canvas.width = 800 * dpr;
+            canvas.height = 500 * dpr;
+            ctx.scale(dpr, dpr);
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        // --- Data Definitions ---
+        const infoData = {
+            mitosis: [
+                { limit: 25, title: "Prophase", text: "Chromatin condenses into visible chromosomes. The nuclear envelope begins to break down, and spindle fibers form at opposite poles." },
+                { limit: 50, title: "Metaphase", text: "Chromosomes align perfectly along the cell equator (metaphase plate). Spindle fibers attach to the centromeres." },
+                { limit: 75, title: "Anaphase", text: "Sister chromatids are pulled apart to opposite poles of the cell by the contracting spindle fibers." },
+                { limit: 101, title: "Telophase & Cytokinesis", text: "Chromosomes arrive at opposite poles, new nuclear envelopes form, and the cell membrane pinches in to divide the cytoplasm into two identical diploid cells." }
+            ],
+            meiosis: [
+                { limit: 15, title: "Prophase I", text: "Homologous chromosomes pair up (synapsis) and crossing-over occurs, exchanging genetic material. Nuclear envelope dissolves." },
+                { limit: 30, title: "Metaphase I", text: "Pairs of homologous chromosomes align along the equator of the cell." },
+                { limit: 45, title: "Anaphase I", text: "Homologous chromosomes are pulled apart to opposite poles. Notice that sister chromatids remain attached." },
+                { limit: 55, title: "Telophase I", text: "The cell divides into two haploid cells. Each cell has half the number of chromosomes, but they still consist of two chromatids." },
+                { limit: 65, title: "Prophase II", text: "In both new cells, a new spindle apparatus forms around the chromosomes." },
+                { limit: 75, title: "Metaphase II", text: "Chromosomes line up single-file along the equator of the two new cells." },
+                { limit: 90, title: "Anaphase II", text: "Sister chromatids are finally pulled apart to opposite poles in both cells." },
+                { limit: 101, title: "Telophase II & Cytokinesis", text: "Nuclear envelopes reform and the cells divide again, resulting in four genetically distinct haploid gametes (sperm/egg cells)." }
+            ]
+        };
+
+        // --- Helper Math Functions ---
+        const lerp = (a, b, t) => a + (b - a) * t;
+        const clamp = (val, min, max) => Math.max(min, Math.min(max, val));
+        const getT = (p, start, end) => clamp((p - start) / (end - start), 0, 1);
+
+        // --- Drawing Primitives ---
+        
+        function drawPeanutCell(ctx, x1, y1, x2, y2, radius, alpha) {
+            const dx = x2 - x1;
+            const dy = y2 - y1;
+            const dist = Math.sqrt(dx*dx + dy*dy);
+
+            ctx.fillStyle = `rgba(204, 251, 241, ${alpha})`; // teal-100
+            ctx.strokeStyle = `rgba(20, 184, 166, ${alpha + 0.4})`; // teal-500
+            ctx.lineWidth = 4;
+
+            if (dist < 0.1) {
+                ctx.beginPath(); ctx.arc(x1, y1, radius, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+                return;
+            }
+
+            if (dist >= radius * 2.1) {
+                ctx.beginPath(); ctx.arc(x1, y1, radius, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+                ctx.beginPath(); ctx.arc(x2, y2, radius, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+                return;
+            }
+
+            // Peanut dynamic shape
+            const angle = Math.atan2(dy, dx);
+            const pinchRadius = radius - (dist * 0.4);
+
+            const p1x = x1 + radius * Math.cos(angle + Math.PI/2);
+            const p1y = y1 + radius * Math.sin(angle + Math.PI/2);
+            const p2x = x2 + radius * Math.cos(angle + Math.PI/2);
+            const p2y = y2 + radius * Math.sin(angle + Math.PI/2);
+
+            const p3x = x2 + radius * Math.cos(angle - Math.PI/2);
+            const p3y = y2 + radius * Math.sin(angle - Math.PI/2);
+            const p4x = x1 + radius * Math.cos(angle - Math.PI/2);
+            const p4y = y1 + radius * Math.sin(angle - Math.PI/2);
+
+            const cx = (x1 + x2) / 2;
+            const cy = (y1 + y2) / 2;
+
+            const cp1x = cx + pinchRadius * Math.cos(angle + Math.PI/2);
+            const cp1y = cy + pinchRadius * Math.sin(angle + Math.PI/2);
+            const cp2x = cx + pinchRadius * Math.cos(angle - Math.PI/2);
+            const cp2y = cy + pinchRadius * Math.sin(angle - Math.PI/2);
+
+            ctx.beginPath();
+            ctx.arc(x1, y1, radius, angle + Math.PI/2, angle - Math.PI/2, false);
+            ctx.quadraticCurveTo(cp2x, cp2y, p3x, p3y);
+            ctx.arc(x2, y2, radius, angle - Math.PI/2, angle + Math.PI/2, false);
+            ctx.quadraticCurveTo(cp1x, cp1y, p1x, p1y);
+            ctx.closePath();
+            ctx.fill(); ctx.stroke();
+        }
+
+        function drawChromosome(ctx, x, y, type, color, scale = 1) {
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.scale(scale, scale);
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 6;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+
+            ctx.beginPath();
+            if (type === 'X') {
+                ctx.moveTo(-8, -16); ctx.lineTo(8, 16);
+                ctx.moveTo(8, -16); ctx.lineTo(-8, 16);
+            } else if (type === '<') { 
+                ctx.moveTo(8, -15); ctx.lineTo(-4, 0); ctx.lineTo(8, 15);
+            } else if (type === '>') { 
+                ctx.moveTo(-8, -15); ctx.lineTo(4, 0); ctx.lineTo(-8, 15);
+            } else if (type === 'v') { 
+                ctx.moveTo(-12, -10); ctx.lineTo(0, 5); ctx.lineTo(12, -10);
+            } else if (type === '^') { 
+                ctx.moveTo(-12, 10); ctx.lineTo(0, -5); ctx.lineTo(12, 10);
+            }
+            ctx.stroke();
+
+            // Centromere
+            ctx.fillStyle = '#fef08a'; // yellow
+            ctx.beginPath();
+            if (type === 'X') ctx.arc(0, 0, 3, 0, Math.PI*2);
+            else if (type === '<') ctx.arc(-4, 0, 3, 0, Math.PI*2);
+            else if (type === '>') ctx.arc(4, 0, 3, 0, Math.PI*2);
+            else if (type === 'v') ctx.arc(0, 5, 3, 0, Math.PI*2);
+            else if (type === '^') ctx.arc(0, -5, 3, 0, Math.PI*2);
+            ctx.fill();
+
+            ctx.restore();
+        }
+
+        function drawSpindle(ctx, x1, y1, x2, y2, alpha) {
+            if (alpha <= 0) return;
+            ctx.beginPath();
+            ctx.moveTo(x1, y1);
+            ctx.lineTo(x2, y2);
+            ctx.strokeStyle = `rgba(251, 191, 36, ${alpha * 0.6})`; // amber
+            ctx.lineWidth = 1.5;
+            ctx.setLineDash([4, 4]);
+            ctx.stroke();
+            ctx.setLineDash([]);
+        }
+
+        function drawNucleus(ctx, x, y, radius, alpha) {
+            if (alpha <= 0) return;
+            ctx.beginPath();
+            ctx.arc(x, y, radius, 0, Math.PI * 2);
+            ctx.fillStyle = `rgba(248, 113, 113, ${alpha * 0.1})`;
+            ctx.fill();
+            ctx.strokeStyle = `rgba(239, 68, 68, ${alpha * 0.5})`;
+            ctx.setLineDash([5, 5]);
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            ctx.setLineDash([]);
+        }
+
+        // --- Core Simulation Logic ---
+
+        function drawMitosis(p) {
+            const cx = 400, cy = 250, r = 100;
+            const tPro = getT(p, 0, 25);
+            const tMeta = getT(p, 25, 50);
+            const tAna = getT(p, 50, 75);
+            const tTelo = getT(p, 75, 100);
+
+            // Cell separation stretches concurrently with anaphase
+            const tCellSep = getT(p, 50, 100);
+            const cellSep = lerp(0, 170, tCellSep);
+
+            // 1. Cell Membrane
+            drawPeanutCell(ctx, cx - cellSep, cy, cx + cellSep, cy, r, 0.4);
+
+            // 2. Nucleus
+            const nucAlpha = 1 - tPro + tTelo;
+            if (tTelo > 0) {
+                drawNucleus(ctx, cx - cellSep, cy, r * 0.6, tTelo);
+                drawNucleus(ctx, cx + cellSep, cy, r * 0.6, tTelo);
+            } else {
+                drawNucleus(ctx, cx, cy, r * 0.6, nucAlpha);
+            }
+
+            // 3. Spindles & Poles
+            const poleDist = lerp(0, 90, tPro) + cellSep;
+            const poleL = cx - poleDist, poleR = cx + poleDist;
+            const spindleAlpha = lerp(0, 1, tPro) - lerp(0, 1, tTelo);
+
+            // 4. Chromosomes Data
+            const chromes = [
+                { sx: cx-30, sy: cy-30, ay: cy-45, c: '#ef4444' }, // Red
+                { sx: cx+20, sy: cy-15, ay: cy-15, c: '#3b82f6' }, // Blue
+                { sx: cx-10, sy: cy+20, ay: cy+15, c: '#ef4444' }, // Red
+                { sx: cx+25, sy: cy+30, ay: cy+45, c: '#3b82f6' }  // Blue
+            ];
+
+            chromes.forEach(c => {
+                const x = lerp(c.sx, cx, tPro);
+                const y = lerp(c.sy, c.ay, tPro);
+
+                const tChromSep = getT(p, 50, 90);
+                const sep = lerp(0, 160, tChromSep);
+
+                if (tAna > 0) {
+                    drawChromosome(ctx, x - sep, y, '<', c.c);
+                    drawChromosome(ctx, x + sep, y, '>', c.c);
+                    drawSpindle(ctx, poleL, cy, x - sep, y, spindleAlpha);
+                    drawSpindle(ctx, poleR, cy, x + sep, y, spindleAlpha);
+                } else {
+                    drawChromosome(ctx, x, y, 'X', c.c);
+                    if (tPro > 0.3) {
+                        drawSpindle(ctx, poleL, cy, x, y, spindleAlpha);
+                        drawSpindle(ctx, poleR, cy, x, y, spindleAlpha);
+                    }
+                }
+            });
+        }
+
+        function drawMeiosis(p) {
+            const cx = 400, cy = 250, r = 90;
+            const tPro1 = getT(p, 0, 15), tMeta1 = getT(p, 15, 30), tAna1 = getT(p, 30, 45), tTelo1 = getT(p, 45, 55);
+            const tPro2 = getT(p, 55, 65), tMeta2 = getT(p, 65, 75), tAna2 = getT(p, 75, 90), tTelo2 = getT(p, 90, 100);
+
+            // 1. Cells
+            const tCellSep1 = getT(p, 30, 55); 
+            const sepX = lerp(0, 180, tCellSep1);
+            
+            const tCellSep2 = getT(p, 75, 100); 
+            const sepY = lerp(0, 120, tCellSep2); 
+
+            if (tCellSep2 === 0) {
+                drawPeanutCell(ctx, cx - sepX, cy, cx + sepX, cy, r, 0.4);
+            } else {
+                drawPeanutCell(ctx, cx - sepX, cy - sepY, cx - sepX, cy + sepY, r * 0.85, 0.4);
+                drawPeanutCell(ctx, cx + sepX, cy - sepY, cx + sepX, cy + sepY, r * 0.85, 0.4);
+            }
+
+            // 2. Nuclei
+            const nucAlpha1 = 1 - tPro1;
+            const nucAlphaTemp = tTelo1 - tPro2; // Reform then dissolve
+            const nucAlphaFinal = tTelo2;
+
+            if (p < 55) {
+                if (tTelo1 > 0) {
+                    drawNucleus(ctx, cx - sepX, cy, r*0.6, nucAlphaTemp);
+                    drawNucleus(ctx, cx + sepX, cy, r*0.6, nucAlphaTemp);
+                } else {
+                    drawNucleus(ctx, cx, cy, r*0.6, nucAlpha1);
+                }
+            } else {
+                if (nucAlphaTemp > 0) {
+                     drawNucleus(ctx, cx - sepX, cy, r*0.6, nucAlphaTemp);
+                     drawNucleus(ctx, cx + sepX, cy, r*0.6, nucAlphaTemp);
+                }
+                if (nucAlphaFinal > 0) {
+                    drawNucleus(ctx, cx - sepX, cy - sepY, r*0.5, nucAlphaFinal);
+                    drawNucleus(ctx, cx - sepX, cy + sepY, r*0.5, nucAlphaFinal);
+                    drawNucleus(ctx, cx + sepX, cy - sepY, r*0.5, nucAlphaFinal);
+                    drawNucleus(ctx, cx + sepX, cy + sepY, r*0.5, nucAlphaFinal);
+                }
+            }
+
+            // 3. Chromosomes
+            const pairs = [
+                { 
+                  c1: { x: cx-40, y: cy-30, c: '#ef4444' }, // Red1 (goes left)
+                  c2: { x: cx+20, y: cy-20, c: '#3b82f6' }, // Blue1 (goes right)
+                  ay: cy - 25 // Align height
+                },
+                { 
+                  c1: { x: cx-20, y: cy+10, c: '#ef4444' }, // Red2
+                  c2: { x: cx+40, y: cy+30, c: '#3b82f6' }, // Blue2
+                  ay: cy + 25 
+                }
+            ];
+
+            const poleM1L = cx - lerp(0, 80, tPro1) - sepX;
+            const poleM1R = cx + lerp(0, 80, tPro1) + sepX;
+            const s1Alpha = lerp(0, 1, tPro1) - lerp(0, 1, tTelo1);
+            const s2Alpha = lerp(0, 1, tPro2) - lerp(0, 1, tTelo2);
+
+            pairs.forEach((pair, idx) => {
+                const tChromSep1 = getT(p, 30, 50);
+                const tChromSep2 = getT(p, 75, 95);
+
+                // Cell 1 (Left track)
+                let c1x = lerp(pair.c1.x, cx - 15, tPro1); // Pair up
+                c1x = lerp(c1x, cx - 180, tChromSep1); // Move left
+
+                let c1y = lerp(pair.c1.y, pair.ay, tPro1);
+                c1y = lerp(c1y, cy + (idx === 0 ? -25 : 25), tPro2); // Align center-vertical in new cell
+
+                // Cell 2 (Right track)
+                let c2x = lerp(pair.c2.x, cx + 15, tPro1);
+                c2x = lerp(c2x, cx + 180, tChromSep1); // Move right
+
+                let c2y = lerp(pair.c2.y, pair.ay, tPro1);
+                c2y = lerp(c2y, cy + (idx === 0 ? -25 : 25), tPro2);
+
+                // Meiosis II Separation
+                const splitY = lerp(0, 120, tChromSep2);
+
+                // Draw Chromosome 1 (Left Cell)
+                if (tAna2 > 0) {
+                    drawChromosome(ctx, c1x, c1y - splitY, 'v', pair.c1.c, 0.9);
+                    drawChromosome(ctx, c1x, c1y + splitY, '^', pair.c1.c, 0.9);
+                } else {
+                    drawChromosome(ctx, c1x, c1y, 'X', pair.c1.c, 0.9);
+                }
+
+                // Draw Chromosome 2 (Right Cell)
+                if (tAna2 > 0) {
+                    drawChromosome(ctx, c2x, c2y - splitY, 'v', pair.c2.c, 0.9);
+                    drawChromosome(ctx, c2x, c2y + splitY, '^', pair.c2.c, 0.9);
+                } else {
+                    drawChromosome(ctx, c2x, c2y, 'X', pair.c2.c, 0.9);
+                }
+
+                // Draw Spindles M1
+                if (s1Alpha > 0 && tPro1 > 0.4) {
+                    drawSpindle(ctx, poleM1L, cy, c1x, c1y, s1Alpha);
+                    drawSpindle(ctx, poleM1R, cy, c2x, c2y, s1Alpha);
+                }
+
+                // Draw Spindles M2
+                if (s2Alpha > 0 && tPro2 > 0.4) {
+                    const pTop = cy - lerp(0, 70, tPro2) - sepY;
+                    const pBot = cy + lerp(0, 70, tPro2) + sepY;
+                    // Left cell spindles
+                    drawSpindle(ctx, c1x, pTop, c1x, c1y - splitY, s2Alpha);
+                    drawSpindle(ctx, c1x, pBot, c1x, c1y + splitY, s2Alpha);
+                    // Right cell spindles
+                    drawSpindle(ctx, c2x, pTop, c2x, c2y - splitY, s2Alpha);
+                    drawSpindle(ctx, c2x, pBot, c2x, c2y + splitY, s2Alpha);
+                }
+            });
+        }
+
+        // --- UI & Rendering Loop ---
+
+        function updateInfoPanel(p) {
+            const stages = infoData[mode];
+            let currentStage = stages[stages.length - 1];
+            for (let i = 0; i < stages.length; i++) {
+                if (p <= stages[i].limit) {
+                    currentStage = stages[i];
+                    break;
+                }
+            }
+            if (stageTitle.innerText !== currentStage.title) {
+                stageTitle.innerText = currentStage.title;
+                stageDesc.innerText = currentStage.text;
+                // Subtle pop effect
+                document.getElementById('infoBox').style.transform = 'scale(1.02)';
+                setTimeout(() => document.getElementById('infoBox').style.transform = 'scale(1)', 150);
+            }
+        }
+
+        function renderLoop() {
+            // Smoothly interpolate current progress toward target
+            currentProgress += (targetProgress - currentProgress) * 0.15;
+            
+            // Clear canvas
+            ctx.clearRect(0, 0, 800, 500);
+
+            if (mode === 'mitosis') {
+                drawMitosis(currentProgress);
+            } else {
+                drawMeiosis(currentProgress);
+            }
+
+            updateInfoPanel(currentProgress);
+            requestAnimationFrame(renderLoop);
+        }
+
+        // --- Event Listeners ---
+        slider.addEventListener('input', (e) => {
+            targetProgress = parseFloat(e.target.value);
+        });
+
+        function setMode(newMode) {
+            mode = newMode;
+            targetProgress = 0;
+            currentProgress = 0;
+            slider.value = 0;
+            
+            if (mode === 'mitosis') {
+                btnMitosis.className = "px-6 py-2 rounded-lg font-bold text-sm transition-all duration-300 bg-white text-teal-800 shadow-md";
+                btnMeiosis.className = "px-6 py-2 rounded-lg font-bold text-sm transition-all duration-300 text-teal-600 hover:text-teal-800";
+            } else {
+                btnMeiosis.className = "px-6 py-2 rounded-lg font-bold text-sm transition-all duration-300 bg-white text-teal-800 shadow-md";
+                btnMitosis.className = "px-6 py-2 rounded-lg font-bold text-sm transition-all duration-300 text-teal-600 hover:text-teal-800";
+            }
+        }
+
+        btnMitosis.addEventListener('click', () => setMode('mitosis'));
+        btnMeiosis.addEventListener('click', () => setMode('meiosis'));
+
+        // Start Loop
+        renderLoop();
+
+    </script>
+</body>
+</html>
