@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blood Types & Transfusions</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- React & ReactDOM -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    <!-- Babel for JSX -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <style>
+        body {
+            background-color: #f3f4f6;
+            font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        }
+        /* Custom toggle switch styles to match the design */
+        .toggle-checkbox:checked {
+            right: 0;
+            border-color: transparent;
+        }
+        .toggle-checkbox:checked + .toggle-label {
+            background-color: currentColor;
+        }
+        
+        .toggle-a.active { background-color: rgba(59, 130, 246, 0.2); border-color: #3b82f6; }
+        .toggle-b.active { background-color: rgba(34, 197, 94, 0.2); border-color: #22c55e; }
+        .toggle-rh.active { background-color: rgba(168, 85, 247, 0.2); border-color: #a855f7; }
+        
+        .toggle-a:not(.active) { background-color: rgba(255, 255, 255, 0.05); }
+        .toggle-b:not(.active) { background-color: rgba(255, 255, 255, 0.05); }
+        .toggle-rh:not(.active) { background-color: rgba(255, 255, 255, 0.05); }
+    </style>
+</head>
+<body class="p-4 md:p-8">
+
+<div id="root"></div>
+
+<script type="text/babel">
+    const { useState, useMemo } = React;
+
+    // --- Utility Functions ---
+    const getBloodTypeName = (a, b, rh) => {
+        let type = '';
+        if (a && b) type = 'AB';
+        else if (a) type = 'A';
+        else if (b) type = 'B';
+        else type = 'O';
+        return type + (rh ? '+' : '-');
+    };
+
+    const parseBloodType = (typeStr) => {
+        return {
+            a: typeStr.includes('A'),
+            b: typeStr.includes('B'),
+            rh: typeStr.includes('+')
+        };
+    };
+
+    const BLOOD_TYPES = ['O-', 'O+', 'A-', 'A+', 'B-', 'B+', 'AB-', 'AB+'];
+
+    const checkCompatibility = (donor, recipient) => {
+        const d = parseBloodType(donor);
+        const r = parseBloodType(recipient);
+        // Recipient must have at least the antigens the donor has
+        const safeA = !d.a || r.a;
+        const safeB = !d.b || r.b;
+        const safeRh = !d.rh || r.rh;
+        return safeA && safeB && safeRh;
+    };
+
+    // --- SVG Components ---
+    const IconTag = () => (
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-red-500">
+            <path d="M12 2H2v10l9.29 9.29c.94.94 2.48.94 3.42 0l6.58-6.58c.94-.94.94-2.48 0-3.42L12 2Z"/>
+            <path d="M7 7h.01"/>
+        </svg>
+    );
+
+    const IconArrows = () => (
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-red-500">
+            <path d="M17 21v-4a2 2 0 0 0-2-2h-3"/>
+            <path d="M16 11l-4-4-4 4"/>
+            <path d="M7 3v4a2 2 0 0 0 2 2h3"/>
+            <path d="M8 13l4 4 4-4"/>
+        </svg>
+    );
+
+    const RedBloodCell = ({ a, b, rh, size = "w-48 h-48" }) => {
+        // SVG parameters
+        const cx = 50;
+        const cy = 50;
+        const rOuter = 35;
+        const rInner = 15;
+        
+        // Colors
+        const colorA = "#3b82f6"; // blue-500
+        const colorB = "#22c55e"; // green-500
+        const colorRh = "#a855f7"; // purple-500
+
+        const renderAntigens = (hasAntigen, shape, count, offsetAngle, color) => {
+            if (!hasAntigen) return null;
+            return Array.from({ length: count }).map((_, i) => {
+                const angle = (i * (Math.PI * 2) / count) + offsetAngle;
+                // Position slightly outside the outer radius
+                const x = cx + (rOuter + 3) * Math.cos(angle);
+                const y = cy + (rOuter + 3) * Math.sin(angle);
+                // Rotate shape to point outwards
+                const rotation = (angle * 180 / Math.PI) + 90;
+                
+                if (shape === 'triangle') {
+                    return <polygon key={i} points="0,-4 4,4 -4,4" fill={color} transform={`translate(${x}, ${y}) rotate(${rotation})`} />;
+                }
+                if (shape === 'circle') {
+                    return <circle key={i} cx={x} cy={y} r="3" fill={color} />;
+                }
+                if (shape === 'square') {
+                    return <rect key={i} x="-3" y="-3" width="6" height="6" fill={color} transform={`translate(${x}, ${y}) rotate(${rotation})`} />;
+                }
+                return null;
+            });
+        };
+
+        return (
+            <div className={`relative flex items-center justify-center ${size}`}>
+                <svg viewBox="0 0 100 100" className="w-full h-full drop-shadow-lg">
+                    <defs>
+                        <radialGradient id={`rbc-grad-${a}-${b}-${rh}`} cx="50%" cy="50%" r="50%" fx="30%" fy="30%">
+                            <stop offset="0%" stopColor="#fb7185" />
+                            <stop offset="70%" stopColor="#e11d48" />
+                            <stop offset="100%" stopColor="#9f1239" />
+                        </radialGradient>
+                        <radialGradient id="rbc-inner" cx="50%" cy="50%" r="50%">
+                            <stop offset="0%" stopColor="#9f1239" stopOpacity="0.6"/>
+                            <stop offset="100%" stopColor="#e11d48" stopOpacity="0"/>
+                        </radialGradient>
+                    </defs>
+                    
+                    {/* Main Cell Body */}
+                    <circle cx={cx} cy={cy} r={rOuter} fill={`url(#rbc-grad-${a}-${b}-${rh})`} />
+                    {/* Inner dimple */}
+                    <circle cx={cx} cy={cy} r={rInner} fill="url(#rbc-inner)" />
+
+                    {/* Antigens - Spaced out by using 18 distinct slots (360 / 18 = 20 degrees) */}
+                    {/* Slot 0, 3, 6... */}
+                    {renderAntigens(a, 'triangle', 6, 0, colorA)}
+                    {/* Slot 1, 4, 7... (20 degree offset) */}
+                    {renderAntigens(b, 'circle', 6, (Math.PI * 2) / 18, colorB)}
+                    {/* Slot 2, 5, 8... (40 degree offset) */}
+                    {renderAntigens(rh, 'square', 6, ((Math.PI * 2) / 18) * 2, colorRh)}
+                </svg>
+            </div>
+        );
+    };
+
+    // --- Section 1: Simulation ---
+    const SimulationSection = () => {
+        const [a, setA] = useState(true);
+        const [b, setB] = useState(false);
+        const [rh, setRh] = useState(true);
+
+        const bloodType = getBloodTypeName(a, b, rh);
+
+        const ToggleBtn = ({ label, active, onClick, typeClass, iconShape }) => (
+            <button 
+                onClick={onClick}
+                className={`w-full flex items-center justify-between p-3 rounded-lg border-2 transition-all duration-200 ${typeClass} ${active ? 'active text-white shadow-inner' : 'border-slate-600 text-slate-300'}`}
+            >
+                <div className="flex items-center gap-3">
+                    <div className="w-5 h-5 flex items-center justify-center">
+                        {iconShape}
+                    </div>
+                    <span className="font-semibold">{label}</span>
+                </div>
+                <div className={`w-6 h-6 rounded flex items-center justify-center ${active ? 'bg-blue-500' : 'bg-slate-700'}`}
+                     style={{ backgroundColor: active ? (typeClass.includes('a') ? '#3b82f6' : typeClass.includes('b') ? '#22c55e' : '#a855f7') : '' }}>
+                    {active && (
+                        <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" />
+                        </svg>
+                    )}
+                </div>
+            </button>
+        );
+
+        return (
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden mb-8">
+                <div className="p-6 border-b border-slate-100 flex items-center gap-3">
+                    <div className="bg-red-50 p-2 rounded-lg">
+                        <IconTag />
+                    </div>
+                    <h2 className="text-2xl font-bold text-slate-800">Blood Types & Antigens</h2>
+                </div>
+                
+                <div className="p-6">
+                    <p className="text-slate-600 mb-6">
+                        Your blood type is determined by specific marker proteins on the outside of your Red Blood Cells called <strong>Antigens</strong>. There are three main antigens we look for: <strong>A, B, and Rh (+)</strong>.
+                    </p>
+
+                    <div className="bg-[#1e293b] rounded-xl p-6 md:p-8 flex flex-col md:flex-row gap-8 items-center justify-center">
+                        
+                        {/* Visual Display */}
+                        <div className="flex-1 flex flex-col items-center justify-center">
+                            <div className="bg-slate-900/50 rounded-2xl p-8 mb-6 border border-slate-700">
+                                <RedBloodCell a={a} b={b} rh={rh} size="w-48 h-48 md:w-56 md:h-56" />
+                            </div>
+                            <div className="bg-slate-900 border-2 border-slate-700 text-white text-3xl font-black py-3 px-8 rounded-xl shadow-lg">
+                                Type {bloodType}
+                            </div>
+                        </div>
+
+                        {/* Controls */}
+                        <div className="flex-1 w-full max-w-sm flex flex-col gap-4">
+                            <h3 className="text-white font-semibold text-lg border-b border-slate-700 pb-2 mb-2">Toggle Cell Antigens</h3>
+                            
+                            <ToggleBtn 
+                                label="Antigen A" 
+                                active={a} 
+                                onClick={() => setA(!a)} 
+                                typeClass="toggle-a"
+                                iconShape={<svg viewBox="0 0 24 24" className="w-full h-full fill-blue-500"><polygon points="12,2 22,22 2,22" /></svg>}
+                            />
+                            <ToggleBtn 
+                                label="Antigen B" 
+                                active={b} 
+                                onClick={() => setB(!b)} 
+                                typeClass="toggle-b"
+                                iconShape={<svg viewBox="0 0 24 24" className="w-full h-full fill-green-500"><circle cx="12" cy="12" r="10" /></svg>}
+                            />
+                            <ToggleBtn 
+                                label="Rh Factor (+)" 
+                                active={rh} 
+                                onClick={() => setRh(!rh)} 
+                                typeClass="toggle-rh"
+                                iconShape={<svg viewBox="0 0 24 24" className="w-full h-full fill-purple-500"><rect x="4" y="4" width="16" height="16" rx="2" /></svg>}
+                            />
+
+                            <p className="text-slate-400 text-sm text-center mt-4 italic">
+                                Notice how Type O- has NO antigens on its surface, making it the "Universal Donor"!
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    };
+
+    // --- Section 2: Transfusion ---
+    const TransfusionSection = () => {
+        const [donor, setDonor] = useState('A-');
+        const [recipient, setRecipient] = useState('AB+');
+        const [hasChecked, setHasChecked] = useState(false);
+
+        const isSafe = checkCompatibility(donor, recipient);
+        
+        const handleRandomize = () => {
+            const randomDonor = BLOOD_TYPES[Math.floor(Math.random() * BLOOD_TYPES.length)];
+            const randomRecipient = BLOOD_TYPES[Math.floor(Math.random() * BLOOD_TYPES.length)];
+            setDonor(randomDonor);
+            setRecipient(randomRecipient);
+            setHasChecked(false);
+        };
+
+        const getExplanation = () => {
+            if (isSafe) {
+                return "The recipient already recognizes all antigens present on the donor's blood. The immune system will safely accept the transfusion!";
+            }
+            
+            const d = parseBloodType(donor);
+            const r = parseBloodType(recipient);
+            let culprits = [];
+            if (d.a && !r.a) culprits.push("Antigen A");
+            if (d.b && !r.b) culprits.push("Antigen B");
+            if (d.rh && !r.rh) culprits.push("Rh Factor (+)");
+
+            return `DANGER! The donor blood contains ${culprits.join(" and ")} which the recipient's immune system has never seen. The recipient's antibodies will attack the donor blood!`;
+        };
+
+        const DonorRecipientCard = ({ title, onChange, typeStr }) => {
+            const antigens = parseBloodType(typeStr);
+            return (
+                <div className="flex-1 bg-white border-2 border-slate-100 rounded-2xl p-6 shadow-sm flex flex-col items-center min-w-[200px]">
+                    <h3 className="text-sm font-bold text-slate-400 tracking-widest uppercase mb-4">{title}</h3>
+                    <select 
+                        value={typeStr} 
+                        onChange={onChange}
+                        className="w-full text-center text-2xl font-bold bg-slate-50 border border-slate-200 rounded-lg py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none cursor-pointer"
+                    >
+                        {BLOOD_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                    </select>
+                    <div className="mt-8">
+                        <RedBloodCell a={antigens.a} b={antigens.b} rh={antigens.rh} size="w-32 h-32 md:w-40 md:h-40" />
+                    </div>
+                </div>
+            );
+        };
+
+        return (
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                <div className="p-6 border-b border-slate-100 flex items-center gap-3">
+                    <div className="bg-red-50 p-2 rounded-lg">
+                        <IconArrows />
+                    </div>
+                    <h2 className="text-2xl font-bold text-slate-800">Transfusion Compatibility</h2>
+                </div>
+                
+                <div className="p-6 md:p-8">
+                    <p className="text-slate-600 mb-6 max-w-3xl">
+                        When giving someone a blood transfusion, you must ensure their immune system will accept it. If you introduce an antigen their body has never seen before, their white blood cells will attack the new blood, causing it to clump up (agglutinate).
+                    </p>
+
+                    <div className="bg-slate-50 rounded-2xl p-6 md:p-8 border border-slate-200">
+                        
+                        <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-8 text-center text-red-700 font-medium flex items-center justify-center gap-2">
+                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                            </svg>
+                            The Golden Rule: The recipient CANNOT receive blood that contains a NEW substance (antigen).
+                        </div>
+
+                        <div className="flex flex-col md:flex-row items-center justify-center gap-6 md:gap-12 relative">
+                            
+                            <DonorRecipientCard 
+                                title="DONOR" 
+                                onChange={(e) => { setDonor(e.target.value); setHasChecked(false); }} 
+                                typeStr={donor} 
+                            />
+
+                            <div className="flex flex-col items-center justify-center z-10 py-4 w-32">
+                                <svg className="w-12 h-12 text-slate-300 mb-4 hidden md:block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                                </svg>
+                                <svg className="w-8 h-8 text-slate-300 mb-4 block md:hidden transform rotate-90" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                                </svg>
+                                
+                                {!hasChecked ? (
+                                    <div className="bg-slate-100 text-slate-500 border border-slate-300 font-bold px-6 py-2 rounded-full flex items-center gap-2 shadow-sm">
+                                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        </svg>
+                                        ???
+                                    </div>
+                                ) : isSafe ? (
+                                    <div className="bg-green-100 text-green-700 border border-green-300 font-bold px-6 py-2 rounded-full flex items-center gap-2 shadow-sm">
+                                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        </svg>
+                                        SAFE
+                                    </div>
+                                ) : (
+                                    <div className="bg-red-100 text-red-700 border border-red-300 font-bold px-6 py-2 rounded-full flex items-center gap-2 shadow-sm">
+                                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        </svg>
+                                        UNSAFE
+                                    </div>
+                                )}
+                            </div>
+
+                            <DonorRecipientCard 
+                                title="RECIPIENT" 
+                                onChange={(e) => { setRecipient(e.target.value); setHasChecked(false); }} 
+                                typeStr={recipient} 
+                            />
+
+                        </div>
+
+                        <div className="flex flex-wrap justify-center gap-4 mt-8">
+                            <button 
+                                onClick={handleRandomize}
+                                className="px-6 py-3 bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold rounded-lg transition-colors flex items-center gap-2"
+                            >
+                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                </svg>
+                                Randomize
+                            </button>
+                            <button 
+                                onClick={() => setHasChecked(true)}
+                                disabled={hasChecked}
+                                className={`px-8 py-3 font-semibold rounded-lg transition-all flex items-center gap-2 ${hasChecked ? 'bg-blue-300 cursor-not-allowed text-white' : 'bg-blue-600 hover:bg-blue-700 text-white shadow-md hover:shadow-lg'}`}
+                            >
+                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                                </svg>
+                                Check Compatibility
+                            </button>
+                        </div>
+
+                        {hasChecked && (
+                            <div className={`mt-8 p-4 rounded-lg text-center font-medium shadow-sm animate-in fade-in slide-in-from-bottom-2 duration-300 ${isSafe ? 'bg-green-50 text-green-800 border border-green-200' : 'bg-red-50 text-red-800 border border-red-200'}`}>
+                                {getExplanation()}
+                            </div>
+                        )}
+
+                    </div>
+                </div>
+            </div>
+        );
+    };
+
+    // --- Main App ---
+    const App = () => {
+        return (
+            <div className="max-w-5xl mx-auto py-8">
+                <header className="mb-8 text-center">
+                    <h1 className="text-4xl font-extrabold text-slate-800 mb-2">Immunohematology Explorer</h1>
+                    <p className="text-slate-500">Learn how blood types work and test transfusion compatibility.</p>
+                </header>
+                
+                <SimulationSection />
+                <TransfusionSection />
+                
+            </div>
+        );
+    };
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+</script>
+
+</body>
+</html>
