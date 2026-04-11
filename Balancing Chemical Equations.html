@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Balancing Equations Practice</title>
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- React & ReactDOM -->
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  
+  <!-- Babel for in-browser JSX compilation -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <style>
+    /* Custom animations mapped from tailwindcss-animate */
+    .animate-in { animation-duration: 300ms; animation-fill-mode: both; }
+    .fade-in { animation-name: fadeIn; }
+    .slide-in-from-top-2 { animation-name: slideInTop; }
+    .zoom-in-95 { animation-name: zoomIn; }
+    
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    @keyframes slideInTop {
+      from { transform: translateY(-0.5rem); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+    @keyframes zoomIn {
+      from { transform: scale(0.95); opacity: 0; }
+      to { transform: scale(1); opacity: 1; }
+    }
+  </style>
+</head>
+<body class="bg-slate-100">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, Fragment } = React;
+
+    // --- ICON COMPONENT (Replaces lucide-react) ---
+    const Icon = ({ name, size = 24, className = "" }) => {
+      const icons = {
+        CheckCircle: <g><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></g>,
+        XCircle: <g><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></g>,
+        ArrowRight: <g><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></g>,
+        RefreshCw: <g><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></g>,
+        ChevronRight: <g><polyline points="9 18 15 12 9 6"></polyline></g>,
+        Plus: <g><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></g>,
+        Minus: <g><line x1="5" y1="12" x2="19" y2="12"></line></g>,
+        AlertCircle: <g><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></g>,
+        Eye: <g><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></g>,
+        EyeOff: <g><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></g>
+      };
+      return (
+        <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+          {icons[name]}
+        </svg>
+      );
+    };
+
+    // --- DATA ---
+    const EQUATIONS = [
+      { reactants: [{ text: "H2", comp: { H: 2 } }, { text: "O2", comp: { O: 2 } }], products: [{ text: "H2O", comp: { H: 2, O: 1 } }] },
+      { reactants: [{ text: "N2", comp: { N: 2 } }, { text: "H2", comp: { H: 2 } }], products: [{ text: "NH3", comp: { N: 1, H: 3 } }] },
+      { reactants: [{ text: "CH4", comp: { C: 1, H: 4 } }, { text: "O2", comp: { O: 2 } }], products: [{ text: "CO2", comp: { C: 1, O: 2 } }, { text: "H2O", comp: { H: 2, O: 1 } }] },
+      { reactants: [{ text: "Na", comp: { Na: 1 } }, { text: "Cl2", comp: { Cl: 2 } }], products: [{ text: "NaCl", comp: { Na: 1, Cl: 1 } }] },
+      { reactants: [{ text: "Al", comp: { Al: 1 } }, { text: "O2", comp: { O: 2 } }], products: [{ text: "Al2O3", comp: { Al: 2, O: 3 } }] },
+      { reactants: [{ text: "P4", comp: { P: 4 } }, { text: "O2", comp: { O: 2 } }], products: [{ text: "P2O5", comp: { P: 2, O: 5 } }] },
+      { reactants: [{ text: "Fe", comp: { Fe: 1 } }, { text: "O2", comp: { O: 2 } }], products: [{ text: "Fe2O3", comp: { Fe: 2, O: 3 } }] },
+      { reactants: [{ text: "S8", comp: { S: 8 } }, { text: "O2", comp: { O: 2 } }], products: [{ text: "SO3", comp: { S: 1, O: 3 } }] },
+      { reactants: [{ text: "K", comp: { K: 1 } }, { text: "H2O", comp: { H: 2, O: 1 } }], products: [{ text: "KOH", comp: { K: 1, O: 1, H: 1 } }, { text: "H2", comp: { H: 2 } }] },
+      { reactants: [{ text: "Mg", comp: { Mg: 1 } }, { text: "O2", comp: { O: 2 } }], products: [{ text: "MgO", comp: { Mg: 1, O: 1 } }] },
+      { reactants: [{ text: "Zn", comp: { Zn: 1 } }, { text: "HCl", comp: { H: 1, Cl: 1 } }], products: [{ text: "ZnCl2", comp: { Zn: 1, Cl: 2 } }, { text: "H2", comp: { H: 2 } }] },
+      { reactants: [{ text: "Ag2O", comp: { Ag: 2, O: 1 } }], products: [{ text: "Ag", comp: { Ag: 1 } }, { text: "O2", comp: { O: 2 } }] },
+      { reactants: [{ text: "KClO3", comp: { K: 1, Cl: 1, O: 3 } }], products: [{ text: "KCl", comp: { K: 1, Cl: 1 } }, { text: "O2", comp: { O: 2 } }] },
+      { reactants: [{ text: "H2O2", comp: { H: 2, O: 2 } }], products: [{ text: "H2O", comp: { H: 2, O: 1 } }, { text: "O2", comp: { O: 2 } }] },
+      { reactants: [{ text: "CO", comp: { C: 1, O: 1 } }, { text: "O2", comp: { O: 2 } }], products: [{ text: "CO2", comp: { C: 1, O: 2 } }] },
+      { reactants: [{ text: "NO", comp: { N: 1, O: 1 } }, { text: "O2", comp: { O: 2 } }], products: [{ text: "NO2", comp: { N: 1, O: 2 } }] },
+      { reactants: [{ text: "SO2", comp: { S: 1, O: 2 } }, { text: "O2", comp: { O: 2 } }], products: [{ text: "SO3", comp: { S: 1, O: 3 } }] },
+      { reactants: [{ text: "N2O5", comp: { N: 2, O: 5 } }], products: [{ text: "NO2", comp: { N: 1, O: 2 } }, { text: "O2", comp: { O: 2 } }] },
+      { reactants: [{ text: "C3H8", comp: { C: 3, H: 8 } }, { text: "O2", comp: { O: 2 } }], products: [{ text: "CO2", comp: { C: 1, O: 2 } }, { text: "H2O", comp: { H: 2, O: 1 } }] },
+      { reactants: [{ text: "C2H6", comp: { C: 2, H: 6 } }, { text: "O2", comp: { O: 2 } }], products: [{ text: "CO2", comp: { C: 1, O: 2 } }, { text: "H2O", comp: { H: 2, O: 1 } }] },
+      { reactants: [{ text: "C4H10", comp: { C: 4, H: 10 } }, { text: "O2", comp: { O: 2 } }], products: [{ text: "CO2", comp: { C: 1, O: 2 } }, { text: "H2O", comp: { H: 2, O: 1 } }] },
+      { reactants: [{ text: "C2H4", comp: { C: 2, H: 4 } }, { text: "O2", comp: { O: 2 } }], products: [{ text: "CO2", comp: { C: 1, O: 2 } }, { text: "H2O", comp: { H: 2, O: 1 } }] },
+      { reactants: [{ text: "C2H2", comp: { C: 2, H: 2 } }, { text: "O2", comp: { O: 2 } }], products: [{ text: "CO2", comp: { C: 1, O: 2 } }, { text: "H2O", comp: { H: 2, O: 1 } }] },
+      { reactants: [{ text: "NH3", comp: { N: 1, H: 3 } }, { text: "O2", comp: { O: 2 } }], products: [{ text: "NO", comp: { N: 1, O: 1 } }, { text: "H2O", comp: { H: 2, O: 1 } }] },
+      { reactants: [{ text: "FeS2", comp: { Fe: 1, S: 2 } }, { text: "O2", comp: { O: 2 } }], products: [{ text: "Fe2O3", comp: { Fe: 2, O: 3 } }, { text: "SO2", comp: { S: 1, O: 2 } }] },
+      { reactants: [{ text: "Al", comp: { Al: 1 } }, { text: "HCl", comp: { H: 1, Cl: 1 } }], products: [{ text: "AlCl3", comp: { Al: 1, Cl: 3 } }, { text: "H2", comp: { H: 2 } }] },
+      { reactants: [{ text: "Ca", comp: { Ca: 1 } }, { text: "H2O", comp: { H: 2, O: 1 } }], products: [{ text: "Ca(OH)2", comp: { Ca: 1, O: 2, H: 2 } }, { text: "H2", comp: { H: 2 } }] },
+      { reactants: [{ text: "NaOH", comp: { Na: 1, O: 1, H: 1 } }, { text: "H2SO4", comp: { H: 2, S: 1, O: 4 } }], products: [{ text: "Na2SO4", comp: { Na: 2, S: 1, O: 4 } }, { text: "H2O", comp: { H: 2, O: 1 } }] },
+      { reactants: [{ text: "BaCl2", comp: { Ba: 1, Cl: 2 } }, { text: "H2SO4", comp: { H: 2, S: 1, O: 4 } }], products: [{ text: "BaSO4", comp: { Ba: 1, S: 1, O: 4 } }, { text: "HCl", comp: { H: 1, Cl: 1 } }] },
+      { reactants: [{ text: "AgNO3", comp: { Ag: 1, N: 1, O: 3 } }, { text: "Cu", comp: { Cu: 1 } }], products: [{ text: "Cu(NO3)2", comp: { Cu: 1, N: 2, O: 6 } }, { text: "Ag", comp: { Ag: 1 } }] },
+      { reactants: [{ text: "Al2(SO4)3", comp: { Al: 2, S: 3, O: 12 } }, { text: "Ca(OH)2", comp: { Ca: 1, O: 2, H: 2 } }], products: [{ text: "Al(OH)3", comp: { Al: 1, O: 3, H: 3 } }, { text: "CaSO4", comp: { Ca: 1, S: 1, O: 4 } }] },
+      { reactants: [{ text: "Fe2O3", comp: { Fe: 2, O: 3 } }, { text: "C", comp: { C: 1 } }], products: [{ text: "Fe", comp: { Fe: 1 } }, { text: "CO2", comp: { C: 1, O: 2 } }] },
+      { reactants: [{ text: "CuO", comp: { Cu: 1, O: 1 } }, { text: "NH3", comp: { N: 1, H: 3 } }], products: [{ text: "Cu", comp: { Cu: 1 } }, { text: "N2", comp: { N: 2 } }, { text: "H2O", comp: { H: 2, O: 1 } }] },
+      { reactants: [{ text: "SiO2", comp: { Si: 1, O: 2 } }, { text: "HF", comp: { H: 1, F: 1 } }], products: [{ text: "SiF4", comp: { Si: 1, F: 4 } }, { text: "H2O", comp: { H: 2, O: 1 } }] },
+      { reactants: [{ text: "CS2", comp: { C: 1, S: 2 } }, { text: "O2", comp: { O: 2 } }], products: [{ text: "CO2", comp: { C: 1, O: 2 } }, { text: "SO2", comp: { S: 1, O: 2 } }] },
+      { reactants: [{ text: "B2O3", comp: { B: 2, O: 3 } }, { text: "C", comp: { C: 1 } }], products: [{ text: "B", comp: { B: 1 } }, { text: "CO", comp: { C: 1, O: 1 } }] },
+      { reactants: [{ text: "UO2", comp: { U: 1, O: 2 } }, { text: "HF", comp: { H: 1, F: 1 } }], products: [{ text: "UF4", comp: { U: 1, F: 4 } }, { text: "H2O", comp: { H: 2, O: 1 } }] },
+      { reactants: [{ text: "MnO2", comp: { Mn: 1, O: 2 } }, { text: "HCl", comp: { H: 1, Cl: 1 } }], products: [{ text: "MnCl2", comp: { Mn: 1, Cl: 2 } }, { text: "H2O", comp: { H: 2, O: 1 } }, { text: "Cl2", comp: { Cl: 2 } }] },
+      { reactants: [{ text: "P4O10", comp: { P: 4, O: 10 } }, { text: "H2O", comp: { H: 2, O: 1 } }], products: [{ text: "H3PO4", comp: { H: 3, P: 1, O: 4 } }] },
+      { reactants: [{ text: "N2O3", comp: { N: 2, O: 3 } }, { text: "H2O", comp: { H: 2, O: 1 } }], products: [{ text: "HNO2", comp: { H: 1, N: 1, O: 2 } }] },
+      { reactants: [{ text: "I2", comp: { I: 2 } }, { text: "F2", comp: { F: 2 } }], products: [{ text: "IF5", comp: { I: 1, F: 5 } }] },
+      { reactants: [{ text: "KBr", comp: { K: 1, Br: 1 } }, { text: "Cl2", comp: { Cl: 2 } }], products: [{ text: "KCl", comp: { K: 1, Cl: 1 } }, { text: "Br2", comp: { Br: 2 } }] },
+      { reactants: [{ text: "Li", comp: { Li: 1 } }, { text: "N2", comp: { N: 2 } }], products: [{ text: "Li3N", comp: { Li: 3, N: 1 } }] },
+      { reactants: [{ text: "TiCl4", comp: { Ti: 1, Cl: 4 } }, { text: "H2O", comp: { H: 2, O: 1 } }], products: [{ text: "TiO2", comp: { Ti: 1, O: 2 } }, { text: "HCl", comp: { H: 1, Cl: 1 } }] },
+      { reactants: [{ text: "V2O5", comp: { V: 2, O: 5 } }, { text: "Ca", comp: { Ca: 1 } }], products: [{ text: "V", comp: { V: 1 } }, { text: "CaO", comp: { Ca: 1, O: 1 } }] },
+      { reactants: [{ text: "Cr2O3", comp: { Cr: 2, O: 3 } }, { text: "Al", comp: { Al: 1 } }], products: [{ text: "Cr", comp: { Cr: 1 } }, { text: "Al2O3", comp: { Al: 2, O: 3 } }] },
+      { reactants: [{ text: "PbS", comp: { Pb: 1, S: 1 } }, { text: "O2", comp: { O: 2 } }], products: [{ text: "PbO", comp: { Pb: 1, O: 1 } }, { text: "SO2", comp: { S: 1, O: 2 } }] },
+      { reactants: [{ text: "C6H12O6", comp: { C: 6, H: 12, O: 6 } }, { text: "O2", comp: { O: 2 } }], products: [{ text: "CO2", comp: { C: 1, O: 2 } }, { text: "H2O", comp: { H: 2, O: 1 } }] },
+      { reactants: [{ text: "H2S", comp: { H: 2, S: 1 } }, { text: "O2", comp: { O: 2 } }], products: [{ text: "H2O", comp: { H: 2, O: 1 } }, { text: "SO2", comp: { S: 1, O: 2 } }] },
+      { reactants: [{ text: "NaN3", comp: { Na: 1, N: 3 } }], products: [{ text: "Na", comp: { Na: 1 } }, { text: "N2", comp: { N: 2 } }] }
+    ];
+
+    // --- HELPER FUNCTIONS ---
+    const formatFormula = (text) => {
+      return text.split(/(\d+)/).map((part, i) => 
+        /^\d+$/.test(part) ? <sub key={i} className="text-[0.7em] bottom-[-0.25em] relative">{part}</sub> : part
+      );
+    };
+
+    const gcd = (a, b) => b === 0 ? a : gcd(b, a % b);
+    const getArrayGcd = (arr) => arr.reduce((acc, val) => gcd(acc, val));
+
+    // --- PARTICLE MODEL ---
+    const ELEMENT_COLORS = {
+      H: { bg: 'bg-white', border: 'border-slate-300' },
+      O: { bg: 'bg-red-500', border: 'border-red-600' },
+      C: { bg: 'bg-slate-800', border: 'border-slate-900' },
+      N: { bg: 'bg-blue-500', border: 'border-blue-600' },
+      Cl: { bg: 'bg-green-500', border: 'border-green-600' },
+      Na: { bg: 'bg-purple-500', border: 'border-purple-600' },
+      Al: { bg: 'bg-zinc-300', border: 'border-zinc-400' },
+      P: { bg: 'bg-orange-500', border: 'border-orange-600' },
+      Fe: { bg: 'bg-orange-700', border: 'border-orange-800' },
+      S: { bg: 'bg-yellow-400', border: 'border-yellow-500' },
+      K: { bg: 'bg-violet-400', border: 'border-violet-500' },
+      Mg: { bg: 'bg-emerald-300', border: 'border-emerald-400' },
+      Zn: { bg: 'bg-teal-500', border: 'border-teal-600' },
+      Ag: { bg: 'bg-gray-300', border: 'border-gray-400' },
+      Ba: { bg: 'bg-lime-500', border: 'border-lime-600' },
+      Cu: { bg: 'bg-amber-600', border: 'border-amber-700' },
+      Si: { bg: 'bg-stone-500', border: 'border-stone-600' },
+      B: { bg: 'bg-amber-200', border: 'border-amber-300' },
+      U: { bg: 'bg-fuchsia-600', border: 'border-fuchsia-700' },
+      F: { bg: 'bg-green-300', border: 'border-green-400' },
+      Mn: { bg: 'bg-pink-500', border: 'border-pink-600' },
+      I: { bg: 'bg-purple-800', border: 'border-purple-900' },
+      Br: { bg: 'bg-red-800', border: 'border-red-900' },
+      Li: { bg: 'bg-rose-400', border: 'border-rose-500' },
+      Ti: { bg: 'bg-gray-400', border: 'border-gray-500' },
+      V: { bg: 'bg-indigo-300', border: 'border-indigo-400' },
+      Cr: { bg: 'bg-sky-500', border: 'border-sky-600' },
+      Pb: { bg: 'bg-slate-600', border: 'border-slate-700' },
+    };
+
+    const ParticleModel = ({ comp }) => {
+      const particles = [];
+      Object.entries(comp).forEach(([element, count]) => {
+        for (let i = 0; i < count; i++) {
+          particles.push(element);
+        }
+      });
+
+      return (
+        <div className="flex flex-wrap justify-center items-center max-w-[90px] p-1">
+          {particles.map((el, idx) => {
+            const colors = ELEMENT_COLORS[el] || { bg: 'bg-cyan-400', border: 'border-cyan-500' };
+            const size = el === 'H' ? 'w-4 h-4' : 'w-5 h-5';
+            return (
+              <div 
+                key={`${el}-${idx}`} 
+                className={`${size} rounded-full border-[1.5px] ${colors.bg} ${colors.border} shadow-sm -m-[2px]`}
+                title={el}
+              />
+            );
+          })}
+        </div>
+      );
+    };
+
+    // --- COMPONENTS ---
+    function App() {
+      const [currentEqIdx, setCurrentEqIdx] = useState(0);
+      
+      // Independent state for visual clones and text input
+      const [clones, setClones] = useState({});
+      const [coeffs, setCoeffs] = useState({});
+      
+      const [showInventory, setShowInventory] = useState(false);
+      const [feedback, setFeedback] = useState(null);
+
+      const currentEq = EQUATIONS[currentEqIdx];
+
+      // Initialize clones to 1 and inputs to empty when equation changes
+      useEffect(() => {
+        const initialClones = {};
+        const initialCoeffs = {};
+        currentEq.reactants.forEach((_, i) => {
+          initialClones[`r-${i}`] = 1;
+          initialCoeffs[`r-${i}`] = "";
+        });
+        currentEq.products.forEach((_, i) => {
+          initialClones[`p-${i}`] = 1;
+          initialCoeffs[`p-${i}`] = "";
+        });
+        
+        setClones(initialClones);
+        setCoeffs(initialCoeffs);
+        setFeedback(null);
+        setShowInventory(false); // Hide the counter on new equation
+      }, [currentEqIdx]);
+
+      const handleCoeffChange = (key, value) => {
+        const num = parseInt(value, 10);
+        if (!isNaN(num) && num > 0 && num <= 15) {
+          setCoeffs(prev => ({ ...prev, [key]: num }));
+        } else if (value === "") {
+          setCoeffs(prev => ({ ...prev, [key]: "" }));
+        }
+        setFeedback(null);
+      };
+
+      const changeClonesBy = (key, amount) => {
+        const current = clones[key] || 1;
+        const next = current + amount;
+        if (next >= 1 && next <= 15) {
+          setClones(prev => ({ ...prev, [key]: next }));
+          setFeedback(null);
+        }
+      };
+
+      // Calculates inventory purely based on visual clones
+      const getCloneInventory = () => {
+        const inventory = {};
+        
+        currentEq.reactants.forEach((r, i) => {
+          const cloneCount = clones[`r-${i}`] || 1;
+          Object.entries(r.comp).forEach(([element, count]) => {
+            if (!inventory[element]) inventory[element] = { r: 0, p: 0 };
+            inventory[element].r += cloneCount * count;
+          });
+        });
+
+        currentEq.products.forEach((p, i) => {
+          const cloneCount = clones[`p-${i}`] || 1;
+          Object.entries(p.comp).forEach(([element, count]) => {
+            if (!inventory[element]) inventory[element] = { r: 0, p: 0 };
+            inventory[element].p += cloneCount * count;
+          });
+        });
+
+        return inventory;
+      };
+
+      const checkAnswer = () => {
+        const keys = [
+          ...currentEq.reactants.map((_, i) => `r-${i}`),
+          ...currentEq.products.map((_, i) => `p-${i}`)
+        ];
+
+        // 1. Ensure all text boxes are filled
+        const hasEmpty = keys.some(k => coeffs[k] === "" || coeffs[k] === undefined);
+        if (hasEmpty) {
+          setFeedback({ 
+            type: 'error', 
+            message: 'Please enter a coefficient for every molecule. Enter "1" if it does not change.' 
+          });
+          return;
+        }
+
+        // 2. Calculate balance based purely on inputted coefficients
+        const coeffInventory = {};
+        currentEq.reactants.forEach((r, i) => {
+          const c = parseInt(coeffs[`r-${i}`], 10);
+          Object.entries(r.comp).forEach(([element, count]) => {
+            if (!coeffInventory[element]) coeffInventory[element] = { r: 0, p: 0 };
+            coeffInventory[element].r += c * count;
+          });
+        });
+        currentEq.products.forEach((p, i) => {
+          const c = parseInt(coeffs[`p-${i}`], 10);
+          Object.entries(p.comp).forEach(([element, count]) => {
+            if (!coeffInventory[element]) coeffInventory[element] = { r: 0, p: 0 };
+            coeffInventory[element].p += c * count;
+          });
+        });
+
+        let isBalanced = true;
+        for (const counts of Object.values(coeffInventory)) {
+          if (counts.r !== counts.p) {
+            isBalanced = false;
+            break;
+          }
+        }
+
+        if (!isBalanced) {
+          setFeedback({ type: 'error', message: 'The entered coefficients do not balance the equation.' });
+          return;
+        }
+
+        // 3. Check for simplest ratio
+        const allValues = keys.map(k => parseInt(coeffs[k], 10));
+        const commonDenominator = getArrayGcd(allValues);
+
+        if (commonDenominator > 1) {
+          setFeedback({ 
+            type: 'warning', 
+            message: `Balanced, but it can be simplified! Divide all coefficients by ${commonDenominator}.` 
+          });
+        } else {
+          setFeedback({ type: 'success', message: 'Perfectly balanced! Great job.' });
+        }
+      };
+
+      const inventory = getCloneInventory();
+
+      // Determine active elements for the legend
+      const activeElements = Array.from(
+        new Set(currentEq.reactants.flatMap(r => Object.keys(r.comp)))
+      ).sort();
+
+      // Component for rendering a single molecule block and its clones
+      const MoleculeColumn = ({ item, side, index }) => {
+        const key = `${side}-${index}`;
+        const cloneCount = clones[key] || 1;
+        const numClones = Math.max(0, cloneCount - 1);
+
+        return (
+          <div className="flex flex-col items-center mx-2 sm:mx-4 shrink-0 transition-all">
+            {/* Main Molecule + Input */}
+            <div className="flex flex-col items-center justify-center bg-white px-4 py-3 rounded-xl shadow-sm border border-slate-200 min-w-[130px] relative z-10">
+              <div className="flex flex-row items-center justify-center w-full">
+                <input 
+                  type="number" 
+                  min="1" 
+                  max="15"
+                  placeholder="?"
+                  value={coeffs[key]}
+                  onChange={(e) => handleCoeffChange(key, e.target.value)}
+                  className="w-14 h-12 mr-3 text-center text-xl font-bold bg-amber-50 border-2 border-amber-300 focus:border-indigo-500 focus:bg-white rounded-lg outline-none transition-colors shadow-inner placeholder:text-amber-200"
+                  title="Type the final coefficient here"
+                />
+                <div className="text-2xl font-bold text-slate-800 tracking-wider">
+                  {formatFormula(item.text)}
+                </div>
+              </div>
+              {/* Particle Model below formula */}
+              <div className="mt-3 pt-3 border-t border-slate-100 w-full flex justify-center">
+                <ParticleModel comp={item.comp} />
+              </div>
+            </div>
+
+            {/* Clones Area */}
+            <div className="flex flex-col items-center mt-2 space-y-2 w-full transition-all">
+              {Array.from({ length: numClones }).map((_, i) => (
+                <div 
+                  key={i} 
+                  className="flex flex-col items-center justify-center bg-slate-50 p-2 rounded-lg border-2 border-dashed border-slate-300 w-[90%] opacity-80 animate-in fade-in slide-in-from-top-2"
+                >
+                  <div className="text-[10px] text-slate-400 uppercase tracking-widest font-bold mb-1">Clone</div>
+                  <ParticleModel comp={item.comp} />
+                </div>
+              ))}
+              
+              {/* Cloning Controls */}
+              <div className="flex space-x-2 mt-2 pt-2 border-t border-slate-100 w-full justify-center">
+                 <button 
+                    onClick={() => changeClonesBy(key, -1)}
+                    disabled={cloneCount <= 1}
+                    className="p-1 rounded-full text-slate-400 hover:text-red-500 hover:bg-red-50 disabled:opacity-30 transition-colors"
+                    title="Remove a clone"
+                  >
+                    <Icon name="Minus" size={20} />
+                  </button>
+                  <button 
+                    onClick={() => changeClonesBy(key, 1)}
+                    disabled={cloneCount >= 15}
+                    className="flex items-center space-x-1 px-3 py-1 rounded-full text-sm font-medium text-indigo-600 bg-indigo-50 hover:bg-indigo-100 transition-colors"
+                    title="Add a visual clone"
+                  >
+                    <Icon name="Plus" size={16} />
+                    <span>Clone</span>
+                  </button>
+              </div>
+            </div>
+          </div>
+        );
+      };
+
+      return (
+        <div className="min-h-screen bg-slate-100 text-slate-800 font-sans pb-12 selection:bg-indigo-200">
+          {/* Header */}
+          <header className="bg-indigo-600 text-white shadow-md px-6 py-4 flex flex-col sm:flex-row justify-between items-center">
+            <div>
+              <h1 className="text-2xl font-extrabold flex items-center space-x-2">
+                <Icon name="RefreshCw" className="mr-2" />
+                <span>Equation Balancer</span>
+              </h1>
+              <p className="text-indigo-200 text-sm mt-1">1. Make clones to visualize & balance &nbsp;&nbsp;2. Type coefficients &nbsp;&nbsp;3. Check!</p>
+            </div>
+            <div className="mt-4 sm:mt-0 text-indigo-100 font-medium">
+              Equation {currentEqIdx + 1} of {EQUATIONS.length}
+            </div>
+          </header>
+
+          <main className="max-w-5xl mx-auto mt-8 px-4">
+            
+            {/* Main Equation Workspace */}
+            <div className="bg-white rounded-2xl shadow-xl p-6 sm:p-8 overflow-x-auto border border-slate-200 relative">
+              <div className="flex items-start justify-center min-w-max pb-8 pt-4">
+                
+                {/* Reactants */}
+                <div className="flex items-start">
+                  {currentEq.reactants.map((item, i) => (
+                    <Fragment key={`r-${i}`}>
+                      <MoleculeColumn item={item} side="r" index={i} />
+                      {i < currentEq.reactants.length - 1 && (
+                        <div className="text-3xl font-bold text-slate-300 mx-2 mt-4">+</div>
+                      )}
+                    </Fragment>
+                  ))}
+                </div>
+
+                {/* Reaction Arrow */}
+                <div className="flex flex-col items-center justify-start mx-6 mt-4">
+                  <Icon name="ArrowRight" size={40} className="text-indigo-400" />
+                  <span className="text-xs text-indigo-300 font-bold uppercase tracking-widest mt-1">Yields</span>
+                </div>
+
+                {/* Products */}
+                <div className="flex items-start">
+                  {currentEq.products.map((item, i) => (
+                    <Fragment key={`p-${i}`}>
+                      <MoleculeColumn item={item} side="p" index={i} />
+                      {i < currentEq.products.length - 1 && (
+                        <div className="text-3xl font-bold text-slate-300 mx-2 mt-4">+</div>
+                      )}
+                    </Fragment>
+                  ))}
+                </div>
+
+              </div>
+
+              {/* Legend */}
+              <div className="flex flex-wrap justify-center items-center gap-4 mt-2 pt-6 border-t border-slate-100">
+                <div className="text-sm font-bold text-slate-400 uppercase tracking-wider flex items-center">
+                  Particle Legend
+                </div>
+                {activeElements.map(el => {
+                  const colors = ELEMENT_COLORS[el] || { bg: 'bg-cyan-400', border: 'border-cyan-500' };
+                  return (
+                    <div key={el} className="flex items-center space-x-2 bg-slate-50 px-3 py-1.5 rounded-full border border-slate-200">
+                      <div className={`w-4 h-4 rounded-full border-[1.5px] ${colors.bg} ${colors.border}`} />
+                      <span className="font-semibold text-slate-600 text-sm">{el}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Bottom Section: Inventory & Controls */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+              
+              {/* Atom Inventory Panel */}
+              <div className="bg-white rounded-2xl shadow-md p-6 border border-slate-200 flex flex-col">
+                <div className="flex justify-between items-center mb-4">
+                  <h2 className="text-lg font-bold text-slate-700 flex items-center">
+                    Visual Clone Counts
+                  </h2>
+                  <button 
+                    onClick={() => setShowInventory(!showInventory)}
+                    className="flex items-center text-sm font-medium text-indigo-600 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-lg transition-colors"
+                  >
+                    {showInventory ? (
+                      <><Icon name="EyeOff" size={16} className="mr-1.5" /> <span>Hide</span></>
+                    ) : (
+                      <><Icon name="Eye" size={16} className="mr-1.5" /> <span>Show</span></>
+                    )}
+                  </button>
+                </div>
+
+                {showInventory ? (
+                  <div className="overflow-hidden rounded-xl border border-slate-200 animate-in fade-in slide-in-from-top-2">
+                    <table className="w-full text-center">
+                      <thead className="bg-slate-50 text-slate-500 uppercase text-xs tracking-wider">
+                        <tr>
+                          <th className="py-3 px-4 font-semibold text-left">Element</th>
+                          <th className="py-3 px-4 font-semibold">Left Clones</th>
+                          <th className="py-3 px-4 font-semibold">Right Clones</th>
+                          <th className="py-3 px-4 font-semibold">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {Object.entries(inventory).map(([element, counts]) => {
+                          const isBalanced = counts.r === counts.p;
+                          return (
+                            <tr key={element} className={isBalanced ? "bg-green-50/50" : "bg-red-50/30"}>
+                              <td className="py-3 px-4 font-bold text-left text-slate-700">{element}</td>
+                              <td className="py-3 px-4 text-slate-600 font-medium">{counts.r}</td>
+                              <td className="py-3 px-4 text-slate-600 font-medium">{counts.p}</td>
+                              <td className="py-3 px-4 flex justify-center">
+                                {isBalanced ? (
+                                  <div className="bg-green-100 text-green-700 px-2 py-1 rounded text-xs font-bold w-max mx-auto flex items-center">
+                                    <Icon name="CheckCircle" size={14} className="mr-1"/> Balanced
+                                  </div>
+                                ) : (
+                                  <div className="bg-red-100 text-red-600 px-2 py-1 rounded text-xs font-bold w-max mx-auto">
+                                    Unequal
+                                  </div>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <div className="flex-1 flex items-center justify-center p-6 bg-slate-50 rounded-xl border border-dashed border-slate-300 text-slate-500 italic text-center">
+                    The particle counter is hidden. Try balancing the equation on your own, or click "Show" if you need some help counting!
+                  </div>
+                )}
+              </div>
+
+              {/* Action Panel */}
+              <div className="bg-white rounded-2xl shadow-md p-6 border border-slate-200 flex flex-col justify-center">
+                
+                {/* Feedback Area */}
+                <div className="h-24 flex items-center justify-center mb-4">
+                  {feedback ? (
+                    <div className={`p-4 rounded-xl flex items-center w-full shadow-sm border animate-in fade-in zoom-in-95 ${
+                      feedback.type === 'success' ? 'bg-green-50 border-green-200 text-green-800' : 
+                      feedback.type === 'error' ? 'bg-red-50 border-red-200 text-red-800' : 
+                      'bg-yellow-50 border-yellow-200 text-yellow-800'
+                    }`}>
+                      {feedback.type === 'success' && <Icon name="CheckCircle" className="mr-3 shrink-0 text-green-600" size={28} />}
+                      {feedback.type === 'error' && <Icon name="XCircle" className="mr-3 shrink-0 text-red-600" size={28} />}
+                      {feedback.type === 'warning' && <Icon name="AlertCircle" className="mr-3 shrink-0 text-yellow-600" size={28} />}
+                      <span className="font-medium">{feedback.message}</span>
+                    </div>
+                  ) : (
+                    <div className="text-slate-500 text-center">
+                      When you think it's balanced, fill in <strong className="text-amber-500">all the yellow input boxes</strong> and check your answer!
+                    </div>
+                  )}
+                </div>
+
+                {/* Buttons */}
+                <div className="flex space-x-4">
+                  <button 
+                    onClick={checkAnswer}
+                    className="flex-1 py-4 bg-indigo-600 hover:bg-indigo-700 text-white text-lg font-bold rounded-xl transition-all shadow-md hover:shadow-lg active:scale-95 flex justify-center items-center"
+                  >
+                    <Icon name="CheckCircle" className="mr-2" size={24} /> <span>Check Answer</span>
+                  </button>
+                  
+                  <button 
+                    onClick={() => setCurrentEqIdx((prev) => (prev + 1) % EQUATIONS.length)}
+                    className="flex-1 py-4 bg-slate-800 hover:bg-slate-900 text-white text-lg font-bold rounded-xl transition-all shadow-md hover:shadow-lg active:scale-95 flex justify-center items-center"
+                  >
+                    <span>Next</span> <Icon name="ChevronRight" className="ml-1" size={24} />
+                  </button>
+                </div>
+                
+              </div>
+            </div>
+
+          </main>
+        </div>
+      );
+    }
+
+    // --- RENDER ---
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>
