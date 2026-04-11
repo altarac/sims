@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nutrition Facts Label</title>
+<style>
+    body {
+        font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+        background-color: #f8f9fa;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 100vh;
+        margin: 0;
+        padding: 20px;
+    }
+
+    .nutrition-label {
+        background-color: white;
+        border: 1px solid black;
+        padding: 6px;
+        width: 330px;
+        color: black;
+        box-sizing: border-box;
+    }
+
+    h1 {
+        font-size: 2.75rem;
+        font-weight: 900;
+        margin: 0 0 2px 0;
+        line-height: 1.05;
+        letter-spacing: -0.5px;
+    }
+
+    .servings {
+        margin: 0 0 4px 0;
+        font-size: 1.1rem;
+    }
+
+    .serving-size {
+        display: flex;
+        justify-content: space-between;
+        font-weight: bold;
+        font-size: 1.2rem;
+        margin-bottom: 4px;
+    }
+
+    hr {
+        margin: 0;
+        border: none;
+        background-color: black;
+    }
+
+    hr.line-10 { height: 10px; }
+    hr.line-8 { height: 8px; }
+    hr.line-5 { height: 5px; }
+    hr.line-1 { height: 1px; }
+
+    hr.indent-1 { margin-left: 1rem; }
+    hr.indent-2 { margin-left: 2rem; }
+
+    .amount-per-serving {
+        font-size: 0.8rem;
+        font-weight: 900;
+        margin: 4px 0 0 0;
+    }
+
+    .calories-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-end;
+        margin-bottom: 4px;
+    }
+
+    .cal-text {
+        font-size: 2.3rem;
+        font-weight: 900;
+        line-height: 1;
+        margin-bottom: -4px;
+    }
+
+    .cal-num {
+        font-size: 3.2rem;
+        font-weight: 900;
+        line-height: 0.85;
+    }
+
+    .dv-header {
+        text-align: right;
+        font-size: 0.8rem;
+        font-weight: bold;
+        margin: 4px 0 2px 0;
+    }
+
+    .row {
+        display: flex;
+        justify-content: space-between;
+        font-size: 0.95rem;
+        padding: 4px 0;
+    }
+
+    .row b {
+        font-weight: 900;
+    }
+
+    .row.indent-1 { padding-left: 1rem; }
+    .row.indent-2 { padding-left: 2rem; }
+
+    .footnote {
+        font-size: 0.72rem;
+        line-height: 1.25;
+        padding-top: 5px;
+        margin-bottom: 2px;
+    }
+
+    .container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 20px;
+    }
+
+    .generate-btn {
+        padding: 10px 20px;
+        font-size: 1rem;
+        font-weight: bold;
+        background-color: #000;
+        color: #fff;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: background-color 0.2s;
+        font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    }
+
+    .generate-btn:hover {
+        background-color: #333;
+    }
+
+    .button-group {
+        display: flex;
+        gap: 10px;
+    }
+
+    .blurred {
+        filter: blur(10px);
+        user-select: none;
+        transition: filter 0.3s ease;
+    }
+</style>
+</head>
+<body>
+
+<div class="container">
+    <div class="nutrition-label">
+        <h1>Nutrition Facts</h1>
+        <p class="servings"><span id="servings-count">6</span> servings per container</p>
+        <div class="serving-size">
+            <span>Serving size</span>
+            <span>1 cup (230g)</span>
+        </div>
+        
+        <hr class="line-10">
+        
+        <div class="amount-per-serving">Amount per serving</div>
+        <div class="calories-row">
+            <span class="cal-text" id="cal-text-label">Calories</span>
+            <span class="cal-num blurred" id="calories-count">245</span>
+        </div>
+        
+        <hr class="line-5">
+        
+        <div class="dv-header">% Daily Value*</div>
+        
+        <hr class="line-1">
+        <div class="row">
+            <span><b>Total Fat</b> <span id="total-fat-g">12g</span></span>
+            <b id="total-fat-dv">14%</b>
+        </div>
+        
+        <hr class="line-1">
+        <div class="row indent-1">
+            <span>Saturated Fat <span id="sat-fat-g">2g</span></span>
+            <b id="sat-fat-dv">10%</b>
+        </div>
+        
+        <hr class="line-1 indent-1">
+        <div class="row indent-1">
+            <span><em>Trans</em> Fat <span id="trans-fat-g">0g</span></span>
+            <span></span>
+        </div>
+        
+        <hr class="line-1">
+        <div class="row">
+            <span><b>Cholesterol</b> <span id="cholesterol-mg">8mg</span></span>
+            <b id="cholesterol-dv">3%</b>
+        </div>
+        
+        <hr class="line-1">
+        <div class="row">
+            <span><b>Sodium</b> <span id="sodium-mg">210mg</span></span>
+            <b id="sodium-dv">9%</b>
+        </div>
+        
+        <hr class="line-1">
+        <div class="row">
+            <span><b>Total Carbohydrate</b> <span id="total-carb-g">34g</span></span>
+            <b id="total-carb-dv">12%</b>
+        </div>
+        
+        <hr class="line-1">
+        <div class="row indent-1">
+            <span>Dietary Fiber <span id="fiber-g">7g</span></span>
+            <b id="fiber-dv">25%</b>
+        </div>
+        
+        <hr class="line-1">
+        <div class="row indent-1">
+            <span>Total Sugars <span id="sugars-g">5g</span></span>
+            <span></span>
+        </div>
+        
+        <hr class="line-1 indent-2">
+        <div class="row indent-2">
+            <span>Includes <span id="added-sugars-g">4g</span> Added Sugars</span>
+            <b id="added-sugars-dv">8%</b>
+        </div>
+        
+        <hr class="line-1">
+        <div class="row">
+            <span><b>Protein</b> <span id="protein-g">11g</span></span>
+            <span></span>
+        </div>
+        
+        <hr class="line-8">
+        <div class="row">
+            <span>Vitamin D <span id="vit-d-mcg">4mcg</span></span>
+            <span id="vit-d-dv">20%</span>
+        </div>
+        
+        <hr class="line-1">
+        <div class="row">
+            <span>Calcium <span id="calcium-mg">210mg</span></span>
+            <span id="calcium-dv">16%</span>
+        </div>
+        
+        <hr class="line-1">
+        <div class="row">
+            <span>Iron <span id="iron-mg">3mg</span></span>
+            <span id="iron-dv">15%</span>
+        </div>
+        
+        <hr class="line-1">
+        <div class="row">
+            <span>Potassium <span id="potassium-mg">380mg</span></span>
+            <span id="potassium-dv">8%</span>
+        </div>
+        
+        <hr class="line-1">
+        <div class="footnote">
+            *The % Daily Value (DV) tells you how much a nutrient in a serving of food contributes to a daily diet. 2,000 calories a day is used for general nutrition advice.
+        </div>
+    </div>
+
+    <div class="button-group">
+        <button class="generate-btn" onclick="generateRandomNutrition()">Generate New Label</button>
+        <button id="toggle-btn" class="generate-btn" onclick="toggleCalories()">Show Calories</button>
+        <button id="toggle-unit-btn" class="generate-btn" onclick="toggleUnits()">Switch to kJ</button>
+    </div>
+</div>
+
+<script>
+    let isKilojoules = false;
+    let currentFat = 12;
+    let currentCarbs = 34;
+    let currentProtein = 11;
+
+    function getRandomInt(min, max, step = 1) {
+        const steps = Math.floor((max - min) / step);
+        return min + (Math.floor(Math.random() * (steps + 1)) * step);
+    }
+
+    function toggleCalories() {
+        const calElement = document.getElementById('calories-count');
+        const toggleBtn = document.getElementById('toggle-btn');
+        calElement.classList.toggle('blurred');
+        
+        const unitName = isKilojoules ? 'Kilojoules' : 'Calories';
+        if (calElement.classList.contains('blurred')) {
+            toggleBtn.innerText = `Show ${unitName}`;
+        } else {
+            toggleBtn.innerText = `Hide ${unitName}`;
+        }
+    }
+
+    function updateEnergyDisplay() {
+        const calText = document.getElementById('cal-text-label');
+        const calNum = document.getElementById('calories-count');
+        const toggleUnitBtn = document.getElementById('toggle-unit-btn');
+        const toggleBtn = document.getElementById('toggle-btn');
+
+        if (isKilojoules) {
+            const kj = (currentFat * 37) + (currentCarbs * 17) + (currentProtein * 17);
+            calText.innerText = 'Kilojoules';
+            calNum.innerText = kj;
+            toggleUnitBtn.innerText = 'Switch to Calories';
+        } else {
+            const calories = (currentFat * 9) + (currentCarbs * 4) + (currentProtein * 4);
+            calText.innerText = 'Calories';
+            calNum.innerText = calories;
+            toggleUnitBtn.innerText = 'Switch to kJ';
+        }
+
+        // Keep the visibility toggle button text correctly matched with the active unit
+        const unitName = isKilojoules ? 'Kilojoules' : 'Calories';
+        if (calNum.classList.contains('blurred')) {
+            toggleBtn.innerText = `Show ${unitName}`;
+        } else {
+            toggleBtn.innerText = `Hide ${unitName}`;
+        }
+    }
+
+    function toggleUnits() {
+        isKilojoules = !isKilojoules;
+        updateEnergyDisplay();
+    }
+
+    function generateRandomNutrition() {
+        const calElement = document.getElementById('calories-count');
+        const isVisible = !calElement.classList.contains('blurred');
+        
+        // Blur immediately to prevent accidental reveal during transition
+        calElement.classList.add('blurred');
+        const unitName = isKilojoules ? 'Kilojoules' : 'Calories';
+        document.getElementById('toggle-btn').innerText = `Show ${unitName}`;
+
+        // Wait for the CSS blur transition (0.3s) to finish before swapping numbers
+        setTimeout(() => {
+            // Randomly generate plausible base values with logic to prevent invalid combinations
+            const servings = getRandomInt(1, 15);
+            
+            const totalFat = getRandomInt(0, 35);
+            const satFat = getRandomInt(0, totalFat);
+            const transFat = Math.random() > 0.8 ? 0.5 : 0; 
+            
+            const chol = getRandomInt(0, 150, 5);
+            const sod = getRandomInt(0, 1200, 10);
+            
+            const carbs = getRandomInt(0, 100);
+            const fiber = getRandomInt(0, Math.min(carbs, 20));
+            const sugars = getRandomInt(0, carbs - fiber);
+            const addedSugars = getRandomInt(0, sugars);
+            
+            const protein = getRandomInt(0, 40);
+
+            // Update global macros for energy calculation
+            currentFat = totalFat;
+            currentCarbs = carbs;
+            currentProtein = protein;
+
+            const vitD = getRandomInt(0, 15, 1);
+            const calc = getRandomInt(0, 300, 10);
+            const iron = getRandomInt(0, 8, 1);
+            const potas = getRandomInt(0, 800, 10);
+
+            // FDA standard Daily Values for a 2,000 calorie diet
+            const dvFat = 78;
+            const dvSatFat = 20;
+            const dvChol = 300;
+            const dvSod = 2300;
+            const dvCarb = 275;
+            const dvFiber = 28;
+            const dvAddedSugar = 50;
+            const dvVitD = 20;
+            const dvCalc = 1300;
+            const dvIron = 18;
+            const dvPotas = 4700;
+
+        const calcDV = (val, dv) => Math.round((val / dv) * 100);
+
+        updateEnergyDisplay(); // Calculates the new unit total and updates text appropriately
+
+        // Update DOM with new values and calculated DVs
+        document.getElementById('servings-count').innerText = servings;
+        
+        document.getElementById('total-fat-g').innerText = totalFat + 'g';
+        document.getElementById('total-fat-dv').innerText = calcDV(totalFat, dvFat) + '%';
+        
+        document.getElementById('sat-fat-g').innerText = satFat + 'g';
+        document.getElementById('sat-fat-dv').innerText = calcDV(satFat, dvSatFat) + '%';
+        
+        document.getElementById('trans-fat-g').innerText = transFat + 'g';
+        
+        document.getElementById('cholesterol-mg').innerText = chol + 'mg';
+        document.getElementById('cholesterol-dv').innerText = calcDV(chol, dvChol) + '%';
+        
+        document.getElementById('sodium-mg').innerText = sod + 'mg';
+        document.getElementById('sodium-dv').innerText = calcDV(sod, dvSod) + '%';
+        
+        document.getElementById('total-carb-g').innerText = carbs + 'g';
+        document.getElementById('total-carb-dv').innerText = calcDV(carbs, dvCarb) + '%';
+        
+        document.getElementById('fiber-g').innerText = fiber + 'g';
+        document.getElementById('fiber-dv').innerText = calcDV(fiber, dvFiber) + '%';
+        
+        document.getElementById('sugars-g').innerText = sugars + 'g';
+        
+        document.getElementById('added-sugars-g').innerText = addedSugars + 'g';
+        document.getElementById('added-sugars-dv').innerText = calcDV(addedSugars, dvAddedSugar) + '%';
+        
+        document.getElementById('protein-g').innerText = protein + 'g';
+        
+        document.getElementById('vit-d-mcg').innerText = vitD + 'mcg';
+        document.getElementById('vit-d-dv').innerText = calcDV(vitD, dvVitD) + '%';
+        
+        document.getElementById('calcium-mg').innerText = calc + 'mg';
+        document.getElementById('calcium-dv').innerText = calcDV(calc, dvCalc) + '%';
+        
+        document.getElementById('iron-mg').innerText = iron + 'mg';
+        document.getElementById('iron-dv').innerText = calcDV(iron, dvIron) + '%';
+        
+        document.getElementById('potassium-mg').innerText = potas + 'mg';
+        document.getElementById('potassium-dv').innerText = calcDV(potas, dvPotas) + '%';
+        }, isVisible ? 300 : 0);
+    }
+</script>
+</body>
+</html>
