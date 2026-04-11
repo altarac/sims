@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Plant Science Lab: Student Exploration</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        
+        .chamber {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-end;
+            height: 100%;
+            padding-bottom: 20px;
+            position: relative;
+            background: rgb(20, 25, 35);
+            transition: background-color 0.5s ease;
+        }
+
+        .light-bulb {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #475569;
+            box-shadow: 0 0 0 rgba(253, 224, 71, 0);
+            transition: all 0.3s;
+        }
+        .light-bulb.on {
+            background: #fde047;
+            box-shadow: 0 0 15px #fde047;
+        }
+
+        .pot {
+            position: relative;
+            width: 80px;
+            height: 55px;
+            background: #78350f;
+            border-radius: 0 0 12px 12px;
+            z-index: 20;
+            border-top: 4px solid #451a03;
+        }
+
+        .soil {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 12px;
+            background: #3d1a01;
+            border-radius: 4px 4px 0 0;
+            overflow: hidden;
+            transition: background-color 0.3s;
+        }
+
+        .soil.rich { background-color: #1a0f00; }
+        .fert-granules {
+            position: absolute;
+            top: 2px;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: radial-gradient(#3b82f6 15%, transparent 20%);
+            background-size: 6px 6px;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .ruler {
+            position: absolute;
+            bottom: 55px;
+            left: 5px;
+            width: 25px;
+            height: 350px;
+            border-left: 2px solid rgba(255,255,255,0.15);
+            pointer-events: none;
+            z-index: 5;
+        }
+        .ruler-mark {
+            position: absolute;
+            left: 0;
+            width: 6px;
+            border-top: 1px solid rgba(255,255,255,0.2);
+        }
+        .ruler-label {
+            position: absolute;
+            left: 10px;
+            transform: translateY(-50%);
+            color: rgba(255,255,255,0.3);
+            font-size: 8px;
+            font-weight: bold;
+        }
+
+        .plant-svg {
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            pointer-events: none;
+            overflow: visible;
+        }
+
+        input[type=range] { accent-color: #059669; }
+        .control-card {
+            background: white;
+            padding: 0.75rem;
+            border-radius: 1rem;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 2px 4px rgb(0 0 0 / 0.05);
+        }
+        
+        #day-overlay {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 5rem;
+            font-weight: 900;
+            color: rgba(255, 255, 255, 0.05);
+            pointer-events: none;
+            z-index: 10;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-900">
+
+    <div class="max-w-[1440px] mx-auto p-4 md:p-6">
+        <header class="mb-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b pb-4">
+            <div>
+                <h1 class="text-xl font-bold text-emerald-900">Plant Growth Simulation (4 Pots)</h1>
+                <p class="text-slate-500 text-xs">Observe 7-day cycles. Height and Mass represent total matter accumulation.</p>
+            </div>
+            <div class="flex gap-2 w-full md:w-auto">
+                <button onclick="toggleLog()" class="px-4 py-2 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-semibold rounded-lg text-sm transition-all shadow-sm">
+                    📊 View Results
+                </button>
+                <button id="run-btn" onclick="runAllSimulations()" class="px-6 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg shadow-md transition-all active:scale-95">
+                    Start 7-Day Run
+                </button>
+            </div>
+        </header>
+
+        <!-- Lab Display -->
+        <div class="bg-slate-950 rounded-3xl h-[520px] relative overflow-hidden grid grid-cols-4 gap-0 mb-6 border-8 border-slate-900 shadow-xl">
+            <div id="day-overlay">DAY 0</div>
+
+            <!-- Pot A -->
+            <div id="chamber-1" class="chamber border-r border-slate-800/40">
+                <div class="absolute top-6 flex space-x-1" id="bulbs-1"></div>
+                <div class="text-white text-center mb-auto pt-14 z-30 pointer-events-none">
+                    <span class="block text-[9px] font-bold text-emerald-500 uppercase tracking-widest opacity-70">Pot A</span>
+                    <span id="p1-name" class="text-md font-bold">Tomato</span>
+                    <div class="text-[10px] font-mono text-white/80 mt-0.5 bg-black/40 px-2 py-0.5 rounded">
+                        <span id="p1-stat-h">0</span> cm | <span id="p1-stat-m">0.0</span> g
+                    </div>
+                </div>
+                <div id="ruler-1" class="ruler"></div>
+                <div class="pot">
+                    <div id="soil-1" class="soil"><div id="fert-1" class="fert-granules"></div></div>
+                    <svg id="p1-svg" class="plant-svg" width="80" height="400"></svg>
+                </div>
+            </div>
+
+            <!-- Pot B -->
+            <div id="chamber-2" class="chamber border-r border-slate-800/40">
+                <div class="absolute top-6 flex space-x-1" id="bulbs-2"></div>
+                <div class="text-white text-center mb-auto pt-14 z-30 pointer-events-none">
+                    <span class="block text-[9px] font-bold text-emerald-500 uppercase tracking-widest opacity-70">Pot B</span>
+                    <span id="p2-name" class="text-md font-bold">Bean</span>
+                    <div class="text-[10px] font-mono text-white/80 mt-0.5 bg-black/40 px-2 py-0.5 rounded">
+                        <span id="p2-stat-h">0</span> cm | <span id="p2-stat-m">0.0</span> g
+                    </div>
+                </div>
+                <div id="ruler-2" class="ruler"></div>
+                <div class="pot">
+                    <div id="soil-2" class="soil"><div id="fert-2" class="fert-granules"></div></div>
+                    <svg id="p2-svg" class="plant-svg" width="80" height="400"></svg>
+                </div>
+            </div>
+
+            <!-- Pot C -->
+            <div id="chamber-3" class="chamber border-r border-slate-800/40">
+                <div class="absolute top-6 flex space-x-1" id="bulbs-3"></div>
+                <div class="text-white text-center mb-auto pt-14 z-30 pointer-events-none">
+                    <span class="block text-[9px] font-bold text-emerald-500 uppercase tracking-widest opacity-70">Pot C</span>
+                    <span id="p3-name" class="text-md font-bold">Turnip</span>
+                    <div class="text-[10px] font-mono text-white/80 mt-0.5 bg-black/40 px-2 py-0.5 rounded">
+                        <span id="p3-stat-h">0</span> cm | <span id="p3-stat-m">0.0</span> g
+                    </div>
+                </div>
+                <div id="ruler-3" class="ruler"></div>
+                <div class="pot">
+                    <div id="soil-3" class="soil"><div id="fert-3" class="fert-granules"></div></div>
+                    <svg id="p3-svg" class="plant-svg" width="80" height="400"></svg>
+                </div>
+            </div>
+
+            <!-- Pot D (New) -->
+            <div id="chamber-4" class="chamber">
+                <div class="absolute top-6 flex space-x-1" id="bulbs-4"></div>
+                <div class="text-white text-center mb-auto pt-14 z-30 pointer-events-none">
+                    <span class="block text-[9px] font-bold text-emerald-500 uppercase tracking-widest opacity-70">Pot D</span>
+                    <span id="p4-name" class="text-md font-bold">Bean</span>
+                    <div class="text-[10px] font-mono text-white/80 mt-0.5 bg-black/40 px-2 py-0.5 rounded">
+                        <span id="p4-stat-h">0</span> cm | <span id="p4-stat-m">0.0</span> g
+                    </div>
+                </div>
+                <div id="ruler-4" class="ruler"></div>
+                <div class="pot">
+                    <div id="soil-4" class="soil"><div id="fert-4" class="fert-granules"></div></div>
+                    <svg id="p4-svg" class="plant-svg" width="80" height="400"></svg>
+                </div>
+            </div>
+
+            <div class="absolute bottom-0 w-full h-8 bg-slate-900 border-t border-slate-800 z-10"></div>
+        </div>
+
+        <!-- Controls -->
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <template id="control-template">
+                <div class="control-card">
+                    <div class="flex items-center justify-between mb-2 pb-1.5 border-b">
+                        <h3 class="font-bold text-slate-800 text-sm">Pot {ID}</h3>
+                        <select class="seed-sel text-[10px] p-1 border rounded bg-slate-50">
+                            <option value="Tomato">Tomato</option>
+                            <option value="Bean">Bean</option>
+                            <option value="Turnip">Turnip</option>
+                        </select>
+                    </div>
+                    <div class="space-y-3">
+                        <div class="group">
+                            <div class="flex justify-between text-[9px] font-bold text-slate-500 mb-1">LIGHTS <span class="light-num text-emerald-600">1</span></div>
+                            <input type="range" class="light-range w-full h-1 bg-slate-200 rounded-lg" min="0" max="3" value="1" step="1">
+                        </div>
+                        <div class="group">
+                            <div class="flex justify-between text-[9px] font-bold text-slate-500 mb-1">WATER <span class="water-num text-emerald-600">50ml</span></div>
+                            <input type="range" class="water-range w-full h-1 bg-slate-200 rounded-lg" min="0" max="100" value="50">
+                        </div>
+                        <div class="pt-1 border-t flex flex-wrap gap-2">
+                            <label class="flex items-center text-[10px] font-bold text-slate-600 cursor-pointer">
+                                <input type="checkbox" class="fert-check mr-1 rounded text-emerald-600"> Fert.
+                            </label>
+                            <label class="flex items-center text-[10px] font-bold text-slate-600 cursor-pointer">
+                                <input type="checkbox" class="comp-check mr-1 rounded text-emerald-600"> Comp.
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </template>
+            <div id="controls-p1"></div>
+            <div id="controls-p2"></div>
+            <div id="controls-p3"></div>
+            <div id="controls-p4"></div>
+        </div>
+    </div>
+
+    <!-- Data Log -->
+    <div id="log-modal" class="hidden fixed inset-0 bg-slate-900/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <div class="bg-white max-w-4xl w-full rounded-2xl p-6 shadow-2xl flex flex-col max-h-[90vh]">
+            <div class="flex justify-between items-center mb-6">
+                <div>
+                    <h2 class="text-xl font-bold text-slate-900">Experimental Results Log</h2>
+                </div>
+                <button onclick="toggleLog()" class="text-slate-400 hover:text-slate-600">✕</button>
+            </div>
+            <div class="overflow-auto border rounded-xl">
+                <table class="w-full text-left text-xs">
+                    <thead class="bg-slate-50 border-b text-slate-500 font-bold uppercase text-[9px]">
+                        <tr>
+                            <th class="p-3">Time</th>
+                            <th class="p-3">Pot</th>
+                            <th class="p-3">Seed</th>
+                            <th class="p-3">Height (cm)</th>
+                            <th class="p-3">Mass (g)</th>
+                            <th class="p-3">Appearance</th>
+                        </tr>
+                    </thead>
+                    <tbody id="log-body" class="divide-y"></tbody>
+                </table>
+                <div id="empty-log" class="p-8 text-center text-slate-400 italic">No experiments recorded yet.</div>
+            </div>
+            <div class="mt-4 flex justify-between">
+                <button onclick="clearHistory()" class="text-[10px] text-red-500 font-bold uppercase hover:underline">Clear History</button>
+                <button onclick="toggleLog()" class="px-5 py-2 bg-slate-900 text-white rounded-lg font-bold text-sm">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let isRunning = false;
+        const state = [
+            { id: 1, seed: 'Tomato', h: 0, m: 0 },
+            { id: 2, seed: 'Bean', h: 0, m: 0 },
+            { id: 3, seed: 'Turnip', h: 0, m: 0 },
+            { id: 4, seed: 'Bean', h: 0, m: 0 }
+        ];
+
+        const plantSpecs = {
+            'Tomato': { maxH: 280, baseMass: 0.12, optW: [40, 70], optL: 2, stemColor: '#4d7c0f', leafType: 'compound' },
+            'Bean': { maxH: 220, baseMass: 0.18, optW: [30, 60], optL: 2, stemColor: '#166534', leafType: 'broad' },
+            'Turnip': { maxH: 140, baseMass: 0.25, optW: [50, 80], optL: 3, stemColor: '#65a30d', leafType: 'lobed' }
+        };
+
+        function setupUI() {
+            [1, 2, 3, 4].forEach(id => {
+                const container = document.getElementById(`controls-p${id}`);
+                const template = document.getElementById('control-template').innerHTML;
+                const labels = ['A', 'B', 'C', 'D'];
+                container.innerHTML = template.replace('{ID}', labels[id-1]);
+                
+                const card = container.querySelector('.control-card');
+                const seedSel = card.querySelector('.seed-sel');
+                seedSel.value = state[id-1].seed;
+                
+                seedSel.addEventListener('change', (e) => {
+                    state[id-1].seed = e.target.value;
+                    document.getElementById(`p${id}-name`).innerText = e.target.value;
+                    clearPlant(id);
+                });
+
+                card.querySelector('.light-range').addEventListener('input', (e) => {
+                    card.querySelector('.light-num').innerText = e.target.value;
+                    updateLights(id, parseInt(e.target.value));
+                });
+
+                card.querySelector('.water-range').addEventListener('input', (e) => {
+                    card.querySelector('.water-num').innerText = e.target.value + 'ml';
+                });
+
+                card.querySelector('.fert-check').addEventListener('change', () => updateSoilVisuals(id));
+                card.querySelector('.comp-check').addEventListener('change', () => updateSoilVisuals(id));
+
+                updateLights(id, 1);
+                updateSoilVisuals(id);
+            });
+            createRulers();
+        }
+
+        function updateSoilVisuals(id) {
+            const controls = document.getElementById(`controls-p${id}`);
+            const fertOn = controls.querySelector('.fert-check').checked;
+            const compOn = controls.querySelector('.comp-check').checked;
+            const soil = document.getElementById(`soil-${id}`);
+            const fert = document.getElementById(`fert-${id}`);
+            fert.style.opacity = fertOn ? "1" : "0";
+            compOn ? soil.classList.add('rich') : soil.classList.remove('rich');
+        }
+
+        function updateLights(id, count) {
+            const container = document.getElementById(`bulbs-${id}`);
+            container.innerHTML = '';
+            for (let i = 0; i < 3; i++) {
+                const bulb = document.createElement('div');
+                bulb.className = `light-bulb ${i < count ? 'on' : ''}`;
+                container.appendChild(bulb);
+            }
+            const chamber = document.getElementById(`chamber-${id}`);
+            const brightness = 15 + (count * 12);
+            chamber.style.backgroundColor = `rgb(${brightness}, ${brightness + 5}, ${brightness + 12})`;
+        }
+
+        function createRulers() {
+            [1, 2, 3, 4].forEach(id => {
+                const ruler = document.getElementById(`ruler-${id}`);
+                ruler.innerHTML = '';
+                for (let i = 0; i <= 350; i += 25) {
+                    const mark = document.createElement('div');
+                    mark.className = 'ruler-mark';
+                    mark.style.bottom = `${i}px`;
+                    if (i % 50 === 0) {
+                        const label = document.createElement('div');
+                        label.className = 'ruler-label';
+                        label.innerText = i + 'cm';
+                        mark.appendChild(label);
+                        mark.style.width = '10px';
+                    }
+                    ruler.appendChild(mark);
+                }
+            });
+        }
+
+        function drawPlantStep(id, h, health, species) {
+            const svg = document.getElementById(`p${id}-svg`);
+            const spec = plantSpecs[species];
+            const color = health < 0.4 ? '#a3a232' : spec.stemColor;
+            let path = `M 40 400 L 40 ${400 - h}`;
+            let html = `<path d="${path}" stroke="${color}" stroke-width="3" fill="none" stroke-linecap="round" />`;
+
+            const leafCount = Math.floor(h / 30);
+            for (let i = 1; i <= leafCount; i++) {
+                const leafY = 400 - (i * 30);
+                const side = i % 2 === 0 ? 1 : -1;
+                const leafColor = health < 0.6 ? '#84cc16' : color;
+                if (spec.leafType === 'compound') {
+                    html += `<ellipse cx="${40 + (10 * side)}" cy="${leafY}" rx="8" ry="3" fill="${leafColor}" transform="rotate(${15 * side}, 40, ${leafY})" />`;
+                } else if (spec.leafType === 'broad') {
+                    html += `<path d="M 40 ${leafY} Q ${40 + (22 * side)} ${leafY - 8} ${40 + (18 * side)} ${leafY + 8} Z" fill="${leafColor}" />`;
+                } else {
+                    html += `<circle cx="${40 + (8 * side)}" cy="${leafY}" r="7" fill="${leafColor}" />`;
+                }
+            }
+            svg.innerHTML = html;
+        }
+
+        function clearPlant(id) {
+            const svg = document.getElementById(`p${id}-svg`);
+            svg.innerHTML = '';
+            svg.dataset.height = "0";
+            document.getElementById(`p${id}-stat-h`).innerText = "0";
+            document.getElementById(`p${id}-stat-m`).innerText = "0.0";
+        }
+
+        function getAppearance(health, light, water) {
+            if (health < 0.2) return "Dead";
+            if (water > 90) return "Wilted";
+            if (water < 10) return "Dried Out";
+            if (light === 0) return "Pale / Stunted";
+            if (light === 3 && health < 0.8) return "Burnt";
+            if (health > 0.8) return "Healthy";
+            return "Thin / Yellow";
+        }
+
+        async function runAllSimulations() {
+            if (isRunning) return;
+            isRunning = true;
+            document.getElementById('run-btn').disabled = true;
+            document.getElementById('run-btn').classList.add('opacity-50');
+
+            const overlay = document.getElementById('day-overlay');
+            const batchResults = [];
+            [1, 2, 3, 4].forEach(id => clearPlant(id));
+
+            for (let day = 1; day <= 7; day++) {
+                overlay.innerText = `DAY ${day}`;
+                overlay.classList.add('animate-pulse');
+                
+                const dayStep = [1, 2, 3, 4].map(id => {
+                    return new Promise(resolve => {
+                        const controls = document.getElementById(`controls-p${id}`);
+                        const light = parseInt(controls.querySelector('.light-range').value);
+                        const water = parseInt(controls.querySelector('.water-range').value);
+                        const fert = controls.querySelector('.fert-check').checked;
+                        const comp = controls.querySelector('.comp-check').checked;
+                        const species = state[id-1].seed;
+                        const spec = plantSpecs[species];
+
+                        let lScore = (light === 0) ? 0.05 : (light >= spec.optL) ? 1.0 : 0.6;
+                        let wScore = 1 - Math.abs(water - (spec.optW[0] + spec.optW[1])/2) / 100;
+                        let nScore = 0.7 + (fert ? 0.15 : 0) + (comp ? 0.15 : 0);
+                        
+                        const health = Math.min(lScore, wScore, nScore);
+                        const dayH = (spec.maxH / 7) * health * (0.95 + Math.random() * 0.1);
+                        
+                        let curH = parseFloat(document.getElementById(`p${id}-svg`).dataset.height || 0);
+                        let targetH = curH + dayH;
+                        
+                        let anim = setInterval(() => {
+                            curH += 2;
+                            drawPlantStep(id, curH, health, species);
+                            
+                            // Real-time stat update
+                            document.getElementById(`p${id}-stat-h`).innerText = Math.round(curH);
+                            const currentMass = (curH * spec.baseMass * health).toFixed(1);
+                            document.getElementById(`p${id}-stat-m`).innerText = currentMass;
+
+                            if (curH >= targetH) {
+                                clearInterval(anim);
+                                document.getElementById(`p${id}-svg`).dataset.height = curH;
+                                resolve({ h: curH, v: health, l: light, w: water, m: currentMass });
+                            }
+                        }, 10);
+                    });
+                });
+
+                const results = await Promise.all(dayStep);
+                if (day === 7) {
+                    results.forEach((res, idx) => {
+                        batchResults.push({
+                            id: idx + 1,
+                            seed: state[idx].seed,
+                            height: Math.round(res.h),
+                            mass: res.m,
+                            appearance: getAppearance(res.v, res.l, res.w)
+                        });
+                    });
+                }
+                await new Promise(r => setTimeout(r, 100));
+            }
+
+            logBatch(batchResults);
+            overlay.innerText = "DONE";
+            setTimeout(() => { 
+                overlay.innerText = "DAY 0"; 
+                document.getElementById('run-btn').disabled = false;
+                document.getElementById('run-btn').classList.remove('opacity-50');
+            }, 1500);
+            isRunning = false;
+        }
+
+        function logBatch(results) {
+            const body = document.getElementById('log-body');
+            document.getElementById('empty-log').classList.add('hidden');
+            const timeId = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            const potLabels = ['A', 'B', 'C', 'D'];
+
+            results.forEach(res => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td class="p-3 text-slate-400 font-mono">${timeId}</td>
+                    <td class="p-3 font-bold">${potLabels[res.id-1]}</td>
+                    <td class="p-3">${res.seed}</td>
+                    <td class="p-3 font-bold text-emerald-600">${res.height}</td>
+                    <td class="p-3 font-mono">${res.mass}</td>
+                    <td class="p-3"><span class="px-2 py-0.5 rounded-full bg-slate-100 text-[9px] font-bold">${res.appearance}</span></td>
+                `;
+                body.prepend(row);
+            });
+        }
+
+        function toggleLog() { document.getElementById('log-modal').classList.toggle('hidden'); }
+        function clearHistory() { 
+            document.getElementById('log-body').innerHTML = ''; 
+            document.getElementById('empty-log').classList.remove('hidden'); 
+        }
+
+        window.onload = setupUI;
+    </script>
+</body>
+</html>
