@@ -1,0 +1,673 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Phase Change Simulator: Advanced Particle Model</title>
+    <style>
+        /* GLOBAL STYLES */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f7f9;
+            color: #333;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            margin: 0;
+        }
+        .container {
+            background-color: #ffffff;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
+            max-width: 900px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        h1 {
+            color: #007bff;
+            text-align: center;
+            margin-top: 0;
+            margin-bottom: 10px;
+            font-size: 1.8em;
+        }
+        p.subtitle {
+            text-align: center;
+            margin-bottom: 25px;
+            color: #666;
+        }
+
+        /* CONTROLS AREA */
+        .controls {
+            background-color: #e9ecef;
+            padding: 25px 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .control-group {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        label {
+            display: block;
+            margin-bottom: 15px;
+            font-weight: bold;
+            color: #555;
+            font-size: 1.1em;
+        }
+
+        /* NEW CONTROLS */
+        .controls-header {
+            display: flex;
+            gap: 15px;
+            width: 100%;
+            margin-bottom: 10px;
+            justify-content: center;
+            align-items: center;
+        }
+        select {
+            padding: 8px 12px;
+            font-size: 1em;
+            border-radius: 6px;
+            border: 1px solid #ccc;
+            cursor: pointer;
+            background: white;
+            font-family: inherit;
+        }
+        .toggle-btn {
+            background-color: #6c757d;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            font-size: 1em;
+            border-radius: 6px;
+            cursor: pointer;
+            margin-top: 15px;
+            transition: background-color 0.2s;
+        }
+        .toggle-btn:hover {
+            background-color: #5a6268;
+        }
+
+        /* CUSTOM SLIDER WITH MARKERS */
+        .slider-wrapper {
+            position: relative;
+            width: 85%;
+            margin-bottom: 15px;
+        }
+        #tempSlider {
+            width: 100%;
+            cursor: pointer;
+            z-index: 2;
+            position: relative;
+        }
+        .slider-marker {
+            position: absolute;
+            top: 20px;
+            transform: translateX(-50%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            color: #555;
+            font-size: 0.85em;
+            font-weight: bold;
+            pointer-events: none;
+        }
+        .slider-marker .tick {
+            width: 2px;
+            height: 12px;
+            background-color: #888;
+            margin-bottom: 4px;
+        }
+        
+        #temperatureDisplay {
+            font-size: 2.2em;
+            margin-top: 20px;
+            font-weight: 700;
+            color: #dc3545;
+            transition: color 0.3s ease;
+        }
+
+        /* VISUALIZATION AREA */
+        .visualization-section {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
+        }
+        #canvas {
+            border: 3px solid #ddd;
+            background: linear-gradient(to bottom, #fdfdfd, #f0f0f0);
+            border-radius: 10px;
+            width: 100%;
+            max-width: 800px;
+            height: 400px;
+            box-shadow: inset 0 2px 10px rgba(0,0,0,0.05);
+        }
+
+        /* PROPERTIES BOX */
+        .properties-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-top: 25px;
+        }
+        .property-card {
+            background-color: #f8f9fa;
+            padding: 15px 20px;
+            border-left: 5px solid #007bff;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+            transition: border-color 0.3s ease;
+        }
+        .property-card h3 {
+            margin-top: 0;
+            margin-bottom: 10px;
+            color: #333;
+            font-size: 1.1em;
+        }
+        .property-card p {
+            margin: 6px 0;
+            font-size: 0.95em;
+            color: #555;
+        }
+        .highlight {
+            font-weight: bold;
+            color: #000;
+        }
+
+        /* Responsive */
+        @media (max-width: 600px) {
+            .slider-wrapper { width: 95%; }
+            #temperatureDisplay { font-size: 1.8em; }
+        }
+    </style>
+</head>
+<body onload="initializeSimulator()">
+
+    <div class="container">
+        <h1>🔬 Phase Change Simulator: Advanced Particle Model</h1>
+        <p class="subtitle">Observe how particle arrangement, spacing, and movement change with temperature as matter transitions between states.</p>
+
+        <!-- CONTROLS SECTION -->
+        <div class="controls">
+            <div class="control-group">
+                <div class="controls-header">
+                    <label for="substanceSelect" style="margin-bottom: 0;">Substance:</label>
+                    <select id="substanceSelect">
+                        <option value="water">Water (H₂O)</option>
+                        <option value="bromine">Bromine (Br₂)</option>
+                        <option value="ethanol">Ethanol (C₂H₅OH)</option>
+                        <option value="co2">Carbon Dioxide (Dry Ice)</option>
+                        <option value="iodine">Iodine (I₂)</option>
+                    </select>
+                </div>
+
+                <label for="tempSlider">Temperature Control</label>
+                
+                <div class="slider-wrapper">
+                    <input type="range" id="tempSlider" min="-50" max="150" value="25" step="1">
+                    
+                    <!-- Phase Change Markers -->
+                    <div class="slider-marker" id="markerFreeze" style="left: 25%;">
+                        <div class="tick"></div>
+                        <span id="markerFreezeText">0°C (Freezing)</span>
+                    </div>
+                    <div class="slider-marker" id="markerBoil" style="left: 75%;">
+                        <div class="tick"></div>
+                        <span id="markerBoilText">100°C (Boiling)</span>
+                    </div>
+                </div>
+
+                <div id="temperatureDisplay">25 °C</div>
+            </div>
+        </div>
+
+        <!-- VISUALIZATION AREA -->
+        <div class="visualization-section">
+            <canvas id="canvas"></canvas>
+            <button id="toggleInfoBtn" class="toggle-btn">Reveal Phase Properties Info</button>
+        </div>
+
+        <!-- PROPERTIES DISPLAY SECTION -->
+        <div class="properties-grid" id="propertiesGrid" style="display: none;">
+            <div class="property-card" id="card-state">
+                <h3>State / Transition</h3>
+                <p>Phase: <span id="currentState" class="highlight">Liquid</span></p>
+            </div>
+            <div class="property-card" id="card-energy">
+                <h3>Energy & Process</h3>
+                <p>Process: <span id="processName" class="highlight">Stable</span></p>
+                <p>Energy Flow: <span id="energyFlow" class="highlight">Neutral</span></p>
+            </div>
+            <div class="property-card" id="card-props">
+                <h3>Key Properties</h3>
+                <p>Density: <span id="propertyDensity" class="highlight">Medium</span></p>
+                <p>Volume Shape: <span id="propertyVolume" class="highlight">Adapts to bottom</span></p>
+                <p>Intermolecular Force: <span id="propertyForce" class="highlight">Moderate</span></p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- CANVAS & GLOBAL STATE SETUP ---
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = 800;
+        canvas.height = 400;
+        
+        const PARTICLE_COUNT = 150;
+        let particles = [];
+        let currentTemp = 25; // Global temperature state
+
+        // Substance Database
+        const SUBSTANCES = {
+            water: { type: 'normal', freeze: 0, boil: 100, min: -50, max: 150 },
+            bromine: { type: 'normal', freeze: -7, boil: 59, min: -50, max: 100 },
+            ethanol: { type: 'normal', freeze: -114, boil: 78, min: -150, max: 100 },
+            co2: { type: 'sublimating', sublimate: -78, min: -100, max: 0 },
+            iodine: { type: 'sublimating', sublimate: 114, min: 50, max: 150 }
+        };
+        let currentSubstance = 'water';
+
+        // --- PARTICLE CLASS ---
+        class Particle {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                // 'Home' coordinates for the solid crystal lattice structure
+                this.homeX = x;
+                this.homeY = y;
+                
+                this.radius = 6;
+                this.vx = (Math.random() - 0.5) * 2;
+                this.vy = (Math.random() - 0.5) * 2;
+                this.color = '#007bff'; 
+            }
+
+            // Main physics update function based on temperature and phase
+            update(T, stateParams) {
+                const state = stateParams.state;
+                this.color = stateParams.particleColor; // Update visual color
+                const sub = SUBSTANCES[currentSubstance];
+
+                if (state.includes('Solid')) {
+                    // SOLID: Strong intermolecular forces keeping them in a lattice
+                    const dx = this.homeX - this.x;
+                    const dy = this.homeY - this.y;
+                    
+                    // Spring force pulling back to structure
+                    this.vx += dx * 0.05;
+                    this.vy += dy * 0.05;
+                    
+                    // Thermal vibration relative to freezing/sublimation point
+                    const refTemp = sub.type === 'normal' ? sub.freeze : sub.sublimate;
+                    const vibrationStrength = Math.max(0.1, 0.5 + (T - refTemp) * 0.02);
+                    this.vx += (Math.random() - 0.5) * vibrationStrength;
+                    this.vy += (Math.random() - 0.5) * vibrationStrength;
+                    
+                    // High dampening to hold shape
+                    this.vx *= 0.85;
+                    this.vy *= 0.85;
+
+                } else if (state.includes('Liquid')) {
+                    // LIQUID: Gravity pulls down, weak bonds allow sliding, thermal motion
+                    this.vy += 0.2; // Gravity
+                    
+                    // Thermal motion mapping scaled via normalized temperature
+                    const tempRange = sub.boil - sub.freeze;
+                    const normT = (T - sub.freeze) / tempRange;
+                    
+                    const kineticEnergy = 0.5 + Math.max(0, normT);
+                    this.vx += (Math.random() - 0.5) * kineticEnergy;
+                    this.vy += (Math.random() - 0.5) * kineticEnergy;
+                    
+                    // Moderate dampening (fluid friction)
+                    this.vx *= 0.95;
+                    this.vy *= 0.95;
+
+                } else if (state.includes('Gas')) {
+                    // GAS: High kinetic energy, no gravity pulling them together
+                    const refTemp = sub.type === 'normal' ? sub.boil : sub.sublimate;
+                    const speedMultiplier = 1.5 + Math.max(0, T - refTemp) * 0.02;
+                    
+                    this.vx += (Math.random() - 0.5) * 2;
+                    this.vy += (Math.random() - 0.5) * 2;
+                    
+                    // Maintain high speed, very low dampening
+                    this.vx *= 0.99;
+                    this.vy *= 0.99;
+
+                    // Cap maximum speed
+                    const speed = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
+                    const maxSpeed = 10 * speedMultiplier;
+                    if (speed > maxSpeed) {
+                        this.vx = (this.vx / speed) * maxSpeed;
+                        this.vy = (this.vy / speed) * maxSpeed;
+                    }
+                }
+                
+                // --- UPDATE POSITION ---
+                this.x += this.vx;
+                this.y += this.vy;
+
+                // --- WALL COLLISIONS (Container boundaries) ---
+                if (this.x + this.radius > canvas.width) {
+                    this.x = canvas.width - this.radius;
+                    this.vx *= -0.8;
+                } else if (this.x - this.radius < 0) {
+                    this.x = this.radius;
+                    this.vx *= -0.8;
+                }
+
+                if (this.y + this.radius > canvas.height) {
+                    this.y = canvas.height - this.radius;
+                    this.vy *= -0.8;
+                } else if (this.y - this.radius < 0) {
+                    this.y = this.radius;
+                    this.vy *= -0.8;
+                }
+            }
+
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = this.color;
+                ctx.fill();
+                ctx.strokeStyle = 'rgba(0,0,0,0.3)';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+            }
+        }
+
+        // --- CORE LOGIC ---
+
+        function getSimulationState(T) {
+            let state, process, energy, particleColor, borderColor;
+            const sub = SUBSTANCES[currentSubstance];
+
+            if (sub.type === 'normal') {
+                if (T < sub.freeze) {
+                    state = 'Solid';
+                    process = 'Cooling';
+                    energy = 'Releasing Heat (Exothermic)';
+                    particleColor = '#3498db'; // Ice blue
+                    borderColor = '#3498db';
+                } else if (T === sub.freeze) {
+                    state = 'Transition (Solid ↔ Liquid)';
+                    process = 'Melting / Freezing';
+                    energy = 'Latent Heat Exchange';
+                    particleColor = '#9b59b6'; // Purple transition
+                    borderColor = '#9b59b6';
+                } else if (T > sub.freeze && T < sub.boil) {
+                    state = 'Liquid';
+                    process = 'Stable Heating';
+                    energy = 'Absorbing Heat';
+                    particleColor = '#2ecc71'; // Water green/blue
+                    borderColor = '#2ecc71';
+                } else if (T === sub.boil) {
+                    state = 'Transition (Liquid ↔ Gas)';
+                    process = 'Boiling / Condensing';
+                    energy = 'Latent Heat Exchange';
+                    particleColor = '#e67e22'; // Orange transition
+                    borderColor = '#e67e22';
+                } else {
+                    state = 'Gas';
+                    process = 'Heating';
+                    energy = 'Absorbing Heat (Endothermic)';
+                    particleColor = '#e74c3c'; // Hot gas red
+                    borderColor = '#e74c3c';
+                }
+            } else if (sub.type === 'sublimating') {
+                if (T < sub.sublimate) {
+                    state = 'Solid';
+                    process = 'Cooling';
+                    energy = 'Releasing Heat (Exothermic)';
+                    particleColor = '#3498db'; 
+                    borderColor = '#3498db';
+                } else if (T === sub.sublimate) {
+                    state = 'Transition (Solid ↔ Gas)';
+                    process = 'Sublimation / Deposition';
+                    energy = 'Latent Heat Exchange';
+                    particleColor = '#e67e22'; 
+                    borderColor = '#e67e22';
+                } else {
+                    state = 'Gas';
+                    process = 'Heating';
+                    energy = 'Absorbing Heat (Endothermic)';
+                    particleColor = '#e74c3c'; 
+                    borderColor = '#e74c3c';
+                }
+            }
+            
+            return { state, process, energy, particleColor, borderColor };
+        }
+
+        /**
+         * Resolves collisions between particles to simulate physical volume.
+         * Crucial for liquids so they don't collapse into a single point under gravity.
+         */
+        function resolveInterParticleCollisions() {
+            const minDistance = 12; // 2 * radius
+            
+            for (let i = 0; i < particles.length; i++) {
+                for (let j = i + 1; j < particles.length; j++) {
+                    const dx = particles[i].x - particles[j].x;
+                    const dy = particles[i].y - particles[j].y;
+                    const distSq = dx * dx + dy * dy;
+                    
+                    if (distSq < minDistance * minDistance && distSq > 0) {
+                        const dist = Math.sqrt(distSq);
+                        const overlap = minDistance - dist;
+                        
+                        // Push apart vector
+                        const nx = dx / dist;
+                        const ny = dy / dist;
+                        
+                        // Apply repulsive force
+                        const pushForce = overlap * 0.1;
+                        particles[i].vx += nx * pushForce;
+                        particles[i].vy += ny * pushForce;
+                        particles[j].vx -= nx * pushForce;
+                        particles[j].vy -= ny * pushForce;
+                    }
+                }
+            }
+        }
+
+        /**
+         * Initializes particles into a structured crystal lattice at the bottom.
+         */
+        function initializeParticles() {
+            particles = [];
+            const cols = 20;
+            const rows = Math.ceil(PARTICLE_COUNT / cols);
+            const spacing = 14;
+            
+            // Center the lattice at the bottom of the canvas
+            const startX = (canvas.width - (cols * spacing)) / 2;
+            const startY = canvas.height - (rows * spacing) - 15;
+
+            let count = 0;
+            for (let i = 0; i < rows; i++) {
+                for (let j = 0; j < cols; j++) {
+                    if (count >= PARTICLE_COUNT) break;
+                    
+                    // Add slight random jitter to initial position for realism
+                    const x = startX + j * spacing + (Math.random()*2 - 1);
+                    const y = startY + i * spacing + (Math.random()*2 - 1);
+                    
+                    particles.push(new Particle(x, y));
+                    count++;
+                }
+            }
+        }
+
+        /**
+         * Main continuous animation loop.
+         */
+        function animateSimulation() {
+            // Clear the canvas with slight fade for motion blur effect
+            ctx.fillStyle = 'rgba(249, 249, 249, 0.4)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            const stateParams = getSimulationState(currentTemp);
+
+            // Apply inter-particle collisions ONLY for liquid and gas to give them physical volume
+            if (!stateParams.state.includes('Solid')) {
+                resolveInterParticleCollisions();
+            }
+
+            // Update and draw each particle based on continuous currentTemp
+            particles.forEach(p => {
+                p.update(currentTemp, stateParams);
+                p.draw();
+            });
+
+            requestAnimationFrame(animateSimulation);
+        }
+
+        /**
+         * Updates UI elements based on current temperature.
+         */
+        function updateUI(T) {
+            const stateParams = getSimulationState(T);
+            const { state, process, energy, borderColor } = stateParams;
+
+            // Text Updates
+            document.getElementById('currentState').textContent = state;
+            document.getElementById('processName').textContent = process;
+            document.getElementById('energyFlow').textContent = energy;
+
+            // Color formatting
+            const tempDisplay = document.getElementById('temperatureDisplay');
+            tempDisplay.textContent = `${T} °C`;
+            tempDisplay.style.color = borderColor;
+            
+            document.querySelectorAll('.property-card').forEach(card => {
+                card.style.borderLeftColor = borderColor;
+            });
+
+            // Update Key Properties text
+            let densityText, volumeText, forceText;
+
+            if (state.includes('Transition')) {
+                densityText = 'Changing...';
+                volumeText = 'Changing...';
+                forceText = 'Breaking/Forming Bonds';
+            } else if (state.includes('Solid')) {
+                densityText = 'High (Compact)';
+                volumeText = 'Fixed Shape & Volume';
+                forceText = 'Strong (Lattice Bonds)';
+            } else if (state.includes('Liquid')) {
+                densityText = 'Medium';
+                volumeText = 'Fixed Volume, Adapts Shape';
+                forceText = 'Moderate (Cohesion)';
+            } else if (state.includes('Gas')) {
+                densityText = 'Low (Spread out)';
+                volumeText = 'Expands to fill container';
+                forceText = 'Weak (Random Collisions)';
+            }
+
+            document.getElementById('propertyDensity').textContent = densityText;
+            document.getElementById('propertyVolume').textContent = volumeText;
+            document.getElementById('propertyForce').textContent = forceText;
+        }
+
+        // --- EVENT LISTENERS ---
+        const tempSlider = document.getElementById('tempSlider');
+
+        // Toggle properties grid
+        const toggleBtn = document.getElementById('toggleInfoBtn');
+        const propertiesGrid = document.getElementById('propertiesGrid');
+        
+        function updateMarkerText() {
+            const sub = SUBSTANCES[currentSubstance];
+            const isRevealed = propertiesGrid.style.display !== 'none';
+            
+            if (sub.type === 'normal') {
+                document.getElementById('markerFreezeText').textContent = isRevealed ? `${sub.freeze}°C (Freezing)` : `${sub.freeze}°C`;
+                document.getElementById('markerBoilText').textContent = isRevealed ? `${sub.boil}°C (Boiling)` : `${sub.boil}°C`;
+            } else if (sub.type === 'sublimating') {
+                document.getElementById('markerFreezeText').textContent = isRevealed ? `${sub.sublimate}°C (Sublimation)` : `${sub.sublimate}°C`;
+            }
+        }
+
+        toggleBtn.addEventListener('click', () => {
+            if (propertiesGrid.style.display === 'none') {
+                propertiesGrid.style.display = 'grid';
+                toggleBtn.textContent = 'Hide Phase Properties Info';
+            } else {
+                propertiesGrid.style.display = 'none';
+                toggleBtn.textContent = 'Reveal Phase Properties Info';
+            }
+            updateMarkerText();
+        });
+
+        // Substance Selection change
+        const substanceSelect = document.getElementById('substanceSelect');
+        substanceSelect.addEventListener('change', (event) => {
+            currentSubstance = event.target.value;
+            const sub = SUBSTANCES[currentSubstance];
+            
+            // Update Slider bounds
+            tempSlider.min = sub.min;
+            tempSlider.max = sub.max;
+            
+            // Clamp current temperature to new bounds
+            if (currentTemp < sub.min) currentTemp = sub.min;
+            if (currentTemp > sub.max) currentTemp = sub.max;
+            tempSlider.value = currentTemp;
+
+            // Update markers
+            const range = sub.max - sub.min;
+            const markerFreeze = document.getElementById('markerFreeze');
+            const markerBoil = document.getElementById('markerBoil');
+            
+            if (sub.type === 'normal') {
+                markerFreeze.style.display = 'flex';
+                markerBoil.style.display = 'flex';
+                const freezePct = ((sub.freeze - sub.min) / range) * 100;
+                const boilPct = ((sub.boil - sub.min) / range) * 100;
+                
+                markerFreeze.style.left = `${freezePct}%`;
+                markerBoil.style.left = `${boilPct}%`;
+            } else if (sub.type === 'sublimating') {
+                markerFreeze.style.display = 'flex';
+                markerBoil.style.display = 'none'; // Only one transition point
+                
+                const subPct = ((sub.sublimate - sub.min) / range) * 100;
+                markerFreeze.style.left = `${subPct}%`;
+            }
+
+            updateMarkerText();
+            updateUI(currentTemp);
+        });
+
+        tempSlider.addEventListener('input', (event) => {
+            currentTemp = parseInt(event.target.value);
+            // We ONLY update the UI. The permanent particles simply inherit the new physics rules 
+            // inside the continuously running animation loop. This creates smooth phase transitions!
+            updateUI(currentTemp); 
+        });
+
+        // --- INITIALIZATION ---
+        function initializeSimulator() {
+            // Trigger initial setup for substance default
+            substanceSelect.dispatchEvent(new Event('change'));
+            
+            initializeParticles();
+            
+            // Kick off the continuous physics animation loop 
+            animateSimulation(); 
+        }
+    </script>
+
+</body>
+</html>
