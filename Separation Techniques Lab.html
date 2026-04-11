@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chemistry Lab: Separation Challenge</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- React & ReactDOM -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    
+    <!-- Babel for in-browser JSX compilation -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef, useMemo } = React;
+
+        // --- CSS for Animations and Realism ---
+        const styles = `
+          @keyframes rise {
+            0% { transform: translateY(0) scale(1); opacity: 0.6; }
+            100% { transform: translateY(-100px) scale(2.5); opacity: 0; }
+          }
+          .steam-bubble {
+            position: absolute;
+            background: #ffffff;
+            border-radius: 50%;
+            filter: blur(2px);
+            animation: rise 1.5s infinite ease-in;
+          }
+          @keyframes glow {
+            0% { box-shadow: 0 0 15px rgba(239, 68, 68, 0.6), inset 0 0 10px rgba(239, 68, 68, 0.8); }
+            50% { box-shadow: 0 0 30px rgba(239, 68, 68, 1), inset 0 0 20px rgba(239, 68, 68, 1); }
+            100% { box-shadow: 0 0 15px rgba(239, 68, 68, 0.6), inset 0 0 10px rgba(239, 68, 68, 0.8); }
+          }
+          .hot-plate-glow {
+            animation: glow 2s infinite;
+            background: radial-gradient(circle, #ef4444 20%, #b91c1c 80%);
+          }
+          .hot-plate-cold {
+            background: radial-gradient(circle, #475569 20%, #1e293b 80%);
+          }
+          .ghost-box {
+            transition: all 0.2s ease;
+            border: 2px dashed rgba(148, 163, 184, 0.4);
+            background-color: rgba(148, 163, 184, 0.05);
+          }
+          .ghost-box.hovered {
+            border-color: rgba(59, 130, 246, 0.8);
+            background-color: rgba(59, 130, 246, 0.15);
+            box-shadow: 0 0 15px rgba(59, 130, 246, 0.2);
+          }
+          .wood-texture {
+            background-color: #5c3a21;
+            background-image: 
+              repeating-linear-gradient(90deg, rgba(255,255,255,0.03) 0px, rgba(255,255,255,0.03) 1px, transparent 1px, transparent 40px),
+              repeating-linear-gradient(90deg, rgba(0,0,0,0.1) 0px, rgba(0,0,0,0.1) 2px, transparent 2px, transparent 80px);
+            box-shadow: inset 0 15px 30px rgba(0,0,0,0.4);
+          }
+          .wood-edge {
+            background: linear-gradient(to bottom, #382212, #1f1209);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.6);
+          }
+          .glass-shine {
+            fill: none;
+            stroke: rgba(255,255,255,0.7);
+            stroke-width: 2;
+            stroke-linecap: round;
+          }
+          input[type="number"]::-webkit-inner-spin-button,
+          input[type="number"]::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+          }
+        `;
+
+        // --- SVG Components ---
+        const MixtureFlask = ({ isEmpty }) => (
+          <svg width="80" height="100" viewBox="0 0 80 100" className="drop-shadow-md">
+            <path d="M 35 5 L 45 5 L 45 35 L 75 90 Q 80 95 70 95 L 10 95 Q 0 95 5 90 L 35 35 Z" fill="rgba(255,255,255,0.15)" stroke="#94a3b8" strokeWidth="2" />
+            {!isEmpty && (
+              <React.Fragment>
+                <path d="M 18 70 L 62 70 L 72 88 Q 75 92 70 92 L 10 92 Q 5 92 8 88 Z" fill="#784a23" opacity="0.95" />
+                {[...Array(8)].map((_, i) => (
+                  <circle key={i} cx={20 + (i * 7) % 40} cy={75 + (i * 3) % 15} r="1.5" fill="#36220f" />
+                ))}
+              </React.Fragment>
+            )}
+            <path d="M 35 5 L 45 5 L 45 35 L 75 90 Q 80 95 70 95 L 10 95 Q 0 95 5 90 L 35 35 Z" fill="url(#flaskGradient)" />
+            <path d="M 15 85 Q 10 90 20 92" className="glass-shine" />
+            <defs>
+              <linearGradient id="flaskGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" stopColor="rgba(255,255,255,0.4)" />
+                <stop offset="100%" stopColor="rgba(255,255,255,0.2)" />
+              </linearGradient>
+            </defs>
+          </svg>
+        );
+
+        const FilterPaperSvg = ({ hasSand }) => (
+          <svg width="60" height="60" viewBox="0 0 60 60" className="drop-shadow-sm">
+            <circle cx="30" cy="30" r="28" fill="#f8fafc" stroke="#cbd5e1" strokeWidth="2" strokeDasharray="4 4" />
+            <path d="M 30 2 L 30 58 M 2 30 L 58 30" stroke="#e2e8f0" strokeWidth="1" />
+            {hasSand && <circle cx="30" cy="30" r="16" fill="#8b6546" opacity="0.9" />}
+          </svg>
+        );
+
+        const FunnelSvg = ({ hasSand, hasPaper, className }) => (
+          <svg width="80" height="80" viewBox="0 0 80 80" className={className || "drop-shadow-md"}>
+            <polygon points="0,0 80,0 45,45 45,80 35,80 35,45" fill="rgba(230,240,250,0.4)" stroke="#94a3b8" strokeWidth="2" strokeLinejoin="round" />
+            {hasPaper && (
+              <polygon points="6,6 74,6 40,40" fill="#f8fafc" stroke="#cbd5e1" strokeWidth="1" opacity="0.95" />
+            )}
+            {hasSand && (
+              <polygon points="20,20 60,20 40,40" fill="#8b6546" opacity="0.9" />
+            )}
+            <polygon points="0,0 80,0 45,45 45,80 35,80 35,45" fill="url(#funnelGradient)" pointerEvents="none" />
+            <defs>
+              <linearGradient id="funnelGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" stopColor="rgba(255,255,255,0.5)" />
+                <stop offset="100%" stopColor="rgba(255,255,255,0.2)" />
+              </linearGradient>
+            </defs>
+          </svg>
+        );
+
+        const LabBeaker = ({ content, waterLevel, hasFunnel, funnelHasSand, hasPaper, isBoiling, onBeakerClick, onFunnelClick }) => {
+          const getLiquidColor = () => {
+            if (content === 'mixed') return '#784a23';
+            if (content === 'filtered') return 'rgba(173, 216, 230, 0.6)';
+            return 'transparent';
+          };
+          const showSolid = content === 'salt' || content === 'sand_salt';
+          const solidColor = content === 'salt' ? '#ffffff' : '#bfa98e';
+          
+          return (
+            <div className={`relative w-32 h-40 flex justify-center drop-shadow-xl ${onBeakerClick ? 'cursor-grab active:cursor-grabbing hover:scale-105 transition-transform' : ''}`} onMouseDown={onBeakerClick}>
+              {hasFunnel && (
+                <div 
+                  className={`absolute -top-16 left-1/2 transform -translate-x-1/2 z-20 ${onFunnelClick ? 'cursor-grab active:cursor-grabbing hover:scale-110 transition-transform' : ''}`}
+                  onMouseDown={(e) => { 
+                    if(onFunnelClick) {
+                      e.stopPropagation(); 
+                      onFunnelClick(); 
+                    }
+                  }}
+                >
+                  <FunnelSvg hasSand={funnelHasSand} hasPaper={hasPaper} />
+                </div>
+              )}
+              {isBoiling && (
+                <div className="absolute inset-0 flex justify-center items-start z-30 pointer-events-none pb-20">
+                  <div className="steam-bubble w-5 h-5" style={{ left: '20%', animationDelay: '0s' }}></div>
+                  <div className="steam-bubble w-6 h-6" style={{ left: '50%', animationDelay: '0.4s' }}></div>
+                  <div className="steam-bubble w-4 h-4" style={{ left: '70%', animationDelay: '0.2s' }}></div>
+                </div>
+              )}
+              <svg width="100%" height="100%" viewBox="0 0 100 120" className="z-10 pointer-events-none">
+                <defs><clipPath id="beakerClip"><path d="M 20 5 L 20 100 Q 20 110 30 110 L 70 110 Q 80 110 80 100 L 80 5 Z" /></clipPath></defs>
+                <path d="M 20 5 L 20 100 Q 20 110 30 110 L 70 110 Q 80 110 80 100 L 80 5" fill="rgba(255,255,255,0.1)" />
+                {(content === 'mixed' || content === 'filtered') && waterLevel > 0 && (
+                  <g clipPath="url(#beakerClip)">
+                    <rect x="20" y={110 - waterLevel} width="60" height={waterLevel} fill={getLiquidColor()} style={{ transition: 'y 0.2s linear, height 0.2s linear' }} />
+                    {content === 'mixed' && [...Array(5)].map((_, i) => (
+                      <circle key={i} cx={30 + (i * 11) % 40} cy={110 - (i * 17) % waterLevel} r="2" fill="#36220f" opacity="0.8" />
+                    ))}
+                  </g>
+                )}
+                {showSolid && (
+                  <g clipPath="url(#beakerClip)">
+                     <path d="M 20 95 Q 50 90 80 95 L 80 110 L 20 110 Z" fill={solidColor} />
+                     {content === 'sand_salt' && [...Array(6)].map((_, i) => (
+                        <circle key={i} cx={30 + (i * 13) % 40} cy={100 + (i * 5) % 8} r="1.5" fill="#4a3219" />
+                     ))}
+                  </g>
+                )}
+                <path d="M 10 5 L 20 5 L 20 100 Q 20 110 30 110 L 70 110 Q 80 110 80 100 L 80 5 L 90 5" fill="none" stroke="#94a3b8" strokeWidth="3" />
+                <path d="M 25 15 L 25 90" className="glass-shine" />
+                <line x1="20" y1="50" x2="30" y2="50" stroke="#94a3b8" strokeWidth="2" opacity="0.5" />
+              </svg>
+            </div>
+          );
+        };
+
+        const DigitalScale = ({ mass, onTare }) => {
+          const displayValue = Math.abs(mass) < 0.001 ? "0.00" : mass.toFixed(2);
+          
+          return (
+            <div className="relative flex flex-col items-center drop-shadow-2xl">
+              <div className="w-48 h-6 bg-slate-400 rounded-t-lg border-x-2 border-t-2 border-slate-500 shadow-sm"></div>
+              <div className="w-56 h-20 bg-gradient-to-b from-slate-200 to-slate-300 rounded-lg border-2 border-slate-400 flex flex-col justify-between p-2 shadow-inner">
+                <div className="flex justify-between items-center px-2">
+                  <div className="bg-slate-900 w-32 h-10 rounded border-2 border-slate-600 flex items-center justify-end px-3">
+                    <span className="text-emerald-400 font-mono text-2xl tracking-tighter">
+                      {displayValue}
+                    </span>
+                    <span className="text-emerald-600 font-mono text-xs ml-1">g</span>
+                  </div>
+                  <button onMouseDown={(e) => { e.stopPropagation(); onTare(); }} className="bg-slate-700 hover:bg-slate-600 active:bg-slate-800 text-white text-[10px] font-bold px-2 py-1 rounded shadow-md uppercase transition-colors">Tare</button>
+                </div>
+                <div className="flex justify-center items-center space-x-1 opacity-50">
+                  <div className="w-1.5 h-1.5 bg-slate-500 rounded-full"></div>
+                  <span className="text-[8px] font-bold text-slate-600 tracking-widest uppercase">Precision Digital 5000</span>
+                </div>
+              </div>
+            </div>
+          );
+        };
+
+        // --- Main App Component ---
+        function App() {
+          const [gameState, setGameState] = useState('playing'); 
+          const [showHints, setShowHints] = useState(false);
+          
+          // Constant base masses
+          const beakerBaseMass = 48.25;
+          const flaskBaseMass = 35.00;
+          const funnelBaseMass = 12.00;
+          const paperBaseMass = 0.50;
+
+          // Randomized experimental masses
+          const [sessionMasses, setSessionMasses] = useState({
+            salt: Number((2 + Math.random() * 8).toFixed(2)),
+            sand: Number((5 + Math.random() * 10).toFixed(2)),
+            water: Number((50 + Math.random() * 50).toFixed(2))
+          });
+
+          const [userInput, setUserInput] = useState({ salt: '', sand: '', water: '' });
+          const [inputStatus, setInputStatus] = useState({ salt: null, sand: null, water: null }); // null, 'correct', 'incorrect'
+          const [checkResult, setCheckResult] = useState(null);
+          
+          const [tareValue, setTareValue] = useState(0);
+          
+          const [heldItem, setHeldItem] = useState('none'); 
+          const [hoveredZone, setHoveredZone] = useState('none'); 
+          const [beakerLocation, setBeakerLocation] = useState('shelf'); 
+          const [funnelLocation, setFunnelLocation] = useState('shelf');
+          const [paperLocation, setPaperLocation] = useState('shelf');
+          const [mixtureLocation, setMixtureLocation] = useState('shelf');
+          
+          const [beakerContent, setBeakerContent] = useState('empty');
+          const [paperHasSand, setPaperHasSand] = useState(false);
+          const [temperature, setTemperature] = useState(20);
+          const [waterLevel, setWaterLevel] = useState(100);
+          const [lastActionMessage, setLastActionMessage] = useState('Identify the exact mass of salt, sand, and water in the mixture.');
+
+          const cursorRef = useRef(null);
+
+          const displayMessage = useMemo(() => {
+            let msg = lastActionMessage;
+            if (msg.includes('Warning') && !showHints) return 'The mixture has been poured into the beaker.';
+            
+            if (showHints) {
+               if (msg.includes('Identify the exact mass')) msg += ' Hint: Weigh the empty beaker first, then tare it.';
+               if (msg.includes('mixture has been filtered')) msg += ' Hint: Evaporate the water, then weigh the salt residue.';
+            }
+            return msg;
+          }, [lastActionMessage, showHints]);
+
+          const getCurrentMassOnScale = () => {
+            let total = 0;
+            const { salt, sand, water } = sessionMasses;
+            
+            if (beakerLocation === 'scale') {
+              total += beakerBaseMass;
+              if (beakerContent === 'mixed') total += sand + salt + water;
+              else if (beakerContent === 'filtered') total += salt + (waterLevel / 100) * water;
+              else if (beakerContent === 'salt') total += salt;
+              else if (beakerContent === 'sand_salt') total += sand + salt;
+            }
+            
+            if (funnelLocation === 'scale' || (funnelLocation === 'beaker' && beakerLocation === 'scale')) {
+              total += funnelBaseMass;
+            }
+            
+            const isPaperOnScale = paperLocation === 'scale' || 
+                                  (paperLocation === 'funnel' && (funnelLocation === 'scale' || (funnelLocation === 'beaker' && beakerLocation === 'scale')));
+            if (isPaperOnScale) {
+              total += paperBaseMass;
+              if (paperHasSand) total += sand;
+            }
+            
+            if (mixtureLocation === 'scale') {
+              total += flaskBaseMass;
+              if (mixtureLocation !== 'used') total += sand + salt + water;
+            }
+            
+            return parseFloat(total.toFixed(2));
+          };
+
+          const displayedScaleMass = getCurrentMassOnScale() - tareValue;
+
+          useEffect(() => {
+            const handleMouseMove = (e) => {
+              if (cursorRef.current && heldItem !== 'none') {
+                cursorRef.current.style.left = `${e.clientX}px`;
+                cursorRef.current.style.top = `${e.clientY}px`;
+              }
+            };
+            window.addEventListener('mousemove', handleMouseMove);
+            return () => window.removeEventListener('mousemove', handleMouseMove);
+          }, [heldItem]);
+
+          useEffect(() => {
+            const handleGlobalMouseUp = () => {
+              if (heldItem === 'none' || gameState !== 'playing') return;
+              const zone = hoveredZone;
+              
+              const performDrop = (item, location) => {
+                if (item === 'beaker') {
+                  setBeakerLocation(location);
+                  if (funnelLocation === location) setFunnelLocation('beaker');
+                } else if (item === 'funnel') {
+                  if (beakerLocation === location) setFunnelLocation('beaker');
+                  else setFunnelLocation(location);
+                } else if (item === 'filter_paper') {
+                  if (funnelLocation === 'beaker' && beakerLocation === location) setPaperLocation('funnel');
+                  else if (funnelLocation === location) setPaperLocation('funnel');
+                  else setPaperLocation(location);
+                } else if (item === 'mixture') {
+                  if (location === 'workArea' && beakerLocation === 'workArea') {
+                    setMixtureLocation('used');
+                    if (funnelLocation === 'beaker' && paperLocation === 'funnel') {
+                      setBeakerContent('filtered');
+                      setPaperHasSand(true);
+                      setLastActionMessage('The mixture has been filtered.');
+                    } else {
+                      setBeakerContent('mixed');
+                      setLastActionMessage('Warning! You poured the mixture without proper filtration.');
+                    }
+                  } else { setMixtureLocation(location); }
+                }
+              };
+
+              if (zone === 'workArea' || zone === 'hotPlate' || zone === 'scale') {
+                performDrop(heldItem, zone);
+              } else {
+                if (heldItem === 'beaker') setBeakerLocation('shelf');
+                if (heldItem === 'funnel') setFunnelLocation('shelf');
+                if (heldItem === 'filter_paper') setPaperLocation('shelf');
+                if (heldItem === 'mixture') setMixtureLocation('shelf');
+              }
+              setHeldItem('none');
+            };
+            window.addEventListener('mouseup', handleGlobalMouseUp);
+            return () => window.removeEventListener('mouseup', handleGlobalMouseUp);
+          }, [heldItem, hoveredZone, beakerLocation, funnelLocation, paperLocation, mixtureLocation, gameState, showHints]);
+
+          useEffect(() => {
+            let interval;
+            if (gameState === 'playing' && temperature >= 100 && beakerLocation === 'hotPlate') {
+              if ((beakerContent === 'filtered' || beakerContent === 'mixed') && waterLevel > 0) {
+                interval = setInterval(() => {
+                  setWaterLevel(prev => {
+                    const next = prev - (2 + (temperature - 100) * 0.1);
+                    if (next <= 0) {
+                      clearInterval(interval);
+                      setBeakerContent(beakerContent === 'filtered' ? 'salt' : 'sand_salt');
+                      setLastActionMessage('Evaporation complete. Residual mass remaining.');
+                      return 0;
+                    }
+                    return next;
+                  });
+                }, 150);
+              }
+            }
+            return () => clearInterval(interval);
+          }, [temperature, beakerLocation, beakerContent, waterLevel, gameState]);
+
+          const handleSpecificPickup = (item) => {
+            if (gameState !== 'playing' || heldItem !== 'none') return;
+            setHeldItem(item);
+            if (item === 'beaker') setBeakerLocation('hand');
+            if (item === 'funnel') setFunnelLocation('hand');
+            if (item === 'filter_paper') setPaperLocation('hand');
+            if (item === 'mixture') setMixtureLocation('hand');
+          };
+
+          const checkAnswers = () => {
+            const sCorrect = Math.abs(parseFloat(userInput.salt) - sessionMasses.salt) < 0.05;
+            const nCorrect = Math.abs(parseFloat(userInput.sand) - sessionMasses.sand) < 0.05;
+            const wCorrect = Math.abs(parseFloat(userInput.water) - sessionMasses.water) < 0.05;
+            
+            setInputStatus({
+              salt: sCorrect ? 'correct' : 'incorrect',
+              sand: nCorrect ? 'correct' : 'incorrect',
+              water: wCorrect ? 'correct' : 'incorrect'
+            });
+
+            if (sCorrect && nCorrect && wCorrect) {
+              setCheckResult('Correct! All masses identified accurately.');
+            } else {
+              setCheckResult('Incorrect values. Please review the highlighted boxes.');
+            }
+          };
+
+          const restartLab = () => {
+            setSessionMasses({
+              salt: Number((2 + Math.random() * 8).toFixed(2)),
+              sand: Number((5 + Math.random() * 10).toFixed(2)),
+              water: Number((50 + Math.random() * 50).toFixed(2))
+            });
+            setTareValue(0);
+            setBeakerLocation('shelf');
+            setFunnelLocation('shelf');
+            setPaperLocation('shelf');
+            setMixtureLocation('shelf');
+            setBeakerContent('empty');
+            setPaperHasSand(false);
+            setWaterLevel(100);
+            setTemperature(20);
+            setUserInput({ salt: '', sand: '', water: '' });
+            setInputStatus({ salt: null, sand: null, water: null });
+            setCheckResult(null);
+            setLastActionMessage('Identify the exact mass of salt, sand, and water in the mixture.');
+          };
+
+          const IndependentItems = ({ zone }) => {
+            const items = [];
+            if (funnelLocation === zone) {
+              items.push(
+                <div key="funnel" onMouseDown={(e) => { e.stopPropagation(); handleSpecificPickup('funnel'); }} className="transform scale-[0.6] origin-bottom cursor-grab hover:scale-75 transition-transform">
+                  <FunnelSvg hasPaper={paperLocation === 'funnel'} hasSand={paperHasSand && paperLocation === 'funnel'} />
+                </div>
+              );
+            }
+            if (paperLocation === zone) {
+              items.push(
+                <div key="paper" onMouseDown={(e) => { e.stopPropagation(); handleSpecificPickup('filter_paper'); }} className="transform scale-[0.6] origin-bottom cursor-grab hover:scale-75 transition-transform">
+                  <FilterPaperSvg hasSand={paperHasSand} />
+                </div>
+              );
+            }
+            if (mixtureLocation === zone && mixtureLocation !== 'used') {
+              items.push(
+                <div key="mixture" onMouseDown={(e) => { e.stopPropagation(); handleSpecificPickup('mixture'); }} className="transform scale-[0.6] origin-bottom cursor-grab hover:scale-75 transition-transform">
+                  <MixtureFlask isEmpty={false} />
+                </div>
+              );
+            }
+            return items.length > 0 ? <div className="flex items-end space-x-1 ml-4">{items}</div> : null;
+          };
+
+          const getInputClass = (type) => {
+            const status = inputStatus[type];
+            const base = "w-full border rounded-md px-2 py-1.5 text-sm font-medium focus:outline-none transition-all ";
+            if (status === 'correct') return base + "border-green-500 bg-green-50 text-green-700";
+            if (status === 'incorrect') return base + "border-red-500 bg-red-50 text-red-700";
+            return base + "border-slate-200 bg-slate-50 focus:ring-2 focus:ring-blue-500";
+          };
+
+          return (
+            <div className="flex flex-col h-screen bg-slate-50 font-sans cursor-default select-none overflow-hidden">
+              <style>{styles}</style>
+              
+              {/* Held Item Tracking Layer */}
+              <div ref={cursorRef} className={`fixed pointer-events-none z-50 transform -translate-x-1/2 -translate-y-[60%] transition-opacity ${heldItem === 'none' ? 'opacity-0' : 'opacity-100'}`}>
+                {heldItem === 'beaker' && <LabBeaker content={beakerContent} waterLevel={waterLevel} hasFunnel={funnelLocation === 'beaker'} funnelHasSand={paperHasSand && paperLocation === 'funnel'} hasPaper={paperLocation === 'funnel'} isBoiling={false} />}
+                {heldItem === 'funnel' && <FunnelSvg hasSand={paperHasSand && paperLocation === 'funnel'} hasPaper={paperLocation === 'funnel'} />}
+                {heldItem === 'filter_paper' && <FilterPaperSvg hasSand={paperHasSand} />}
+                {heldItem === 'mixture' && <MixtureFlask isEmpty={false} />}
+              </div>
+
+              <header className="bg-slate-800 text-white p-4 shadow-md flex justify-between items-center z-20 border-b border-slate-900">
+                <div className="flex items-center space-x-6">
+                  <div><h1 className="text-xl font-bold">Chemistry Lab: Quantitative Separation</h1><p className="text-slate-400 text-xs uppercase font-semibold">Salt Yield Challenge</p></div>
+                  <button onClick={() => setShowHints(!showHints)} className={`px-3 py-1 rounded text-xs font-bold transition-all ${showHints ? 'bg-blue-600' : 'bg-slate-700'} border border-slate-600 shadow-sm`}>{showHints ? 'Hints: ON' : 'Hints: OFF'}</button>
+                </div>
+                <button onClick={restartLab} className="bg-slate-700 hover:bg-slate-600 px-5 py-2 rounded-md font-bold text-sm border border-slate-500">Restart Lab</button>
+              </header>
+
+              <div className={`p-2 text-center text-sm font-bold shadow-sm z-10 transition-all ${displayMessage.includes('Warning') || displayMessage.includes('Incorrect') ? 'bg-red-100 text-red-800' : 'bg-blue-50 text-blue-800'}`}>
+                {displayMessage}
+              </div>
+
+              <div className="flex flex-1 overflow-hidden">
+                {/* Sidebar */}
+                <aside className="w-64 bg-white border-r border-slate-300 flex flex-col shadow-xl z-10 overflow-y-auto">
+                  <div className="p-4 flex flex-col h-full">
+                    <h2 className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-4">Equipment</h2>
+                    <div className="grid grid-cols-2 gap-3 mb-6">
+                      {[
+                        { id: 'beaker', label: 'Beaker', svg: <LabBeaker content="empty" waterLevel={0} />, loc: beakerLocation },
+                        { id: 'funnel', label: 'Funnel', svg: <FunnelSvg />, loc: funnelLocation },
+                        { id: 'filter_paper', label: 'Filter Paper', svg: <FilterPaperSvg />, loc: paperLocation },
+                        { id: 'mixture', label: 'Mixture', svg: <MixtureFlask isEmpty={mixtureLocation === 'used'} />, loc: mixtureLocation }
+                      ].map(tool => (
+                        <div 
+                          key={tool.id} 
+                          onMouseDown={() => tool.loc === 'shelf' && handleSpecificPickup(tool.id)} 
+                          className={`h-28 border-2 rounded-lg flex flex-col items-center justify-between p-2 cursor-grab active:cursor-grabbing hover:bg-slate-50 transition-all ${heldItem === tool.id || tool.loc !== 'shelf' ? 'opacity-30' : 'border-slate-200'}`}
+                        >
+                          <div className="relative w-full h-16 pointer-events-none mb-1">
+                            <div className="absolute inset-0 flex items-center justify-center">
+                              <div style={{ transform: 'scale(0.45)', transformOrigin: 'center center' }}>
+                                {tool.svg}
+                              </div>
+                            </div>
+                          </div>
+                          <span className="text-[9px] font-black text-slate-500 uppercase tracking-tight text-center z-10">{tool.label}</span>
+                        </div>
+                      ))}
+                    </div>
+                    
+                    <div className="mt-auto border-t border-slate-100 pt-4">
+                      <h3 className="text-[11px] font-black text-slate-400 uppercase mb-4 tracking-widest">Calculations (g)</h3>
+                      <div className="space-y-4">
+                        {['Salt', 'Sand', 'Water'].map(type => (
+                          <div key={type}>
+                            <label className="text-[9px] font-bold text-slate-500 block mb-1 uppercase tracking-wider">{type} Mass</label>
+                            <input 
+                              type="number" 
+                              step="0.01" 
+                              value={userInput[type.toLowerCase()]} 
+                              onChange={(e) => {
+                                setUserInput({...userInput, [type.toLowerCase()]: e.target.value});
+                                setInputStatus({...inputStatus, [type.toLowerCase()]: null});
+                              }} 
+                              className={getInputClass(type.toLowerCase())} 
+                              placeholder="0.00" 
+                            />
+                          </div>
+                        ))}
+                        <button onClick={checkAnswers} className="w-full bg-slate-800 hover:bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest py-3 rounded-md shadow-md mt-2 transition-all active:scale-95">Check Answers</button>
+                        {checkResult && (
+                          <div className={`text-[9px] font-bold p-3 rounded-md text-center border mt-2 leading-relaxed ${checkResult.startsWith('Correct') ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200'}`}>
+                            {checkResult}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </aside>
+
+                {/* Workbench */}
+                <main className="flex-1 relative flex flex-col items-center justify-end pb-20 bg-slate-200">
+                  <div className="absolute bottom-0 w-full h-1/3 wood-texture z-0 border-t-2 border-black/20 shadow-2xl"></div>
+                  
+                  <div className="w-full max-w-6xl flex justify-around items-end z-10 relative px-10">
+                     
+                     {/* Work Area Station */}
+                     <div className="flex flex-col items-center group">
+                       <div 
+                         onMouseEnter={() => setHoveredZone('workArea')} 
+                         onMouseLeave={() => setHoveredZone('none')} 
+                         className={`w-64 h-52 rounded-xl flex items-end justify-center space-x-2 ghost-box ${hoveredZone === 'workArea' && heldItem !== 'none' ? 'hovered' : ''}`}
+                       >
+                         {beakerLocation === 'workArea' && (
+                            <LabBeaker 
+                              content={beakerContent} 
+                              waterLevel={waterLevel} 
+                              hasFunnel={funnelLocation === 'beaker'} 
+                              funnelHasSand={paperHasSand && paperLocation === 'funnel'} 
+                              hasPaper={paperLocation === 'funnel'} 
+                              onBeakerClick={(e) => { e.stopPropagation(); handleSpecificPickup('beaker'); }}
+                              onFunnelClick={() => handleSpecificPickup('funnel')}
+                            />
+                         )}
+                         <IndependentItems zone="workArea" />
+                       </div>
+                       <div className="mt-2 text-[10px] text-slate-400 font-black uppercase opacity-0 group-hover:opacity-100 transition-opacity">Workbench</div>
+                     </div>
+
+                     {/* Hot Plate Station */}
+                     <div className="flex flex-col items-center group">
+                       <div 
+                         onMouseEnter={() => setHoveredZone('hotPlate')} 
+                         onMouseLeave={() => setHoveredZone('none')} 
+                         className={`w-48 h-48 rounded-xl z-10 pb-1 flex items-end justify-center ghost-box ${hoveredZone === 'hotPlate' && heldItem !== 'none' ? 'hovered' : ''}`}
+                       >
+                         {beakerLocation === 'hotPlate' && (
+                            <LabBeaker 
+                              content={beakerContent} 
+                              waterLevel={waterLevel} 
+                              hasFunnel={funnelLocation === 'beaker'} 
+                              funnelHasSand={paperHasSand && paperLocation === 'funnel'} 
+                              hasPaper={paperLocation === 'funnel'} 
+                              isBoiling={temperature >= 100 && waterLevel > 0} 
+                              onBeakerClick={(e) => { e.stopPropagation(); handleSpecificPickup('beaker'); }}
+                              onFunnelClick={() => handleSpecificPickup('funnel')}
+                            />
+                         )}
+                         <IndependentItems zone="hotPlate" />
+                       </div>
+                       <div className="relative flex flex-col items-center pointer-events-none">
+                          <div className={`w-36 h-4 rounded-[50%] transition-all duration-1000 transform translate-y-3 ${temperature >= 100 ? 'hot-plate-glow' : 'hot-plate-cold'} border-2 border-slate-700`} />
+                          <div className="w-48 h-12 bg-slate-600 rounded-b-xl shadow-lg flex items-center justify-center px-4 border border-slate-500">
+                             <span className="text-red-400 font-mono text-lg tracking-widest">{temperature}°C</span>
+                          </div>
+                       </div>
+                     </div>
+
+                     {/* Scale Station */}
+                     <div className="flex flex-col items-center group">
+                       <div 
+                         onMouseEnter={() => setHoveredZone('scale')} 
+                         onMouseLeave={() => setHoveredZone('none')} 
+                         className={`w-48 h-48 rounded-xl z-10 pb-1 flex items-end justify-center ghost-box ${hoveredZone === 'scale' && heldItem !== 'none' ? 'hovered' : ''}`}
+                       >
+                         {beakerLocation === 'scale' && (
+                            <LabBeaker 
+                              content={beakerContent} 
+                              waterLevel={waterLevel} 
+                              hasFunnel={funnelLocation === 'beaker'} 
+                              funnelHasSand={paperHasSand && paperLocation === 'funnel'} 
+                              hasPaper={paperLocation === 'funnel'} 
+                              onBeakerClick={(e) => { e.stopPropagation(); handleSpecificPickup('beaker'); }}
+                              onFunnelClick={() => handleSpecificPickup('funnel')}
+                            />
+                         )}
+                         <IndependentItems zone="scale" />
+                       </div>
+                       <DigitalScale mass={displayedScaleMass} onTare={() => setTareValue(getCurrentMassOnScale())} />
+                     </div>
+                  </div>
+                </main>
+              </div>
+
+              <footer className="bg-slate-900 p-6 border-t-4 border-slate-950 z-20">
+                <div className="max-w-3xl mx-auto flex items-center space-x-12 bg-slate-800 p-4 rounded-xl border border-slate-700 shadow-inner">
+                  <div className="text-white text-xs font-black uppercase tracking-widest">Heat Intensity</div>
+                  <div className="flex-1 flex items-center space-x-5">
+                     <input type="range" min="20" max="150" value={temperature} onChange={(e) => setTemperature(parseInt(e.target.value))} className="flex-1 h-3 bg-slate-950 rounded-full appearance-none cursor-pointer accent-red-500 shadow-inner" />
+                     <span className="text-white font-mono font-bold w-12">{temperature}°</span>
+                  </div>
+                  {showHints && <div className="text-[10px] font-bold text-red-500 animate-pulse uppercase tracking-tighter">Boiling point reached at 100°C</div>}
+                </div>
+              </footer>
+            </div>
+          );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
