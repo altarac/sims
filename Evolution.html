@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Natural Selection Simulator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            /* The specific light orange background */
+            background-color: #FFD5A1; 
+            font-family: system-ui, -apple-system, sans-serif;
+            touch-action: none; /* Prevents double-tap zooming on mobile */
+        }
+        
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            pointer-events: none; /* Let clicks pass through to canvas by default */
+            padding: 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+
+        .panel {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(4px);
+            padding: 1rem 1.5rem;
+            border-radius: 1rem;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            pointer-events: auto; /* Re-enable clicks for UI elements */
+        }
+
+        .btn {
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: none;
+        }
+
+        .btn-pause { background: #eab308; color: white; }
+        .btn-pause:hover { background: #ca8a04; }
+        
+        .btn-reset { background: #ef4444; color: white; }
+        .btn-reset:hover { background: #dc2626; }
+
+        .btn-start { background: #22c55e; color: white; }
+        .btn-start:hover { background: #16a34a; }
+
+        .btn-info { background: #3b82f6; color: white; }
+        .btn-info:hover { background: #2563eb; }
+
+        .btn-secondary { background: #6b7280; color: white; }
+        .btn-secondary:hover { background: #4b5563; }
+
+        .btn-graph { background: #8b5cf6; color: white; }
+        .btn-graph:hover { background: #7c3aed; }
+
+        #message-overlay {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(255, 255, 255, 0.9);
+            padding: 2rem 3rem;
+            border-radius: 1rem;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+            text-align: center;
+            pointer-events: auto;
+            display: none;
+            z-index: 50;
+        }
+
+        #instructions-overlay {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(255, 255, 255, 0.95);
+            padding: 2rem 3rem;
+            border-radius: 1rem;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+            text-align: center;
+            pointer-events: auto;
+            display: none;
+            z-index: 60;
+            max-width: 500px;
+        }
+
+        #graph-overlay {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(255, 255, 255, 0.95);
+            padding: 2rem;
+            border-radius: 1rem;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+            pointer-events: auto;
+            display: none;
+            z-index: 60;
+            width: 90%;
+            max-width: 800px;
+        }
+
+        #graphCanvas {
+            width: 100%;
+            height: 350px;
+            background: white;
+            border-radius: 0.5rem;
+            margin-bottom: 1.5rem;
+            border: 1px solid #e5e7eb;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- UI Overlay -->
+    <div id="ui-layer">
+        <div class="panel flex flex-col gap-2">
+            <div class="text-2xl font-bold text-gray-800">Generation: <span id="gen-counter" class="text-orange-600">1</span></div>
+            <div class="text-lg text-gray-700 font-medium">Time Left: <span id="time-counter" class="font-mono w-16 inline-block">20.0</span>s</div>
+            <div class="text-sm text-gray-600">Population: <span id="pop-counter">40</span>/40</div>
+        </div>
+
+        <div class="panel flex gap-3">
+            <button id="graph-btn" class="btn btn-graph">View Graph</button>
+            <button id="toggle-bg-btn" class="btn btn-secondary">Toggle BG</button>
+            <button id="instructions-btn" class="btn btn-info">Instructions</button>
+            <button id="pause-btn" class="btn btn-start">Start Game</button>
+            <button id="reset-btn" class="btn btn-reset">Reset</button>
+        </div>
+    </div>
+
+    <!-- Message Overlay -->
+    <!-- Message Overlay -->
+    <div id="message-overlay">
+        <h2 id="message-title" class="text-3xl font-bold mb-2 text-gray-800">Extinction!</h2>
+        <p id="message-text" class="text-gray-600 mb-6">You eliminated the entire population. No traits were passed on.</p>
+        <button id="message-btn" class="btn btn-start text-lg px-6 py-2">Restart Evolution</button>
+    </div>
+
+    <!-- Instructions Overlay -->
+    <div id="instructions-overlay">
+        <h2 class="text-3xl font-bold mb-4 text-gray-800">How to Play</h2>
+        <p class="text-gray-700 mb-4 text-left">
+            Welcome to the Evolution Simulator! <strong>You are the predator</strong> and the moving circles are your prey.
+        </p>
+        <p class="text-gray-700 mb-6 text-left">
+            Your goal is to click on and "eat" as many circles as possible before the 20-second timer runs out. 
+            The surviving circles will reproduce and pass their colors on to the next generation. Watch as they evolve to camouflage against the background over time!
+        </p>
+        <button id="close-instructions-btn" class="btn btn-info text-lg px-6 py-2">Got it!</button>
+    </div>
+
+    <!-- Graph Overlay -->
+    <div id="graph-overlay">
+        <h2 class="text-3xl font-bold mb-4 text-gray-800 text-center">Color Evolution</h2>
+        <canvas id="graphCanvas"></canvas>
+        <div class="flex justify-between items-center text-sm text-gray-600 mb-4">
+            <div>Each bar represents the full population (40). Colors are stacked and sorted to show distribution.</div>
+        </div>
+        <div class="text-center">
+            <button id="close-graph-btn" class="btn btn-graph text-lg px-6 py-2">Close Graph</button>
+        </div>
+    </div>
+
+    <!-- Simulation Canvas -->
+    <canvas id="simCanvas"></canvas>
+
+    <script>
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // UI Elements
+        const genCounterEl = document.getElementById('gen-counter');
+        const timeCounterEl = document.getElementById('time-counter');
+        const popCounterEl = document.getElementById('pop-counter');
+        const pauseBtn = document.getElementById('pause-btn');
+        const resetBtn = document.getElementById('reset-btn');
+        const instructionsBtn = document.getElementById('instructions-btn');
+        const toggleBgBtn = document.getElementById('toggle-bg-btn');
+        const graphBtn = document.getElementById('graph-btn');
+        
+        const messageOverlay = document.getElementById('message-overlay');
+        const messageTitle = document.getElementById('message-title');
+        const messageText = document.getElementById('message-text');
+        const messageBtn = document.getElementById('message-btn');
+        const instructionsOverlay = document.getElementById('instructions-overlay');
+        const closeInstructionsBtn = document.getElementById('close-instructions-btn');
+        const graphOverlay = document.getElementById('graph-overlay');
+        const closeGraphBtn = document.getElementById('close-graph-btn');
+        const graphCanvas = document.getElementById('graphCanvas');
+
+        // Configuration
+        const POPULATION_SIZE = 40;
+        const GENERATION_TIME = 20; // seconds
+        const CIRCLE_RADIUS = 22;
+        const SPEED_FACTOR = 120; // max pixels per second
+        const MUTATION_VARIANCE = 30; // +/- RGB values
+
+        // Game State
+        let circles = [];
+        let generation = 1;
+        let timeLeft = GENERATION_TIME;
+        let isPaused = true;
+        let lastTimestamp = 0;
+        let animationId;
+        let isWhiteBackground = false;
+
+        let colorHistory = [];
+
+        // Resize canvas to fill window
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        // Utility: Generate random number between min and max
+        function random(min, max) {
+            return Math.random() * (max - min) + min;
+        }
+
+        // Utility: Clamp a value between min and max
+        function clamp(val, min, max) {
+            return Math.min(max, Math.max(min, val));
+        }
+
+        function recordHistory() {
+            const colors = circles.map(c => ({ r: c.r, g: c.g, b: c.b }));
+            // Sort by distance to background color (255, 213, 161)
+            // so the most camouflaged colors stack at the top of the bar
+            colors.sort((a, b) => {
+                const distA = Math.abs(a.r - 255) + Math.abs(a.g - 213) + Math.abs(a.b - 161);
+                const distB = Math.abs(b.r - 255) + Math.abs(b.g - 213) + Math.abs(b.b - 161);
+                return distB - distA; 
+            });
+            colorHistory.push({
+                gen: generation,
+                colors: colors
+            });
+        }
+
+        function drawGraph() {
+            const rect = graphCanvas.getBoundingClientRect();
+            const dpr = window.devicePixelRatio || 1;
+            graphCanvas.width = rect.width * dpr;
+            graphCanvas.height = rect.height * dpr;
+            
+            const gctx = graphCanvas.getContext('2d');
+            gctx.scale(dpr, dpr);
+
+            const width = rect.width;
+            const height = rect.height;
+            const paddingX = 40;
+            const paddingY = 40;
+            const graphWidth = width - paddingX * 2;
+            const graphHeight = height - paddingY * 2;
+
+            gctx.clearRect(0, 0, width, height);
+
+            if (colorHistory.length === 0) return;
+
+            const maxGens = Math.max(10, colorHistory.length);
+
+            // Draw Axes
+            gctx.strokeStyle = '#333';
+            gctx.lineWidth = 2;
+            gctx.beginPath();
+            gctx.moveTo(paddingX, paddingY);
+            gctx.lineTo(paddingX, height - paddingY);
+            gctx.lineTo(width - paddingX, height - paddingY);
+            gctx.stroke();
+
+            // Y-axis labels
+            gctx.textAlign = 'right';
+            gctx.fillStyle = '#666';
+            gctx.font = '12px sans-serif';
+            gctx.fillText(POPULATION_SIZE.toString(), paddingX - 10, paddingY + 5);
+            gctx.fillText((POPULATION_SIZE / 2).toString(), paddingX - 10, paddingY + graphHeight / 2 + 5);
+            gctx.fillText('0', paddingX - 10, height - paddingY + 5);
+
+            // Draw stacked bars
+            const barWidth = (graphWidth / maxGens) * 0.8;
+            const spacing = (graphWidth / maxGens) * 0.2;
+            const segmentHeight = graphHeight / POPULATION_SIZE;
+
+            colorHistory.forEach((hist, index) => {
+                const x = paddingX + index * (barWidth + spacing) + spacing / 2;
+                
+                // Draw each circle's color as a segment in the bar
+                hist.colors.forEach((col, i) => {
+                    const y = height - paddingY - (i + 1) * segmentHeight;
+                    gctx.fillStyle = `rgb(${col.r}, ${col.g}, ${col.b})`;
+                    // Add +0.5 to width/height to prevent faint gaps from anti-aliasing
+                    gctx.fillRect(x, y, barWidth + 0.5, segmentHeight + 0.5); 
+                });
+
+                // X-axis label for generation
+                if (maxGens <= 20 || hist.gen % Math.ceil(maxGens / 10) === 0) {
+                    gctx.textAlign = 'center';
+                    gctx.fillStyle = '#666';
+                    gctx.fillText('G' + hist.gen, x + barWidth / 2, height - paddingY + 20);
+                }
+            });
+        }
+
+        class Circle {
+            constructor(x, y, r, g, b) {
+                this.x = x;
+                this.y = y;
+                this.radius = CIRCLE_RADIUS;
+                
+                // Random velocity
+                this.vx = random(-SPEED_FACTOR, SPEED_FACTOR);
+                this.vy = random(-SPEED_FACTOR, SPEED_FACTOR);
+                
+                // Color
+                this.r = Math.floor(r);
+                this.g = Math.floor(g);
+                this.b = Math.floor(b);
+            }
+
+            draw(ctx) {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = `rgb(${this.r}, ${this.g}, ${this.b})`;
+                ctx.fill();
+                // Adding a very faint border prevents totally identical colors from being 100% invisible
+                // Removed to make perfect camouflage possible, enforcing true natural selection!
+            }
+
+            update(dt) {
+                this.x += this.vx * dt;
+                this.y += this.vy * dt;
+
+                // Bounce off walls
+                if (this.x - this.radius < 0) {
+                    this.x = this.radius;
+                    this.vx *= -1;
+                } else if (this.x + this.radius > canvas.width) {
+                    this.x = canvas.width - this.radius;
+                    this.vx *= -1;
+                }
+
+                if (this.y - this.radius < 0) {
+                    this.y = this.radius;
+                    this.vy *= -1;
+                } else if (this.y + this.radius > canvas.height) {
+                    this.y = canvas.height - this.radius;
+                    this.vy *= -1;
+                }
+            }
+        }
+
+        function initRandomPopulation() {
+            circles = [];
+            for (let i = 0; i < POPULATION_SIZE; i++) {
+                const x = random(CIRCLE_RADIUS, canvas.width - CIRCLE_RADIUS);
+                const y = random(CIRCLE_RADIUS, canvas.height - CIRCLE_RADIUS);
+                
+                let r, g, b;
+                // Give ~60% of the initial population a camouflaged color close to the #FFD5A1 (255, 213, 161) background
+                if (Math.random() < 0.60) {
+                    r = clamp(255 + random(-20, 20), 0, 255);
+                    g = clamp(213 + random(-20, 20), 0, 255);
+                    b = clamp(161 + random(-20, 20), 0, 255);
+                } else {
+                    // Completely random RGB for the rest
+                    r = random(0, 255);
+                    g = random(0, 255);
+                    b = random(0, 255);
+                }
+                
+                circles.push(new Circle(x, y, r, g, b));
+            }
+        }
+
+        function nextGeneration() {
+            if (circles.length === 0) {
+                // Extinction!
+                showOverlay("Extinction!", "You eliminated the entire population. No traits were passed on to the next generation.", "Restart Evolution");
+                isPaused = true;
+                return;
+            }
+
+            if (circles.length === POPULATION_SIZE) {
+                // No circles were eaten! Traits remain exactly the same.
+                const oldCircles = [...circles];
+                circles = [];
+                for (let i = 0; i < POPULATION_SIZE; i++) {
+                    const x = random(CIRCLE_RADIUS, canvas.width - CIRCLE_RADIUS);
+                    const y = random(CIRCLE_RADIUS, canvas.height - CIRCLE_RADIUS);
+                    circles.push(new Circle(x, y, oldCircles[i].r, oldCircles[i].g, oldCircles[i].b));
+                }
+            } else {
+                // Calculate average color of survivors
+                let sumR = 0, sumG = 0, sumB = 0;
+                circles.forEach(c => {
+                    sumR += c.r;
+                    sumG += c.g;
+                    sumB += c.b;
+                });
+
+                let avgR = sumR / circles.length;
+                let avgG = sumG / circles.length;
+                let avgB = sumB / circles.length;
+
+                // Force evolution towards the background color (255, 213, 161)
+                // Move the average 20% closer to the perfect camouflage each generation
+                const targetR = 255;
+                const targetG = 213;
+                const targetB = 161;
+                
+                avgR += (targetR - avgR) * 0.20;
+                avgG += (targetG - avgG) * 0.20;
+                avgB += (targetB - avgB) * 0.20;
+
+                // Calculate dynamic variance: fewer survivors = less variation
+                // This means strong selective pressure leads to faster stabilization of the camouflage trait
+                const survivalRate = circles.length / POPULATION_SIZE;
+                const dynamicVariance = Math.max(3, MUTATION_VARIANCE * survivalRate);
+
+                // Spawn new population based on average + mutation
+                circles = [];
+                for (let i = 0; i < POPULATION_SIZE; i++) {
+                    const x = random(CIRCLE_RADIUS, canvas.width - CIRCLE_RADIUS);
+                    const y = random(CIRCLE_RADIUS, canvas.height - CIRCLE_RADIUS);
+                    
+                    // Mutate colors slightly based on the dynamic variance
+                    const r = clamp(avgR + random(-dynamicVariance, dynamicVariance), 0, 255);
+                    const g = clamp(avgG + random(-dynamicVariance, dynamicVariance), 0, 255);
+                    const b = clamp(avgB + random(-dynamicVariance, dynamicVariance), 0, 255);
+                    
+                    circles.push(new Circle(x, y, r, g, b));
+                }
+            }
+
+            generation++;
+            timeLeft = GENERATION_TIME;
+
+            recordHistory();
+
+            updateUI();
+        }
+
+        function updateUI() {
+            genCounterEl.textContent = generation;
+            timeCounterEl.textContent = Math.max(0, timeLeft).toFixed(1);
+            popCounterEl.textContent = circles.length;
+        }
+
+        function showOverlay(title, text, btnText) {
+            messageTitle.textContent = title;
+            messageText.textContent = text;
+            messageBtn.textContent = btnText;
+            messageOverlay.style.display = 'block';
+        }
+
+        function hideOverlay() {
+            messageOverlay.style.display = 'none';
+        }
+
+        function resetGame() {
+            generation = 1;
+            timeLeft = GENERATION_TIME;
+            initRandomPopulation();
+            isPaused = true;
+            
+            // Reset background
+            isWhiteBackground = false;
+            document.body.style.backgroundColor = '#FFD5A1';
+
+            colorHistory = [];
+            recordHistory();
+            
+            hideOverlay();
+            instructionsOverlay.style.display = 'none';
+            graphOverlay.style.display = 'none';
+            pauseBtn.textContent = 'Start Game';
+            pauseBtn.className = 'btn btn-start';
+            updateUI();
+        }
+
+        // Main game loop
+        function gameLoop(timestamp) {
+            if (!lastTimestamp) lastTimestamp = timestamp;
+            
+            // Calculate delta time in seconds, cap it to prevent massive jumps
+            const dt = Math.min((timestamp - lastTimestamp) / 1000, 0.1); 
+            lastTimestamp = timestamp;
+
+            // 1. ALWAYS clear canvas and draw background
+            ctx.fillStyle = isWhiteBackground ? '#FFFFFF' : '#FFD5A1';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // 2. ONLY update positions and timer if NOT paused
+            if (!isPaused) {
+                circles.forEach(circle => {
+                    circle.update(dt);
+                });
+
+                // Timer logic
+                timeLeft -= dt;
+                if (timeLeft <= 0) {
+                    nextGeneration();
+                }
+
+                updateUI();
+            }
+
+            // 3. ALWAYS draw the circles on top
+            circles.forEach(circle => {
+                circle.draw(ctx);
+            });
+
+            animationId = requestAnimationFrame(gameLoop);
+        }
+
+        // Interaction: Clicking circles
+        canvas.addEventListener('pointerdown', (e) => {
+            if (isPaused) return;
+
+            const rect = canvas.getBoundingClientRect();
+            const clickX = e.clientX - rect.left;
+            const clickY = e.clientY - rect.top;
+
+            // Loop backwards so we click the circle rendered on top if they overlap
+            for (let i = circles.length - 1; i >= 0; i--) {
+                const circle = circles[i];
+                const dx = clickX - circle.x;
+                const dy = clickY - circle.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+
+                // Added a tiny bit of leniency (+2px) for hit detection
+                if (distance <= circle.radius + 2) {
+                    circles.splice(i, 1);
+                    popCounterEl.textContent = circles.length;
+                    
+                    if (circles.length === 0) {
+                        nextGeneration(); // Triggers extinction
+                    }
+                    break; // Only click one circle per click
+                }
+            }
+        });
+
+        // Controls
+        pauseBtn.addEventListener('click', () => {
+            if (instructionsOverlay.style.display === 'block') return; // Prevent starting if instructions are open
+
+            isPaused = !isPaused;
+            if (isPaused) {
+                pauseBtn.textContent = 'Resume';
+                pauseBtn.className = 'btn btn-start';
+            } else {
+                pauseBtn.textContent = 'Pause';
+                pauseBtn.className = 'btn btn-pause';
+                
+                // Force background back to normal when unpausing
+                isWhiteBackground = false;
+                document.body.style.backgroundColor = '#FFD5A1';
+                
+                lastTimestamp = performance.now(); // Prevent time jump after unpausing
+            }
+        });
+
+        instructionsBtn.addEventListener('click', () => {
+            isPaused = true;
+            if (generation === 1 && timeLeft === GENERATION_TIME) {
+                pauseBtn.textContent = 'Start Game';
+            } else {
+                pauseBtn.textContent = 'Resume';
+            }
+            pauseBtn.className = 'btn btn-start opacity-50 cursor-not-allowed';
+            instructionsOverlay.style.display = 'block';
+        });
+
+        closeInstructionsBtn.addEventListener('click', () => {
+            instructionsOverlay.style.display = 'none';
+            pauseBtn.className = 'btn btn-start';
+        });
+
+        toggleBgBtn.addEventListener('click', () => {
+            if (!isPaused) return; // Only allow toggling when the game is paused
+
+            isWhiteBackground = !isWhiteBackground;
+            const newBg = isWhiteBackground ? '#FFFFFF' : '#FFD5A1';
+            document.body.style.backgroundColor = newBg;
+        });
+
+        graphBtn.addEventListener('click', () => {
+            isPaused = true;
+            if (generation === 1 && timeLeft === GENERATION_TIME) {
+                pauseBtn.textContent = 'Start Game';
+            } else {
+                pauseBtn.textContent = 'Resume';
+            }
+            pauseBtn.className = 'btn btn-start';
+            graphOverlay.style.display = 'block';
+            
+            // Small timeout to allow overlay display update before calculating canvas size
+            setTimeout(drawGraph, 10);
+        });
+
+        closeGraphBtn.addEventListener('click', () => {
+            graphOverlay.style.display = 'none';
+        });
+
+        resetBtn.addEventListener('click', resetGame);
+        messageBtn.addEventListener('click', resetGame);
+
+        // Start!
+        resetGame(); // This initializes the population, sets UI, AND draws the first frame
+        
+        // Show instructions automatically on first load
+        instructionsOverlay.style.display = 'block';
+        pauseBtn.className = 'btn btn-start opacity-50 cursor-not-allowed';
+        
+        animationId = requestAnimationFrame(gameLoop);
+
+    </script>
+</body>
+</html>
