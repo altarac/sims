@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tectonic Simulation: Mountain Building & Plate Boundaries</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #000; font-family: 'Inter', system-ui, sans-serif; }
+        #canvas-container { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 1; }
+        #ui-layer { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 10; pointer-events: none; display: flex; flex-direction: column; justify-content: space-between; }
+        .pointer-events-auto { pointer-events: auto; }
+        
+        input[type=range] { -webkit-appearance: none; width: 100%; background: transparent; }
+        input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 16px; width: 16px; border-radius: 50%; background: #3b82f6; cursor: pointer; margin-top: -6px; box-shadow: 0 0 8px rgba(59, 130, 246, 0.5); }
+        input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 4px; cursor: pointer; background: #cbd5e1; border-radius: 2px; }
+        
+        .glass-panel { background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.5); }
+        
+        .mode-btn { transition: all 0.2s; }
+        .mode-btn.active { background: white; color: #2563eb; font-weight: 700; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+    </style>
+</head>
+<body>
+
+    <div id="canvas-container"></div>
+
+    <div id="ui-layer" class="p-3 md:p-5">
+        <div class="glass-panel rounded-xl shadow-2xl w-[22rem] max-w-full pointer-events-auto flex flex-col">
+            <!-- Collapsible Header -->
+            <div id="panel-header" class="flex justify-between items-center cursor-pointer select-none p-4 pb-2 border-b border-transparent transition-colors hover:bg-white/40 rounded-t-xl">
+                <h1 class="text-base font-bold text-gray-800 flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-blue-600"><path d="m8 3 4 8 5-5 5 15H2L8 3z"/></svg>
+                    Tectonic Simulator
+                </h1>
+                <button class="p-1 text-gray-500 hover:text-gray-800 transition-colors">
+                    <svg id="toggle-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="transition-transform duration-300"><polyline points="18 15 12 9 6 15"></polyline></svg>
+                </button>
+            </div>
+            
+            <!-- Collapsible Content -->
+            <div id="panel-content" class="px-4 pb-4 overflow-hidden transition-all duration-300 opacity-100 max-h-[500px]">
+                <!-- Mode Selector -->
+                <div class="flex gap-1 mb-2 bg-gray-200/60 p-1 rounded-lg border border-gray-300 mt-2">
+                    <button class="mode-btn active flex-1 py-1 px-1 text-[11px] font-semibold rounded-md text-gray-600" data-mode="collision">Collision</button>
+                    <button class="mode-btn flex-1 py-1 px-1 text-[11px] font-semibold rounded-md text-gray-600 hover:bg-white/50" data-mode="subduction">Subduction</button>
+                    <button class="mode-btn flex-1 py-1 px-1 text-[11px] font-semibold rounded-md text-gray-600 hover:bg-white/50" data-mode="divergent">Divergent</button>
+                    <button class="mode-btn flex-1 py-1 px-1 text-[11px] font-semibold rounded-md text-gray-600 hover:bg-white/50" data-mode="shearing">Shearing</button>
+                </div>
+
+                <p id="mode-description" class="text-[11px] text-gray-600 mb-4 leading-relaxed min-h-[50px]">
+                    <strong>Continental Collision:</strong> Plates compress. Warm/Left plate and Cool/Right plate crumple and thrust upwards into mountains.
+                </p>
+                
+                <div class="space-y-3">
+                    <div>
+                        <div class="flex justify-between text-[11px] font-semibold text-gray-500 mb-1">
+                            <span>Start</span>
+                            <span id="time-display" class="text-blue-600">0 Mya</span>
+                            <span>Maximum</span>
+                        </div>
+                        <input type="range" id="compression-slider" min="0" max="1" step="0.001" value="0">
+                    </div>
+                    
+                    <div class="flex gap-2 pt-1">
+                        <button id="play-btn" class="flex-[2] bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold py-1.5 px-3 rounded-lg transition-colors flex justify-center items-center gap-2 shadow-sm">
+                            <svg id="play-icon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                            <svg id="pause-icon" class="hidden" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>
+                            <span id="play-text">Auto-Play</span>
+                        </button>
+                        <button id="reset-btn" class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-700 text-sm font-semibold py-1.5 px-3 rounded-lg transition-colors shadow-sm">
+                            Reset
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="self-end md:self-center glass-panel px-3 py-1.5 rounded-full text-[11px] font-medium text-gray-700 pointer-events-auto shadow-lg mb-2 flex items-center gap-2">
+            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 21a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2z"></path><path d="M12 7v5l3 3"></path></svg>
+            <span class="hidden md:inline">Drag to View Cross-Section • Scroll to Zoom</span>
+            <span class="inline md:hidden">Drag to Rotate • Pinch to Zoom</span>
+        </div>
+    </div>
+
+    <script>
+        // --- Pseudo-Random Noise ---
+        function fract(x) { return x - Math.floor(x); }
+        function hash(x, y) { return fract(Math.sin(x * 12.9898 + y * 78.233) * 43758.5453123); }
+        function noise(x, y) {
+            let ix = Math.floor(x), iy = Math.floor(y);
+            let fx = fract(x), fy = fract(y);
+            let ux = fx * fx * (3.0 - 2.0 * fx), uy = fy * fy * (3.0 - 2.0 * fy);
+            return hash(ix, iy) * (1 - ux) * (1 - uy) + hash(ix + 1, iy) * ux * (1 - uy) +
+                   hash(ix, iy + 1) * (1 - ux) * uy + hash(ix + 1, iy + 1) * ux * uy;
+        }
+        function fbm(x, z) {
+            let val = 0.0, amp = 0.5, freq = 1.0;
+            for (let i = 0; i < 4; i++) { val += amp * noise(x * freq, z * freq); freq *= 2.0; amp *= 0.5; }
+            return val;
+        }
+
+        // --- Descriptions ---
+        const descriptions = {
+            'collision': '<strong>Continental Collision:</strong> The warm left plate and cool right plate compress, crumpling and thrusting upwards to clearly show how the landmasses are forced together into mountains.',
+            'subduction': '<strong>Subduction:</strong> The denser cool right plate dives under the warm left plate, highlighting the overlap and stretching of the crust as it is forced downwards.',
+            'divergent': '<strong>Divergent Boundary:</strong> The plates pull apart. The crust thins, stretching the boundary until magma eventually rises to form new crust.',
+            'shearing': '<strong>Shearing Fault:</strong> The warm and cool plates slide horizontally past one another, demonstrating intense shearing along the boundary line.'
+        };
+
+        // --- Three.js Setup ---
+        let scene, camera, renderer, controls;
+        let leftPlateGeo, rightPlateGeo;
+        let leftPlateMesh, rightPlateMesh;
+        let leftOriginal, rightOriginal;
+        let leftArrow, rightArrow;
+        let ocean;
+        
+        let currentMode = 'collision';
+        let progression = 0; 
+        let isPlaying = false;
+        
+        // UI Elements
+        let slider, playBtn, resetBtn, playIcon, pauseIcon, playText, timeDisplay, modeDesc;
+
+        function init() {
+            const container = document.getElementById('canvas-container');
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x87CEEB);
+            // Haze (Fog) removed to keep the view clear
+            // scene.fog = new THREE.FogExp2(0x87CEEB, 0.012);
+
+            camera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(0, 18, 35);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            container.appendChild(renderer.domElement);
+
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+            controls.maxPolarAngle = Math.PI / 2 + 0.1;
+            controls.minDistance = 10;
+            controls.maxDistance = 80;
+            controls.target.set(0, -2, 0);
+
+            // Lighting
+            scene.add(new THREE.AmbientLight(0xffffff, 0.6)); // Slightly boosted ambient light
+            const dirLight = new THREE.DirectionalLight(0xffffff, 1.1);
+            dirLight.position.set(25, 35, 15);
+            dirLight.castShadow = true;
+            dirLight.shadow.mapSize.width = 2048;
+            dirLight.shadow.mapSize.height = 2048;
+            dirLight.shadow.camera.near = 0.5;
+            dirLight.shadow.camera.far = 100;
+            dirLight.shadow.camera.left = -25;
+            dirLight.shadow.camera.right = 25;
+            dirLight.shadow.camera.top = 25;
+            dirLight.shadow.camera.bottom = -25;
+            dirLight.shadow.bias = -0.001; // Fixes the self-shadowing artifact (shadow acne) at initial ground level
+            scene.add(dirLight);
+
+            // --- Multi-Mesh Solid Terrain Setup ---
+            const width = 25, depth = 35, thickness = 12;
+            
+            // 1. Left Plate
+            leftPlateGeo = new THREE.BoxGeometry(width, thickness, depth, 75, 6, 100);
+            leftPlateGeo.translate(-width/2, -thickness/2, 0); // Spans x from -25 to 0
+            leftOriginal = new Float32Array(leftPlateGeo.attributes.position.array);
+            leftPlateGeo.setAttribute('color', new THREE.BufferAttribute(new Float32Array(leftPlateGeo.attributes.position.count * 3), 3));
+
+            // 2. Right Plate (Slightly offset by 0.02 to prevent perfectly coplanar Z-fighting at the boundary)
+            rightPlateGeo = new THREE.BoxGeometry(width, thickness, depth, 75, 6, 100);
+            rightPlateGeo.translate(width/2 + 0.02, -thickness/2, 0); // Spans x from 0.02 to ~25
+            rightOriginal = new Float32Array(rightPlateGeo.attributes.position.array);
+            rightPlateGeo.setAttribute('color', new THREE.BufferAttribute(new Float32Array(rightPlateGeo.attributes.position.count * 3), 3));
+
+            const terrainMaterial = new THREE.MeshStandardMaterial({
+                vertexColors: true, roughness: 0.85, metalness: 0.05
+            });
+
+            leftPlateMesh = new THREE.Mesh(leftPlateGeo, terrainMaterial);
+            leftPlateMesh.castShadow = true;
+            leftPlateMesh.receiveShadow = true;
+            scene.add(leftPlateMesh);
+
+            rightPlateMesh = new THREE.Mesh(rightPlateGeo, terrainMaterial);
+            rightPlateMesh.castShadow = true;
+            rightPlateMesh.receiveShadow = true;
+            scene.add(rightPlateMesh);
+
+            // Force Arrows
+            leftArrow = new THREE.ArrowHelper(new THREE.Vector3(1, 0, 0), new THREE.Vector3(-20, 3, 0), 5, 0xef4444, 1.5, 0.8);
+            rightArrow = new THREE.ArrowHelper(new THREE.Vector3(-1, 0, 0), new THREE.Vector3(20, 3, 0), 5, 0xef4444, 1.5, 0.8);
+            scene.add(leftArrow); scene.add(rightArrow);
+
+            // Ocean Plane
+            const oceanGeo = new THREE.PlaneGeometry(120, 120);
+            oceanGeo.rotateX(-Math.PI / 2);
+            const oceanMat = new THREE.MeshStandardMaterial({ 
+                color: 0x1e40af, transparent: true, opacity: 0.45, roughness: 0.1, metalness: 0.8,
+                side: THREE.DoubleSide
+            });
+            ocean = new THREE.Mesh(oceanGeo, oceanMat);
+            ocean.position.y = 0.2; 
+            scene.add(ocean);
+
+            setupUI();
+            updateTerrain(0);
+            window.addEventListener('resize', onWindowResize, false);
+        }
+
+        // --- Core Deformation Engine (Adapted for Two Independent Meshes) ---
+        function getDeformation(x0, z0, t, mode, isLeft) {
+            let dx = 0, dy = 0, dz = 0;
+            let distToFault = Math.abs(x0);
+            let n_base = fbm(x0 * 0.3, z0 * 0.3);
+            let n_detail = fbm(x0 * 1.5, z0 * 1.5);
+
+            if (mode === 'collision') {
+                let faultWidth = 5.0 + (t * 2.0);
+                let envelope = Math.exp(-(distToFault * distToFault) / (faultWidth * faultWidth));
+                
+                // FIXED: Instead of translating the whole plate and causing a crossover (2 peaks),
+                // we PIN the fault line at x=0 and pull the far edges inwards. This creates massive 
+                // horizontal compression that forces the two plates to share the exact same peak point.
+                let pushFactor = 1.0 - Math.exp(-(distToFault * distToFault) / 50.0);
+                dx = (isLeft ? 1 : -1) * t * 6.0 * pushFactor; 
+                
+                let baseUplift = envelope * t * 10.0;
+                dy = baseUplift * (0.6 + 0.4 * n_base) + (envelope * t * 3.0 * n_detail);
+                
+                let foldEffect = Math.sin(distToFault * 1.5 - t * 8.0) * envelope * t * 1.5;
+                dy = Math.max(0, dy + foldEffect);
+
+            } else if (mode === 'subduction') {
+                if (!isLeft) { // Right oceanic plate dives independently
+                    dx = -t * 8.0; 
+                    let currentX_approx = x0 + dx;
+                    
+                    // Subduct based on spatial position to close the gap completely
+                    let distFromTrench = currentX_approx;
+                    let trenchDip = Math.exp(-(distFromTrench * distFromTrench) / 4.0) * t * -1.5;
+                    
+                    let subduct = 0;
+                    if (distFromTrench < 2) {
+                        subduct = Math.pow(2 - distFromTrench, 1.4) * 0.6 * t;
+                    }
+                    dy = trenchDip - subduct;
+                } else { // Left continental plate stays, forms volcanoes
+                    let arcEnvelope = Math.exp(-Math.pow(x0 + 5, 2) / 16.0);
+                    dy = arcEnvelope * t * 8.0 * (0.6 + 0.4 * n_base) + (arcEnvelope * t * 2.0 * n_detail);
+                    
+                    // Thrust the leading edge forward slightly to cover the trench seam
+                    dx = Math.exp(-(x0 * x0) / 4.0) * t * 1.0; 
+                    
+                    // Slight lip dip to meet the oceanic plate
+                    dy += Math.exp(-(x0 * x0) / 2.0) * t * -1.0;
+                }
+
+            } else if (mode === 'divergent') {
+                let stretchFactor = Math.min(1.0, distToFault / 2.0);
+                dx = (isLeft ? -1 : 1) * t * 6.0 * stretchFactor; 
+                
+                let riftEnvelope = Math.exp(-(distToFault * distToFault) / (3.0 + t * 6.0));
+                dy = riftEnvelope * t * -4.0 + (riftEnvelope * t * 1.5 * n_base);
+
+            } else if (mode === 'shearing') {
+                dz = (isLeft ? 1 : -1) * t * 12.0;
+                let faultEnvelope = Math.exp(-(distToFault * distToFault) / 3.0);
+                dy = faultEnvelope * t * 2.5 * n_detail; 
+            }
+
+            return { dx, dy, dz };
+        }
+
+        function updatePlate(geometry, original, t, isLeft) {
+            const pos = geometry.attributes.position;
+            const colors = geometry.attributes.color;
+            const thickness = 12;
+
+            // --- Distinct Left / Right Palettes ---
+            const surfaceColor = isLeft ? new THREE.Color(0x7cb342) : new THREE.Color(0x00897b); 
+            const midColor = isLeft ? new THREE.Color(0x8d6e63) : new THREE.Color(0x78909c);     
+            const crustTop = isLeft ? new THREE.Color(0xbf360c) : new THREE.Color(0x37474f); 
+            const crustBot = isLeft ? new THREE.Color(0x3e2723) : new THREE.Color(0x1a237e); 
+
+            const colorHigh = new THREE.Color(0x3f3f4e);  
+            const colorSnow = new THREE.Color(0xffffff);  
+            
+            for (let i = 0; i < pos.count; i++) {
+                let x0 = original[i * 3];
+                let y0 = original[i * 3 + 1];
+                let z0 = original[i * 3 + 2];
+
+                let { dx, dy, dz } = getDeformation(x0, z0, t, currentMode, isLeft);
+
+                // Ensure the bottom stays relatively flat, displacing mainly the top
+                let yWeight = Math.max(0, (y0 + thickness) / thickness);
+                
+                let currentX = x0 + dx;
+                let currentZ = z0 + dz;
+                let currentY = y0 + dy * yWeight;
+
+                // Asthenosphere upwelling for Divergent mode
+                if (currentMode === 'divergent' && y0 < -thickness * 0.4) {
+                    let mantleEnvelope = Math.exp(-(x0*x0) / (4.0 + t * 8.0));
+                    currentY += mantleEnvelope * t * 5.0 * (1 - yWeight); 
+                }
+
+                pos.setXYZ(i, currentX, currentY, currentZ);
+
+                // --- Shading & Coloring ---
+                let c = new THREE.Color();
+                let isSurface = y0 > -0.1;
+
+                if (isSurface) {
+                    let h = currentY + (fbm(x0 * 1.5, z0 * 1.5) * 0.4);
+
+                    if (currentMode === 'divergent' && h < -1.5) {
+                        // Magma exposed at rift
+                        let alpha = Math.min(1.0, (-h - 1.5) / 1.5);
+                        c.lerpColors(new THREE.Color(0x3a2a25), new THREE.Color(0xff4400), alpha); 
+                    } else if (h < 0.8) {
+                        c.copy(surfaceColor);
+                    } else if (h < 3.0) {
+                        c.lerpColors(surfaceColor, midColor, (h - 0.8) / 2.2);
+                    } else if (h < 5.5) {
+                        c.lerpColors(midColor, colorHigh, (h - 3.0) / 2.5);
+                    } else {
+                        c.lerpColors(colorHigh, colorSnow, Math.min(1.0, (h - 5.5) / 1.5));
+                    }
+                } else {
+                    // Cross-section crust colors
+                    let depthFactor = Math.abs(y0 / thickness); 
+
+                    if (currentMode === 'divergent' && Math.abs(x0) < 6) {
+                        // Heat rising in rift
+                        let heat = Math.exp(-(x0*x0)/8) * depthFactor * t;
+                        c.lerpColors(crustTop, new THREE.Color(0xff2200), Math.min(1, heat * 1.5));
+                    } else {
+                        c.lerpColors(crustTop, crustBot, depthFactor);
+                    }
+                }
+                colors.setXYZ(i, c.r, c.g, c.b);
+            }
+
+            pos.needsUpdate = true;
+            colors.needsUpdate = true;
+            geometry.computeVertexNormals();
+        }
+
+        function updateTerrain(t) {
+            // Update both independent plate meshes
+            updatePlate(leftPlateGeo, leftOriginal, t, true);
+            updatePlate(rightPlateGeo, rightOriginal, t, false);
+            updateArrows(t);
+        }
+
+        function updateArrows(t) {
+            const offset = 18;
+            let arrowOpacity = Math.max(0.1, 1.0 - Math.pow(t, 2)); 
+            let fadeColor = new THREE.Color(0xef4444).lerp(new THREE.Color(0x550000), 1-arrowOpacity);
+            
+            leftArrow.setColor(fadeColor);
+            rightArrow.setColor(fadeColor);
+
+            if (currentMode === 'collision') {
+                leftArrow.position.set(-offset + t*6, 4, 0);
+                leftArrow.setDirection(new THREE.Vector3(1, 0, 0));
+                rightArrow.position.set(offset - t*6, 4, 0);
+                rightArrow.setDirection(new THREE.Vector3(-1, 0, 0));
+            } else if (currentMode === 'subduction') {
+                leftArrow.position.set(-offset, 4, 0);
+                leftArrow.setDirection(new THREE.Vector3(1, 0, 0)); 
+                rightArrow.position.set(offset - t*8, 4, 0);
+                rightArrow.setDirection(new THREE.Vector3(-1, -0.4, 0).normalize());
+            } else if (currentMode === 'divergent') {
+                leftArrow.position.set(-8 - t*6, 4, 0);
+                leftArrow.setDirection(new THREE.Vector3(-1, 0, 0));
+                rightArrow.position.set(8 + t*6, 4, 0);
+                rightArrow.setDirection(new THREE.Vector3(1, 0, 0));
+            } else if (currentMode === 'shearing') {
+                leftArrow.position.set(-6, 4, -offset + t*12);
+                leftArrow.setDirection(new THREE.Vector3(0, 0, 1));
+                rightArrow.position.set(6, 4, offset - t*12);
+                rightArrow.setDirection(new THREE.Vector3(0, 0, -1));
+            }
+        }
+
+        function setupUI() {
+            slider = document.getElementById('compression-slider');
+            playBtn = document.getElementById('play-btn');
+            resetBtn = document.getElementById('reset-btn');
+            playIcon = document.getElementById('play-icon');
+            pauseIcon = document.getElementById('pause-icon');
+            playText = document.getElementById('play-text');
+            timeDisplay = document.getElementById('time-display');
+            modeDesc = document.getElementById('mode-description');
+
+            // Collapsible Panel Logic
+            const panelHeader = document.getElementById('panel-header');
+            const panelContent = document.getElementById('panel-content');
+            const toggleIcon = document.getElementById('toggle-icon');
+            let panelOpen = true;
+
+            panelHeader.addEventListener('click', () => {
+                panelOpen = !panelOpen;
+                if(panelOpen) {
+                    panelContent.style.maxHeight = '500px';
+                    panelContent.style.opacity = '1';
+                    panelContent.style.paddingBottom = '1rem';
+                    panelHeader.classList.remove('border-b');
+                    toggleIcon.style.transform = 'rotate(0deg)';
+                } else {
+                    panelContent.style.maxHeight = '0px';
+                    panelContent.style.opacity = '0';
+                    panelContent.style.paddingBottom = '0px';
+                    panelHeader.classList.add('border-b', 'border-gray-200');
+                    toggleIcon.style.transform = 'rotate(180deg)';
+                }
+            });
+
+            // Mode Buttons
+            document.querySelectorAll('.mode-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    document.querySelectorAll('.mode-btn').forEach(b => {
+                        b.classList.remove('active');
+                        b.classList.replace('bg-white', 'hover:bg-white/50');
+                        b.classList.replace('text-blue-600', 'text-gray-600');
+                    });
+                    e.target.classList.add('active');
+                    e.target.classList.replace('hover:bg-white/50', 'bg-white');
+                    e.target.classList.replace('text-gray-600', 'text-blue-600');
+                    
+                    currentMode = e.target.getAttribute('data-mode');
+                    modeDesc.innerHTML = descriptions[currentMode];
+                    
+                    resetSimulation();
+                });
+            });
+
+            slider.addEventListener('input', (e) => {
+                progression = parseFloat(e.target.value);
+                updateTerrain(progression);
+                updateTimeDisplay(progression);
+                if(isPlaying) togglePlay();
+            });
+
+            playBtn.addEventListener('click', togglePlay);
+            resetBtn.addEventListener('click', () => { resetSimulation(); gsapCameraReset(); });
+        }
+
+        function resetSimulation() {
+            isPlaying = false;
+            updatePlayButtonState();
+            progression = 0;
+            slider.value = 0;
+            updateTerrain(0);
+            updateTimeDisplay(0);
+        }
+
+        function togglePlay() {
+            isPlaying = !isPlaying;
+            updatePlayButtonState();
+            if (isPlaying && progression >= 1) progression = 0;
+        }
+
+        function updatePlayButtonState() {
+            if (isPlaying) {
+                playIcon.classList.add('hidden'); pauseIcon.classList.remove('hidden');
+                playText.textContent = "Pause";
+                playBtn.classList.replace('bg-blue-600', 'bg-amber-500');
+                playBtn.classList.replace('hover:bg-blue-700', 'hover:bg-amber-600');
+            } else {
+                pauseIcon.classList.add('hidden'); playIcon.classList.remove('hidden');
+                playText.textContent = "Auto-Play";
+                playBtn.classList.replace('bg-amber-500', 'bg-blue-600');
+                playBtn.classList.replace('hover:bg-amber-600', 'hover:bg-blue-700');
+            }
+        }
+
+        function updateTimeDisplay(t) {
+            let years = Math.round(t * 50);
+            timeDisplay.textContent = `+ ${years} Million Yrs`;
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        let targetCamPos = new THREE.Vector3(0, 18, 35);
+        let targetCamLookAt = new THREE.Vector3(0, -2, 0);
+        function gsapCameraReset() {
+            let step = 0;
+            function easeCam() {
+                step += 0.05;
+                camera.position.lerp(targetCamPos, 0.1);
+                controls.target.lerp(targetCamLookAt, 0.1);
+                if (step < 1) requestAnimationFrame(easeCam);
+            }
+            easeCam();
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            if (isPlaying) {
+                let prevProgression = progression;
+                progression += 0.002; 
+                
+                // Stop auto-play exactly at 30 Million Years (0.6 * 50 = 30)
+                if (prevProgression < 0.6 && progression >= 0.6) {
+                    progression = 0.6;
+                    isPlaying = false;
+                    updatePlayButtonState();
+                } else if (progression >= 1.0) {
+                    progression = 1.0;
+                    isPlaying = false;
+                    updatePlayButtonState();
+                }
+                slider.value = progression;
+                updateTerrain(progression);
+                updateTimeDisplay(progression);
+            }
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        window.onload = function() { init(); animate(); };
+    </script>
+</body>
+</html>
