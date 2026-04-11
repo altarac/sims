@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Particle Wave Simulator</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="min-h-screen bg-gray-900 text-white flex flex-col font-sans">
+  
+  <!-- Header -->
+  <header class="bg-gray-800 p-6 border-b border-gray-700 shadow-md flex justify-between items-center">
+    <div>
+      <h1 class="text-2xl font-bold flex items-center gap-2">
+        <!-- Activity Icon -->
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-blue-400">
+          <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+        </svg>
+        Particle Wave Simulator
+      </h1>
+      <p class="text-gray-400 text-sm mt-1">Visualize how energy travels through a medium.</p>
+    </div>
+    
+    <div class="flex bg-gray-700 rounded-lg p-1">
+      <button id="btn-longitudinal" class="px-4 py-2 rounded-md font-medium transition-colors bg-blue-500 text-white shadow">
+        Longitudinal (Compression)
+      </button>
+      <button id="btn-transverse" class="px-4 py-2 rounded-md font-medium transition-colors text-gray-300 hover:text-white hover:bg-gray-600">
+        Transverse
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="flex-1 flex flex-col md:flex-row">
+    
+    <!-- Canvas Area -->
+    <div class="flex-1 p-6 flex flex-col">
+      <div id="canvas-container" class="bg-gray-800 rounded-xl flex-1 relative overflow-hidden border border-gray-700 shadow-inner">
+        <canvas id="main-canvas" class="absolute inset-0 w-full h-full block cursor-pointer"></canvas>
+      </div>
+
+      <div class="mt-4 flex flex-col sm:flex-row sm:items-center justify-between text-gray-400 text-sm gap-4">
+        <div class="flex flex-wrap items-center gap-3">
+          <div class="flex items-center gap-2">
+            <span class="w-3 h-3 rounded-full bg-red-500 inline-block"></span>
+            <span>Follow the red particles. Click any to track.</span>
+          </div>
+          <button id="btn-clear" class="px-3 py-1 bg-gray-700 hover:bg-gray-600 text-gray-200 rounded-md transition-colors text-xs border border-gray-600 shadow-sm">
+            Clear Custom Particles
+          </button>
+        </div>
+        <div class="flex items-center gap-2 whitespace-nowrap">
+          Wave Direction 
+          <!-- ArrowRight Icon -->
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+            <polyline points="12 5 19 12 12 19"></polyline>
+          </svg>
+        </div>
+      </div>
+    </div>
+
+    <!-- Controls Sidebar -->
+    <div class="w-full md:w-80 bg-gray-800 border-l border-gray-700 p-6 flex flex-col gap-6">
+      <div class="flex items-center justify-between">
+        <h2 class="text-lg font-semibold flex items-center gap-2">
+          <!-- Settings2 Icon -->
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="9" cy="12" r="2"></circle><circle cx="15" cy="6" r="2"></circle><circle cx="15" cy="18" r="2"></circle><line x1="3" y1="12" x2="7" y2="12"></line><line x1="11" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="13" y2="6"></line><line x1="17" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="13" y2="18"></line><line x1="17" y1="18" x2="21" y2="18"></line>
+          </svg>
+          Parameters
+        </h2>
+        <div class="flex items-center gap-2">
+          <button id="btn-measurements" class="hidden items-center gap-1 px-3 py-1.5 rounded-md text-sm font-medium transition-colors border shadow-sm bg-gray-700 text-gray-300 border-gray-600 hover:bg-gray-600" title="Show Wavelength">
+            <!-- Ruler Icon -->
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 1 0 2.828 2.828l14.504-12.19z"></path><path d="m7 12 1.5 1.5"></path><path d="m10 9 1.5 1.5"></path><path d="m13 6 1.5 1.5"></path>
+            </svg>
+            <span id="measurements-text">Show Wavelength</span>
+          </button>
+          
+          <button id="btn-play-pause" class="p-2 rounded-full transition-colors bg-gray-700 hover:bg-gray-600 flex items-center justify-center" title="Pause">
+            <!-- Pause/Play Icon container -->
+            <div id="icon-play-pause">
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>
+            </div>
+          </button>
+        </div>
+      </div>
+
+      <div class="space-y-6">
+        <div class="space-y-2">
+          <div class="flex justify-between">
+            <label class="text-sm font-medium text-gray-300">Amplitude</label>
+          </div>
+          <input id="slider-amplitude" type="range" min="5" max="50" value="25" class="w-full h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer accent-blue-500" />
+          <p class="text-xs text-gray-500">How far particles move from equilibrium.</p>
+        </div>
+
+        <div class="space-y-2">
+          <div class="flex justify-between">
+            <label class="text-sm font-medium text-gray-300">Wavelength</label>
+          </div>
+          <input id="slider-wavelength" type="range" min="100" max="500" value="200" class="w-full h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer accent-blue-500" />
+          <p class="text-xs text-gray-500">The distance between two compressions or crests.</p>
+        </div>
+      </div>
+
+      <div class="bg-gray-900 rounded-lg p-4 border border-gray-700 relative">
+        <h3 class="text-xs font-semibold text-gray-400 mb-3 uppercase tracking-wider">Wave Graph</h3>
+        <canvas id="graph-canvas" width="260" height="160" class="w-full h-32 block rounded bg-gray-800"></canvas>
+        <div class="flex justify-between text-[10px] text-gray-500 mt-2">
+          <span>Position (x)</span>
+          <span>Displacement (y)</span>
+        </div>
+      </div>
+
+      <div class="mt-auto bg-gray-700/50 rounded-lg p-4 text-sm text-gray-300 border border-gray-600">
+        <h3 class="font-semibold text-white mb-2">What's happening?</h3>
+        <p id="info-longitudinal">In a <strong>Longitudinal Wave</strong> (like sound), particles oscillate parallel to the direction the energy travels, creating areas of high pressure (compressions) and low pressure (rarefactions).</p>
+        <p id="info-transverse" class="hidden">In a <strong>Transverse Wave</strong> (like light or water ripples), particles oscillate perpendicular (up and down) to the direction the energy travels, creating crests and troughs.</p>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- JavaScript Application Logic -->
+  <script>
+    // App State
+    const state = {
+      isPlaying: true,
+      waveType: 'longitudinal',
+      showMeasurements: false,
+      amplitude: 25,
+      frequency: 1.5,
+      wavelength: 200,
+      time: 0,
+      particles: []
+    };
+
+    // DOM Elements
+    const canvas = document.getElementById('main-canvas');
+    const graphCanvas = document.getElementById('graph-canvas');
+    const container = document.getElementById('canvas-container');
+    const ctx = canvas.getContext('2d');
+    
+    // UI Elements
+    const btnLongitudinal = document.getElementById('btn-longitudinal');
+    const btnTransverse = document.getElementById('btn-transverse');
+    const btnPlayPause = document.getElementById('btn-play-pause');
+    const iconPlayPause = document.getElementById('icon-play-pause');
+    const btnMeasurements = document.getElementById('btn-measurements');
+    const measurementsText = document.getElementById('measurements-text');
+    const btnClear = document.getElementById('btn-clear');
+    
+    const sliderAmplitude = document.getElementById('slider-amplitude');
+    const sliderWavelength = document.getElementById('slider-wavelength');
+    
+    const infoLongitudinal = document.getElementById('info-longitudinal');
+    const infoTransverse = document.getElementById('info-transverse');
+
+    // SVG Icons
+    const pauseIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>`;
+    const playIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>`;
+
+    // --- Initialization & Setup ---
+    function initParticles(width, height) {
+      const numParticles = 2000;
+      const newParticles = [];
+      
+      for (let i = 0; i < numParticles; i++) {
+        newParticles.push({
+          baseX: Math.random() * width,
+          baseY: Math.random() * height,
+          isTracked: Math.random() > 0.99 
+        });
+      }
+      
+      const trackedParticles = [];
+      for(let i=1; i<=5; i++) {
+        trackedParticles.push({
+          baseX: (width / 6) * i,
+          baseY: height * 0.65 + (Math.random() * 40 - 20),
+          isTracked: true,
+          isDefaultTracked: true
+        });
+      }
+      
+      state.particles = [...newParticles.filter(p => !p.isTracked), ...trackedParticles];
+    }
+
+    function resizeCanvas() {
+      if (container) {
+        const newWidth = container.clientWidth;
+        const newHeight = container.clientHeight;
+        if (canvas.width !== newWidth || canvas.height !== newHeight) {
+          canvas.width = newWidth;
+          canvas.height = newHeight;
+          initParticles(canvas.width, canvas.height);
+        }
+      }
+    }
+
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas(); // Initial call
+
+    // --- Event Listeners ---
+    
+    // Wave Type Buttons
+    btnLongitudinal.addEventListener('click', () => {
+      state.waveType = 'longitudinal';
+      btnLongitudinal.className = 'px-4 py-2 rounded-md font-medium transition-colors bg-blue-500 text-white shadow';
+      btnTransverse.className = 'px-4 py-2 rounded-md font-medium transition-colors text-gray-300 hover:text-white hover:bg-gray-600';
+      infoLongitudinal.classList.remove('hidden');
+      infoTransverse.classList.add('hidden');
+    });
+
+    btnTransverse.addEventListener('click', () => {
+      state.waveType = 'transverse';
+      btnTransverse.className = 'px-4 py-2 rounded-md font-medium transition-colors bg-purple-500 text-white shadow';
+      btnLongitudinal.className = 'px-4 py-2 rounded-md font-medium transition-colors text-gray-300 hover:text-white hover:bg-gray-600';
+      infoTransverse.classList.remove('hidden');
+      infoLongitudinal.classList.add('hidden');
+    });
+
+    // Play/Pause Button
+    btnPlayPause.addEventListener('click', () => {
+      state.isPlaying = !state.isPlaying;
+      
+      if (state.isPlaying) {
+        state.showMeasurements = false;
+        btnMeasurements.classList.add('hidden');
+        btnMeasurements.classList.remove('flex');
+        
+        iconPlayPause.innerHTML = pauseIcon;
+        btnPlayPause.className = 'p-2 rounded-full transition-colors bg-gray-700 hover:bg-gray-600 flex items-center justify-center';
+        btnPlayPause.title = "Pause";
+      } else {
+        btnMeasurements.classList.remove('hidden');
+        btnMeasurements.classList.add('flex');
+        
+        iconPlayPause.innerHTML = playIcon;
+        btnPlayPause.className = 'p-2 rounded-full transition-colors bg-green-600 hover:bg-green-500 text-white shadow-lg flex items-center justify-center';
+        btnPlayPause.title = "Play";
+      }
+      updateMeasurementsUI();
+    });
+
+    // Measurements Button
+    btnMeasurements.addEventListener('click', () => {
+      state.showMeasurements = !state.showMeasurements;
+      updateMeasurementsUI();
+    });
+
+    function updateMeasurementsUI() {
+      if (state.showMeasurements) {
+        btnMeasurements.className = 'flex items-center gap-1 px-3 py-1.5 rounded-md text-sm font-medium transition-colors border shadow-sm bg-amber-500/20 text-amber-400 border-amber-500/50 hover:bg-amber-500/30';
+        measurementsText.textContent = 'Hide Wavelength';
+      } else {
+        btnMeasurements.className = 'flex items-center gap-1 px-3 py-1.5 rounded-md text-sm font-medium transition-colors border shadow-sm bg-gray-700 text-gray-300 border-gray-600 hover:bg-gray-600';
+        measurementsText.textContent = 'Show Wavelength';
+      }
+    }
+
+    // Sliders
+    sliderAmplitude.addEventListener('input', (e) => {
+      state.amplitude = parseFloat(e.target.value);
+    });
+    
+    sliderWavelength.addEventListener('input', (e) => {
+      state.wavelength = parseFloat(e.target.value);
+    });
+
+    // Clear Button
+    btnClear.addEventListener('click', () => {
+      state.particles.forEach(p => {
+        if (!p.isDefaultTracked) {
+          p.isTracked = false;
+        } else {
+          p.isTracked = true;
+        }
+      });
+    });
+
+    // Canvas Click
+    canvas.addEventListener('click', (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = canvas.width / rect.width;
+      const scaleY = canvas.height / rect.height;
+      
+      const clickX = (e.clientX - rect.left) * scaleX;
+      const clickY = (e.clientY - rect.top) * scaleY;
+
+      let closestParticle = null;
+      let minDistance = 20;
+
+      state.particles.forEach(p => {
+        if (state.waveType === 'transverse' && p.baseY < canvas.height / 2 + 10) return;
+        if (p.currentX === undefined || p.currentY === undefined) return;
+
+        let dx = Math.abs(p.currentX - clickX);
+        if (dx > canvas.width / 2) dx = canvas.width - dx; 
+        const dy = Math.abs(p.currentY - clickY);
+        
+        const dist = Math.sqrt(dx * dx + dy * dy);
+
+        if (dist < minDistance) {
+          minDistance = dist;
+          closestParticle = p;
+        }
+      });
+
+      if (closestParticle) {
+        closestParticle.isTracked = !closestParticle.isTracked;
+      }
+    });
+
+    // --- Main Animation Loop ---
+    let lastTime = performance.now();
+
+    function draw(currentTime) {
+      const deltaTime = (currentTime - lastTime) / 1000;
+      lastTime = currentTime;
+
+      if (state.isPlaying) {
+        state.time += deltaTime;
+      }
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      
+      const { waveType, amplitude, frequency, wavelength, time, showMeasurements } = state;
+      
+      const sourcePhase = (0 / wavelength) * Math.PI * 2 - (time * frequency) * Math.PI * 2;
+      const sourceDisplacement = amplitude * Math.sin(sourcePhase);
+
+      // Draw Main Visuals
+      if (waveType === 'longitudinal') {
+        ctx.fillStyle = '#374151';
+        ctx.fillRect(0, canvas.height / 2 - 60, 20, 120);
+        ctx.beginPath();
+        ctx.moveTo(20, canvas.height / 2 - 40);
+        ctx.lineTo(60, canvas.height / 2 - 80);
+        ctx.lineTo(60, canvas.height / 2 + 80);
+        ctx.lineTo(20, canvas.height / 2 + 40);
+        ctx.fill();
+
+        ctx.fillStyle = '#4B5563';
+        ctx.beginPath();
+        ctx.moveTo(60 + sourceDisplacement, canvas.height / 2 - 80);
+        ctx.lineTo(60 + sourceDisplacement, canvas.height / 2 + 80);
+        ctx.lineTo(40, canvas.height / 2 + 40);
+        ctx.lineTo(40, canvas.height / 2 - 40);
+        ctx.fill();
+      } else {
+        ctx.fillStyle = 'rgba(30, 58, 138, 0.4)';
+        ctx.beginPath();
+        ctx.moveTo(0, canvas.height);
+        for (let x = 0; x <= canvas.width; x += 10) {
+          const phase = (x / wavelength) * Math.PI * 2 - (time * frequency) * Math.PI * 2;
+          const disp = amplitude * Math.sin(phase);
+          ctx.lineTo(x, canvas.height / 2 + disp);
+        }
+        ctx.lineTo(canvas.width, canvas.height);
+        ctx.fill();
+
+        ctx.strokeStyle = '#3B82F6';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        for (let x = 0; x <= canvas.width; x += 10) {
+          const phase = (x / wavelength) * Math.PI * 2 - (time * frequency) * Math.PI * 2;
+          const disp = amplitude * Math.sin(phase);
+          if (x === 0) ctx.moveTo(x, canvas.height / 2 + disp);
+          else ctx.lineTo(x, canvas.height / 2 + disp);
+        }
+        ctx.stroke();
+        ctx.lineWidth = 1;
+
+        ctx.fillStyle = '#374151';
+        ctx.fillRect(10, 0, 10, canvas.height / 2 + sourceDisplacement);
+        ctx.fillStyle = '#4B5563';
+        ctx.fillRect(0, canvas.height / 2 + sourceDisplacement - 20, 30, 80);
+      }
+
+      // Draw Small Graph
+      if (graphCanvas) {
+        const gCtx = graphCanvas.getContext('2d');
+        gCtx.clearRect(0, 0, graphCanvas.width, graphCanvas.height);
+        
+        const midY = graphCanvas.height / 2;
+        
+        gCtx.strokeStyle = 'rgba(156, 163, 175, 0.3)'; 
+        gCtx.lineWidth = 1;
+        gCtx.setLineDash([4, 4]);
+        gCtx.beginPath();
+        gCtx.moveTo(0, midY);
+        gCtx.lineTo(graphCanvas.width, midY);
+        gCtx.stroke();
+        gCtx.setLineDash([]);
+
+        gCtx.strokeStyle = waveType === 'longitudinal' ? '#3B82F6' : '#A855F7';
+        gCtx.lineWidth = 2;
+        gCtx.beginPath();
+        for (let x = 0; x <= graphCanvas.width; x += 2) {
+          const phase = (x / wavelength) * Math.PI * 2 - (time * frequency) * Math.PI * 2;
+          const disp = amplitude * Math.sin(phase);
+          if (x === 0) gCtx.moveTo(x, midY + disp);
+          else gCtx.lineTo(x, midY + disp);
+        }
+        gCtx.stroke();
+      }
+
+      // Draw Particles
+      state.particles.forEach(p => {
+        const phase = (p.baseX / wavelength) * Math.PI * 2 - (time * frequency) * Math.PI * 2;
+        const displacement = amplitude * Math.sin(phase);
+
+        let drawX = p.baseX;
+        let drawY = p.baseY;
+
+        if (waveType === 'longitudinal') {
+          drawX = p.baseX + displacement;
+        } else {
+          if (p.baseY < canvas.height / 2 + 10) return;
+          drawY = p.baseY + displacement;
+        }
+
+        if (drawX > canvas.width) drawX -= canvas.width;
+        if (drawX < 0) drawX += canvas.width;
+
+        p.currentX = drawX;
+        p.currentY = drawY;
+
+        if (p.isTracked) {
+          ctx.fillStyle = '#EF4444';
+          ctx.beginPath();
+          ctx.arc(drawX, drawY, 5, 0, Math.PI * 2);
+          ctx.fill();
+          
+          ctx.strokeStyle = 'rgba(239, 68, 68, 0.3)';
+          ctx.beginPath();
+          if (waveType === 'longitudinal') {
+             ctx.moveTo(p.baseX - amplitude, p.baseY);
+             ctx.lineTo(p.baseX + amplitude, p.baseY);
+          } else {
+             ctx.moveTo(p.baseX, p.baseY - amplitude);
+             ctx.lineTo(p.baseX, p.baseY + amplitude);
+          }
+          ctx.stroke();
+        } else {
+          ctx.fillStyle = waveType === 'longitudinal' ? '#9CA3AF' : 'rgba(255, 255, 255, 0.6)'; 
+          ctx.beginPath();
+          ctx.arc(drawX, drawY, 1.5, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      });
+
+      // --- Draw Measurements Overlay if active ---
+      if (showMeasurements && !state.isPlaying) {
+        const baseShift = (time * frequency) % 1; 
+        
+        let rightDispx = (wavelength * (0.25 + baseShift)) % wavelength;
+        if (rightDispx < 0) rightDispx += wavelength;
+        
+        let crestX = (wavelength * (0.75 + baseShift)) % wavelength;
+        if (crestX < 0) crestX += wavelength;
+
+        const measureColor = '#F59E0B'; // Amber color
+
+        // 1. Draw on small graph
+        if (graphCanvas) {
+          const gCtx = graphCanvas.getContext('2d');
+          const gMidY = graphCanvas.height / 2;
+          
+          gCtx.save();
+          gCtx.strokeStyle = measureColor;
+          gCtx.fillStyle = measureColor;
+          gCtx.lineWidth = 2;
+          
+          let gCrest1 = crestX;
+          if (gCrest1 > graphCanvas.width / 2) {
+             gCrest1 -= wavelength;
+          }
+          const gCrest2 = gCrest1 + wavelength;
+          
+          const measureY = gMidY - amplitude - 15;
+          
+          gCtx.beginPath();
+          gCtx.moveTo(gCrest1, measureY);
+          gCtx.lineTo(gCrest2, measureY);
+          gCtx.stroke();
+          
+          gCtx.beginPath(); gCtx.moveTo(gCrest1, measureY - 5); gCtx.lineTo(gCrest1, measureY + 5); gCtx.stroke();
+          gCtx.beginPath(); gCtx.moveTo(gCrest2, measureY - 5); gCtx.lineTo(gCrest2, measureY + 5); gCtx.stroke();
+          
+          gCtx.font = 'bold 10px sans-serif';
+          gCtx.textAlign = 'center';
+          gCtx.fillText('Wavelength', gCrest1 + wavelength / 2, measureY - 10);
+          gCtx.restore();
+        }
+
+        // 2. Draw on main simulation canvas
+        ctx.save();
+        ctx.strokeStyle = measureColor;
+        ctx.fillStyle = measureColor;
+        ctx.lineWidth = 2;
+        
+        const mainMidY = canvas.height / 2;
+        
+        if (waveType === 'transverse') {
+          const mainCrestY = mainMidY - amplitude;
+          const tCrest1 = crestX;
+          const tCrest2 = tCrest1 + wavelength;
+          
+          ctx.beginPath();
+          ctx.moveTo(tCrest1, mainCrestY - 40);
+          ctx.lineTo(tCrest2, mainCrestY - 40);
+          ctx.stroke();
+          
+          ctx.beginPath(); ctx.moveTo(tCrest1, mainCrestY - 50); ctx.lineTo(tCrest1, mainCrestY - 30); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(tCrest2, mainCrestY - 50); ctx.lineTo(tCrest2, mainCrestY - 30); ctx.stroke();
+          
+          ctx.font = 'bold 14px sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillText('Wavelength', tCrest1 + wavelength / 2, mainCrestY - 60);
+          
+        } else {
+          // Longitudinal
+          let displacedX = rightDispx + amplitude;
+          let displacedX2 = displacedX + wavelength;
+          
+          ctx.setLineDash([]);
+          ctx.strokeStyle = measureColor;
+          ctx.beginPath();
+          ctx.moveTo(displacedX, mainMidY - 120);
+          ctx.lineTo(displacedX, mainMidY + 120);
+          ctx.stroke();
+
+          ctx.beginPath();
+          ctx.moveTo(displacedX2, mainMidY - 120);
+          ctx.lineTo(displacedX2, mainMidY + 120);
+          ctx.stroke();
+
+          ctx.beginPath();
+          ctx.moveTo(displacedX, mainMidY + 140);
+          ctx.lineTo(displacedX2, mainMidY + 140);
+          ctx.stroke();
+          
+          ctx.beginPath(); ctx.moveTo(displacedX, mainMidY + 130); ctx.lineTo(displacedX, mainMidY + 150); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(displacedX2, mainMidY + 130); ctx.lineTo(displacedX2, mainMidY + 150); ctx.stroke();
+          
+          ctx.font = 'bold 14px sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillText('Wavelength', displacedX + wavelength / 2, mainMidY + 165);
+        }
+        ctx.restore();
+      }
+
+      requestAnimationFrame(draw);
+    }
+
+    // Start animation loop
+    requestAnimationFrame(draw);
+
+  </script>
+</body>
+</html>
