@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Concentration Lab</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @keyframes jiggle {
+            0%, 100% { transform: translate(0, 0); }
+            25% { transform: translate(1.5px, -1.5px); }
+            50% { transform: translate(-1.5px, 1px); }
+            75% { transform: translate(1px, 1.5px); }
+        }
+        .particle {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            background-color: #f59e0b;
+            border: 1px solid #b45309;
+            border-radius: 9999px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            animation: jiggle var(--duration) infinite ease-in-out;
+            animation-delay: var(--delay);
+            transition: left 0.7s, top 0.7s;
+        }
+        /* Custom accent colors for sliders */
+        #mass-slider {
+            accent-color: #f59e0b; /* Amber 500 */
+        }
+        #volume-slider {
+            accent-color: #3b82f6; /* Blue 500 */
+        }
+        .math-variable {
+            transition: all 0.3s ease-out;
+            line-height: 1;
+        }
+        .modal-overlay {
+            background-color: rgba(15, 23, 42, 0.7);
+            backdrop-filter: blur(6px);
+        }
+        .view-container {
+            border: 2px solid #e2e8f0;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-900 font-sans min-h-screen">
+
+    <div class="max-w-6xl mx-auto p-4 md:p-8">
+        <!-- Header -->
+        <header class="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 pb-6">
+            <div class="flex flex-col gap-2">
+                <h1 class="text-3xl font-black text-indigo-600 tracking-tight flex items-center gap-3">
+                    <i data-lucide="beaker" class="w-8 h-8"></i>
+                    Concentration Lab
+                </h1>
+                <div class="flex gap-1 bg-slate-200 p-1 rounded-xl w-fit" id="formula-selector">
+                    <button onclick="setFormulaType('ratio')" id="btn-ratio" class="px-4 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all bg-white text-indigo-600 shadow-sm">g / L</button>
+                    <button onclick="setFormulaType('percent')" id="btn-percent" class="px-4 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all text-slate-500 hover:text-slate-800">% (m/v)</button>
+                    <button onclick="setFormulaType('ppm')" id="btn-ppm" class="px-4 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all text-slate-500 hover:text-slate-800">ppm</button>
+                </div>
+            </div>
+            <button onclick="openQuiz()" class="bg-indigo-600 text-white px-6 py-4 rounded-2xl font-bold hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100 flex items-center gap-2 active:scale-95 h-fit">
+                <i data-lucide="book-open" class="w-5 h-5"></i> 
+                Test Knowledge (<span id="btn-unit-label">g/L</span>)
+            </button>
+        </header>
+
+        <div class="grid lg:grid-cols-2 gap-8">
+            <!-- Left Column: Material World -->
+            <div class="space-y-6">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <!-- Macro View -->
+                    <div class="bg-white p-5 rounded-3xl view-container shadow-md relative overflow-hidden">
+                        <div class="flex items-center gap-2 mb-4 text-slate-500 uppercase tracking-widest text-[10px] font-black">
+                            <i data-lucide="beaker" class="w-3 h-3 text-blue-600"></i> Macroscopic View
+                        </div>
+                        <div class="relative h-64 w-full flex items-center justify-center pt-8">
+                            <svg viewBox="0 0 100 120" class="h-full w-auto overflow-visible">
+                                <path d="M20,10 L20,110 Q20,115 25,115 L75,115 Q80,115 80,110 L80,10" fill="none" stroke="#334155" stroke-width="2.5" />
+                                <line x1="20" y1="95" x2="35" y2="95" stroke="#475569" stroke-width="1.5" />
+                                <line x1="20" y1="75" x2="35" y2="75" stroke="#475569" stroke-width="1.5" />
+                                <line x1="20" y1="55" x2="35" y2="55" stroke="#475569" stroke-width="1.5" />
+                                <line x1="20" y1="35" x2="35" y2="35" stroke="#475569" stroke-width="1.5" />
+                                <line x1="20" y1="15" x2="35" y2="15" stroke="#475569" stroke-width="1.5" />
+                                <rect id="beaker-water" x="21" y="114" width="58" height="0" fill="#2563eb" fill-opacity="0.15" class="transition-all duration-500" />
+                                <rect id="beaker-solute" x="21" y="114" width="58" height="0" fill="rgba(217, 119, 6, 0)" class="transition-all duration-500" />
+                            </svg>
+                            <div id="volume-label-float" class="absolute top-12 right-2 text-blue-700 font-mono font-bold text-xs bg-blue-100 border border-blue-200 px-2 py-1 rounded shadow-sm">2.5L</div>
+                        </div>
+                    </div>
+
+                    <!-- Micro View -->
+                    <div class="bg-white p-5 rounded-3xl view-container shadow-md relative overflow-hidden">
+                        <div class="flex items-center gap-2 mb-4 text-slate-500 uppercase tracking-widest text-[10px] font-black">
+                            <i data-lucide="microscope" class="w-3 h-3 text-amber-600"></i> Molecular Zoom
+                        </div>
+                        <div class="relative h-64 w-full bg-slate-200 rounded-2xl border border-slate-300 overflow-hidden flex flex-col justify-end shadow-inner">
+                            <div id="micro-water-level" class="bg-blue-600/10 border-t-2 border-blue-200 transition-all duration-500 ease-out relative w-full" style="height: 50%;">
+                                <div id="particle-container" class="absolute inset-0"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Controls -->
+                <div class="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm space-y-8">
+                    <div class="space-y-4">
+                        <div class="flex justify-between items-center">
+                            <div class="flex items-center gap-3">
+                                <label class="text-sm font-black text-slate-500 uppercase tracking-tighter">Solute Mass (m)</label>
+                                <div class="bg-slate-100 p-0.5 rounded-lg flex text-[10px] font-bold uppercase cursor-pointer">
+                                    <button id="m-unit-g" onclick="setMassUnit('g')" class="px-2 py-1 rounded-lg bg-white text-amber-600 shadow-sm transition-all">g</button>
+                                    <button id="m-unit-mg" onclick="setMassUnit('mg')" class="px-2 py-1 rounded-lg text-slate-500 hover:text-slate-800 transition-all">mg</button>
+                                </div>
+                            </div>
+                            <span id="mass-display" class="font-mono text-xl font-black text-amber-600">40g</span>
+                        </div>
+                        <input type="range" id="mass-slider" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer">
+                    </div>
+                    <div class="space-y-4">
+                        <div class="flex justify-between items-center">
+                            <div class="flex items-center gap-3">
+                                <label class="text-sm font-black text-slate-500 uppercase tracking-tighter">Solvent Volume (V)</label>
+                                <div class="bg-slate-100 p-0.5 rounded-lg flex text-[10px] font-bold uppercase cursor-pointer">
+                                    <button id="v-unit-L" onclick="setVolUnit('L')" class="px-2 py-1 rounded-lg bg-white text-blue-600 shadow-sm transition-all">L</button>
+                                    <button id="v-unit-mL" onclick="setVolUnit('mL')" class="px-2 py-1 rounded-lg text-slate-500 hover:text-slate-800 transition-all">mL</button>
+                                </div>
+                            </div>
+                            <span id="volume-display" class="font-mono text-xl font-black text-blue-600">2.5L</span>
+                        </div>
+                        <input type="range" id="volume-slider" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: Mathematical World -->
+            <div class="bg-white p-8 rounded-3xl border border-slate-200 shadow-xl flex flex-col items-center justify-center min-h-[500px]">
+                <div class="flex items-center gap-2 mb-12 text-slate-400 uppercase tracking-widest text-xs font-black">
+                    <i data-lucide="layers" class="w-4 h-4 text-indigo-500"></i> 
+                    <span id="formula-title">Mass Concentration</span>
+                </div>
+                
+                <div class="flex flex-col items-center gap-8 w-full">
+                    <div class="flex items-center justify-center gap-6 w-full flex-wrap">
+                        <!-- Formula Symbols -->
+                        <div class="flex items-center gap-4 font-serif text-center">
+                            <div class="text-7xl font-black text-indigo-600 italic">C</div>
+                            <div class="text-4xl font-light text-slate-300">=</div>
+                            <div class="flex flex-col items-center">
+                                <div id="math-m" class="math-variable font-black text-amber-500 italic" style="font-size: 1.5rem">m</div>
+                                <div class="w-20 h-1 bg-slate-200 my-2 rounded-full shadow-sm"></div>
+                                <div id="math-v" class="math-variable font-black text-blue-500 italic" style="font-size: 1.5rem">V</div>
+                            </div>
+                        </div>
+                        <i data-lucide="arrow-right" class="w-8 h-8 text-slate-200 mx-2"></i>
+                        <!-- Working Out Box -->
+                        <div id="working-out" class="flex flex-col items-center justify-center bg-slate-50 p-6 rounded-3xl border border-dashed border-slate-300 min-w-[180px] font-mono shadow-inner">
+                            <!-- Dynamic Content -->
+                        </div>
+                    </div>
+
+                    <div class="text-center mt-12">
+                        <p class="text-xs uppercase tracking-widest text-slate-400 font-black mb-3">Result</p>
+                        <div class="text-8xl font-black tracking-tighter text-indigo-900 tabular-nums">
+                            <span id="result-value">16.0</span>
+                            <span id="result-unit" class="text-2xl ml-3 font-medium text-slate-400 tracking-normal">g/L</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quiz Modal -->
+    <div id="quiz-modal" class="fixed inset-0 modal-overlay flex items-center justify-center z-50 p-4 hidden">
+        <div class="bg-white w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden">
+            <div class="p-6 bg-indigo-600 flex justify-between items-center text-white">
+                <h3 class="text-xl font-bold flex items-center gap-2"><i data-lucide="book-open" class="w-5 h-5"></i> Quiz: <span id="modal-unit-header">g/L</span></h3>
+                <button onclick="closeQuiz()" class="hover:bg-indigo-500 p-1 rounded-lg"><i data-lucide="x" class="w-6 h-6"></i></button>
+            </div>
+            <div class="p-8">
+                <div class="bg-slate-50 border border-slate-200 rounded-2xl p-6 mb-8 relative shadow-inner">
+                    <p id="quiz-scenario" class="text-slate-700 leading-relaxed text-lg italic font-medium">Scenario loading...</p>
+                </div>
+                <div class="space-y-6 text-center">
+                    <div class="space-y-1 mb-4">
+                        <p class="text-sm font-bold text-slate-500 uppercase">Solve for <span class="text-indigo-600">Concentration</span>:</p>
+                        <p id="rounding-instruction" class="text-[10px] text-slate-400 font-medium italic">Round to 1 decimal place.</p>
+                    </div>
+                    <div class="relative flex items-center justify-center">
+                        <input type="number" id="quiz-input" step="0.01" placeholder="Resulting value..." class="w-full p-5 pr-20 border-2 border-slate-100 rounded-2xl text-2xl font-mono text-center focus:outline-none focus:border-indigo-500 transition-all">
+                        <span id="quiz-input-unit" class="absolute right-6 text-xl font-bold text-slate-400 select-none">g/L</span>
+                        <div id="quiz-feedback" class="absolute top-full left-0 w-full mt-4 p-4 rounded-xl font-bold hidden z-10"></div>
+                    </div>
+                    <div class="flex gap-3 mt-8">
+                        <button id="quiz-submit-btn" onclick="checkQuiz()" class="flex-grow bg-slate-900 text-white p-5 rounded-2xl font-bold mt-4">Check Answer</button>
+                        <button id="quiz-next-btn" onclick="generateQuiz()" class="flex-grow bg-indigo-600 text-white p-5 rounded-2xl font-bold hidden flex items-center justify-center gap-2 mt-4"><i data-lucide="rotate-ccw" class="w-5 h-5"></i> Next Problem</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // State
+        let formulaType = 'ratio';
+        let massInputUnit = 'g';
+        let volInputUnit = 'L';
+        let mass = 40;
+        let volume = 2.5;
+        let quizTarget = 0;
+
+        const config = {
+            ratio: { mMin: 10, mMax: 100, mStep: 1, vMin: 0.1, vMax: 5, vStep: 0.1, defaultM: 40, defaultV: 2.5, unitLabel: 'Ratio', title: 'Mass Concentration' },
+            percent: { mMin: 1, mMax: 50, mStep: 0.5, vMin: 0.5, vMax: 5, vStep: 0.1, defaultM: 10, defaultV: 2.0, unitLabel: '%', title: 'Percentage Composition (% m/V)' },
+            ppm: { mMin: 0.0005, mMax: 0.015, mStep: 0.0001, vMin: 2, vMax: 5, vStep: 0.1, defaultM: 0.005, defaultV: 4.0, unitLabel: 'ppm', title: 'Trace Concentration (ppm)' }
+        };
+
+        const scenarios = [
+            { text: "A student is making a sports drink. They take a large bottle containing [V] [volWord] of water and stir in [m] [massWord] of electrolyte powder.", mScale: 1.0, vLimit: 2.5 },
+            { text: "In a chemistry lab, a scientist pours [V] [volWord] of clear liquid into a flask and adds [m] [massWord] of salt crystals.", mScale: 1.0, vLimit: 5 },
+            { text: "A chef starts with a pot of [V] [volWord] of boiling water and slowly mixes in [m] [massWord] of fine white sugar.", mScale: 1.0, vLimit: 2 },
+            { text: "To clean a surface, a janitor fills a bucket with [V] [volWord] of water and adds [m] [massWord] of soap flakes.", mScale: 1.0, vLimit: 4 }
+        ];
+
+        // Initialization
+        window.onload = () => {
+            lucide.createIcons();
+            updateSliders();
+            updateUI();
+        };
+
+        function setMassUnit(unit) {
+            if (unit === massInputUnit) return;
+            
+            // Auto-convert mass to maintain the same physical amount
+            if (unit === 'mg' && massInputUnit === 'g') {
+                mass = parseFloat((mass * 1000).toFixed(4));
+            } else if (unit === 'g' && massInputUnit === 'mg') {
+                mass = parseFloat((mass / 1000).toFixed(4));
+            }
+
+            massInputUnit = unit;
+            document.getElementById('m-unit-g').className = (unit === 'g') 
+                ? 'px-2 py-1 rounded-lg bg-white text-amber-600 shadow-sm transition-all' 
+                : 'px-2 py-1 rounded-lg text-slate-500 hover:text-slate-800 transition-all';
+                
+            document.getElementById('m-unit-mg').className = (unit === 'mg') 
+                ? 'px-2 py-1 rounded-lg bg-white text-amber-600 shadow-sm transition-all' 
+                : 'px-2 py-1 rounded-lg text-slate-500 hover:text-slate-800 transition-all';
+                
+            updateSliders();
+            updateUI();
+        }
+
+        function setVolUnit(unit) {
+            if (unit === volInputUnit) return;
+            
+            // Auto-convert volume to maintain the same physical amount
+            if (unit === 'mL' && volInputUnit === 'L') {
+                volume = parseFloat((volume * 1000).toFixed(4));
+            } else if (unit === 'L' && volInputUnit === 'mL') {
+                volume = parseFloat((volume / 1000).toFixed(4));
+            }
+
+            volInputUnit = unit;
+            document.getElementById('v-unit-L').className = (unit === 'L') 
+                ? 'px-2 py-1 rounded-lg bg-white text-blue-600 shadow-sm transition-all' 
+                : 'px-2 py-1 rounded-lg text-slate-500 hover:text-slate-800 transition-all';
+                
+            document.getElementById('v-unit-mL').className = (unit === 'mL') 
+                ? 'px-2 py-1 rounded-lg bg-white text-blue-600 shadow-sm transition-all' 
+                : 'px-2 py-1 rounded-lg text-slate-500 hover:text-slate-800 transition-all';
+                
+            updateSliders();
+            updateUI();
+        }
+
+        function setFormulaType(type) {
+            formulaType = type;
+            // Update button styles
+            ['ratio', 'percent', 'ppm'].forEach(t => {
+                const btn = document.getElementById(`btn-${t}`);
+                if (t === type) {
+                    btn.classList.add('bg-white', 'text-indigo-600', 'shadow-sm');
+                    btn.classList.remove('text-slate-500', 'hover:text-slate-800');
+                } else {
+                    btn.classList.remove('bg-white', 'text-indigo-600', 'shadow-sm');
+                    btn.classList.add('text-slate-500', 'hover:text-slate-800');
+                }
+            });
+
+            const c = config[type];
+            mass = massInputUnit === 'mg' ? c.defaultM * 1000 : c.defaultM;
+            volume = volInputUnit === 'mL' ? c.defaultV * 1000 : c.defaultV;
+            
+            updateSliders();
+            updateUI();
+        }
+
+        function updateSliders() {
+            const mSlider = document.getElementById('mass-slider');
+            const vSlider = document.getElementById('volume-slider');
+            const c = config[formulaType];
+
+            const mScale = massInputUnit === 'mg' ? 1000 : 1;
+            const vScale = volInputUnit === 'mL' ? 1000 : 1;
+
+            mSlider.min = c.mMin * mScale;
+            mSlider.max = c.mMax * mScale;
+            mSlider.step = c.mStep * mScale;
+            mSlider.value = mass;
+
+            vSlider.min = c.vMin * vScale;
+            vSlider.max = c.vMax * vScale;
+            vSlider.step = c.vStep * vScale;
+            vSlider.value = volume;
+
+            mSlider.oninput = (e) => { mass = parseFloat(e.target.value); updateUI(); };
+            vSlider.oninput = (e) => { volume = parseFloat(e.target.value); updateUI(); };
+        }
+
+        const formatNumber = (n) => Number.isInteger(n) ? n : parseFloat(n.toFixed(4));
+
+        function updateUI() {
+            const c = config[formulaType];
+            
+            const massInGrams = massInputUnit === 'mg' ? mass / 1000 : mass;
+            const volInLiters = volInputUnit === 'mL' ? volume / 1000 : volume;
+            const concentrationVal = massInGrams / volInLiters;
+            
+            const concentrationUnitLabel = formulaType === 'ratio' ? `g/L` : c.unitLabel;
+            
+            // Labels
+            document.getElementById('mass-display').innerText = mass + massInputUnit;
+            document.getElementById('volume-display').innerText = volume + volInputUnit;
+            document.getElementById('volume-label-float').innerText = volume + volInputUnit;
+            document.getElementById('btn-unit-label').innerText = concentrationUnitLabel;
+            document.getElementById('formula-title').innerText = c.title;
+
+            // Math scaling
+            const mScale = massInputUnit === 'mg' ? 1000 : 1;
+            const vScale = volInputUnit === 'mL' ? 1000 : 1;
+
+            const mPerc = (mass - (c.mMin * mScale)) / ((c.mMax * mScale) - (c.mMin * mScale));
+            const vPerc = (volume - (c.vMin * vScale)) / ((c.vMax * vScale) - (c.vMin * vScale));
+            document.getElementById('math-m').style.fontSize = (1.2 + mPerc * 1.5) + 'rem';
+            document.getElementById('math-v').style.fontSize = (1.2 + vPerc * 1.5) + 'rem';
+
+            // Beaker
+            const liquidHeight = (volume / (c.vMax * vScale)) * 100;
+            document.getElementById('beaker-water').setAttribute('y', 115 - liquidHeight);
+            document.getElementById('beaker-water').setAttribute('height', liquidHeight);
+            document.getElementById('beaker-solute').setAttribute('y', 115 - liquidHeight);
+            document.getElementById('beaker-solute').setAttribute('height', liquidHeight);
+            
+            // Color alpha - Higher contrast base
+            let alpha;
+            if (formulaType === 'ppm') alpha = Math.min((concentrationVal * 1000) / 10, 0.5);
+            else alpha = Math.min(concentrationVal / 80, 0.6);
+            document.getElementById('beaker-solute').style.fill = `rgba(217, 119, 6, ${alpha})`;
+
+            // Micro Zoom
+            document.getElementById('micro-water-level').style.height = liquidHeight + '%';
+            renderParticles();
+
+            // Result
+            let result;
+            if (formulaType === 'percent') result = (concentrationVal / 10).toFixed(2);
+            else if (formulaType === 'ppm') result = (concentrationVal * 1000).toFixed(2);
+            else result = concentrationVal.toFixed(1);
+            document.getElementById('result-value').innerText = result;
+            document.getElementById('result-unit').innerText = concentrationUnitLabel;
+
+            // Working Out - adapts to both unit system and formula
+            const workingOut = document.getElementById('working-out');
+            workingOut.innerHTML = '';
+            
+            if (formulaType === 'ratio') {
+                workingOut.innerHTML = `
+                    <div class="text-3xl text-amber-600 font-bold">${formatNumber(massInGrams)}g</div>
+                    <div class="w-24 h-1 bg-slate-300 my-3"></div>
+                    <div class="text-3xl text-blue-600 font-bold">${formatNumber(volInLiters)}L</div>
+                `;
+            } else if (formulaType === 'percent') {
+                const topMass = `${formatNumber(massInGrams)}g`;
+                const botVol = `${formatNumber(volInLiters * 1000)}mL`;
+                
+                workingOut.innerHTML = `
+                    <div class="text-center space-y-2">
+                        <div class="flex items-center gap-4">
+                            <div class="flex flex-col items-center">
+                                <span class="text-2xl text-amber-600 font-bold">${topMass}</span>
+                                <div class="w-full h-1 bg-slate-300 my-2"></div>
+                                <span class="text-2xl text-blue-600 font-bold">${botVol}</span>
+                            </div>
+                            <span class="text-2xl text-slate-400 mx-2">=</span>
+                            <div class="flex flex-col items-center">
+                                <span class="text-2xl text-indigo-600 font-bold italic">x</span>
+                                <div class="w-full h-1 bg-slate-300 my-2"></div>
+                                <span class="text-2xl text-slate-400 font-bold">100mL</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            } else if (formulaType === 'ppm') {
+                const topMass = `${formatNumber(massInGrams * 1000)}mg`;
+                const botVol = `${formatNumber(volInLiters)}L`;
+                
+                workingOut.innerHTML = `
+                    <div class="text-center space-y-2">
+                        <div class="flex flex-col items-center">
+                            <span class="text-3xl text-amber-600 font-bold">${topMass}</span>
+                            <div class="w-24 h-1 bg-slate-300 my-3"></div>
+                            <span class="text-3xl text-blue-600 font-bold">${botVol}</span>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        function renderParticles() {
+            const massInGrams = massInputUnit === 'mg' ? mass / 1000 : mass;
+            const container = document.getElementById('particle-container');
+            let count;
+            if (formulaType === 'ppm') count = Math.floor(massInGrams * 8000); 
+            else if (formulaType === 'percent') count = Math.floor(massInGrams * 1.5);
+            else count = Math.floor(massInGrams);
+            
+            const target = Math.min(count, 250);
+            
+            if (container.children.length !== target) {
+                container.innerHTML = '';
+                for (let i = 0; i < target; i++) {
+                    const p = document.createElement('div');
+                    p.className = 'particle';
+                    p.style.left = (Math.random() * 90 + 5) + '%';
+                    p.style.top = (Math.random() * 90 + 5) + '%';
+                    p.style.setProperty('--duration', (Math.random() * 2 + 2) + 's');
+                    p.style.setProperty('--delay', (Math.random() * -5) + 's');
+                    container.appendChild(p);
+                }
+            }
+        }
+
+        // Quiz Logic
+        function openQuiz() {
+            document.getElementById('quiz-modal').classList.remove('hidden');
+            generateQuiz();
+        }
+
+        function closeQuiz() {
+            document.getElementById('quiz-modal').classList.add('hidden');
+        }
+
+        function generateQuiz() {
+            const c = config[formulaType];
+            const massWord = massInputUnit === 'g' ? 'grams' : 'milligrams';
+            const volWord = volInputUnit === 'L' ? 'liters' : 'milliliters';
+            const concentrationUnitLabel = formulaType === 'ratio' ? `g/L` : c.unitLabel;
+
+            const scenarioTemplate = scenarios[Math.floor(Math.random() * scenarios.length)];
+            const randomV = parseFloat((Math.random() * (c.vMax - c.vMin) + c.vMin).toFixed(1));
+            const randomM = parseFloat((Math.random() * (c.mMax - c.mMin) + c.mMin).toFixed(formulaType === 'ppm' ? 4 : 2));
+            
+            const randomMassInGrams = massInputUnit === 'mg' ? randomM / 1000 : randomM;
+            const randomVolInLiters = volInputUnit === 'mL' ? randomV / 1000 : randomV;
+            const rawVal = randomMassInGrams / randomVolInLiters;
+
+            if (formulaType === 'percent') quizTarget = (rawVal / 10).toFixed(2);
+            else if (formulaType === 'ppm') quizTarget = (rawVal * 1000).toFixed(2);
+            else quizTarget = rawVal.toFixed(1);
+
+            let processedText = scenarioTemplate.text.replace("[V]", randomV).replace("[m]", randomM);
+            processedText = processedText.replace("[volWord]", volWord).replace("[massWord]", massWord);
+
+            document.getElementById('quiz-scenario').innerText = `"${processedText}"`;
+            document.getElementById('modal-unit-header').innerText = concentrationUnitLabel;
+            document.getElementById('quiz-input-unit').innerText = concentrationUnitLabel;
+            
+            // Set rounding instruction text
+            const roundingInfo = (formulaType === 'ratio') ? "Round to 1 decimal place." : "Round to 2 decimal places.";
+            document.getElementById('rounding-instruction').innerText = roundingInfo;
+            
+            document.getElementById('quiz-input').value = '';
+            document.getElementById('quiz-feedback').classList.add('hidden');
+            document.getElementById('quiz-submit-btn').classList.remove('hidden');
+            document.getElementById('quiz-next-btn').classList.add('hidden');
+        }
+
+        function checkQuiz() {
+            const val = parseFloat(document.getElementById('quiz-input').value);
+            const feedback = document.getElementById('quiz-feedback');
+            feedback.classList.remove('hidden');
+            
+            if (val === parseFloat(quizTarget)) {
+                feedback.innerText = "Correct!";
+                feedback.className = "absolute top-full left-0 w-full mt-4 p-4 bg-green-600 text-white rounded-xl font-bold z-10 shadow-lg";
+                document.getElementById('quiz-submit-btn').classList.add('hidden');
+                document.getElementById('quiz-next-btn').classList.remove('hidden');
+            } else {
+                let hint = '';
+                if (formulaType === 'ratio') {
+                    hint = `Convert to g and L, then divide mass by volume.`;
+                } else if (formulaType === 'percent') {
+                    hint = `Convert to g and mL, then cross-multiply with 100mL.`;
+                } else if (formulaType === 'ppm') {
+                    hint = `Convert mass to mg and volume to L, then divide mass by volume.`;
+                }
+
+                feedback.innerText = `Incorrect. ${hint}`;
+                feedback.className = "absolute top-full left-0 w-full mt-4 p-4 bg-red-600 text-white rounded-xl font-bold text-sm z-10 shadow-lg";
+            }
+            lucide.createIcons();
+        }
+    </script>
+</body>
+</html>
