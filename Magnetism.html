@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Magnetic Field Simulator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #0f172a;
+            font-family: system-ui, -apple-system, sans-serif;
+            touch-action: none;
+        }
+        canvas {
+            display: block;
+            cursor: grab;
+        }
+        canvas:active {
+            cursor: grabbing;
+        }
+        .controls {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 10;
+            background: rgba(30, 41, 59, 0.8);
+            backdrop-filter: blur(8px);
+            padding: 1.5rem;
+            border-radius: 1rem;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+            color: white;
+            width: 280px;
+        }
+        .btn-toggle {
+            background: #3b82f6;
+            transition: all 0.2s;
+        }
+        .btn-toggle.active {
+            background: #10b981;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 4px;
+        }
+        .swatch {
+            width: 12px;
+            height: 12px;
+            border-radius: 2px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="controls">
+        <h1 class="text-xl font-bold mb-2">Magnet Lab</h1>
+        <p class="text-slate-400 text-sm mb-4">Drag magnets to see how they interact. Opposite poles attract, like poles repel.</p>
+        
+        <div class="space-y-4">
+            <button id="toggleField" class="btn-toggle w-full py-2 px-4 rounded-lg font-semibold shadow-lg hover:brightness-110 active:scale-95">
+                Show Field Lines
+            </button>
+            
+            <button id="resetMagnets" class="bg-slate-700 w-full py-2 px-4 rounded-lg font-semibold hover:bg-slate-600 transition-colors">
+                Reset Positions
+            </button>
+
+            <div class="pt-2 border-t border-slate-700">
+                <div class="legend-item">
+                    <div class="swatch bg-red-500"></div>
+                    <span class="text-xs">North (N)</span>
+                </div>
+                <div class="legend-item">
+                    <div class="swatch bg-blue-500"></div>
+                    <span class="text-xs">South (S)</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <canvas id="canvas"></canvas>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const toggleBtn = document.getElementById('toggleField');
+        const resetBtn = document.getElementById('resetMagnets');
+
+        let width, height;
+        let showFields = false;
+        let magnets = [];
+        let draggingMagnet = null;
+        let dragOffset = { x: 0, y: 0 };
+
+        const CONFIG = {
+            magnetWidth: 140,
+            magnetHeight: 40,
+            fieldDensity: 12,
+            magneticStrength: 1500,
+            friction: 0.92
+        };
+
+        class Magnet {
+            constructor(x, y, angle = 0) {
+                this.x = x;
+                this.y = y;
+                this.angle = angle;
+                this.vx = 0;
+                this.vy = 0;
+                this.va = 0; // angular velocity
+                this.mass = 2;
+                this.width = CONFIG.magnetWidth;
+                this.height = CONFIG.magnetHeight;
+            }
+
+            getNorth() {
+                return {
+                    x: this.x + Math.cos(this.angle) * (this.width / 4),
+                    y: this.y + Math.sin(this.angle) * (this.width / 4),
+                    type: 'N'
+                };
+            }
+
+            getSouth() {
+                return {
+                    x: this.x - Math.cos(this.angle) * (this.width / 4),
+                    y: this.y - Math.sin(this.angle) * (this.width / 4),
+                    type: 'S'
+                };
+            }
+
+            draw() {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                ctx.rotate(this.angle);
+
+                // Draw South (Blue)
+                ctx.fillStyle = '#3b82f6';
+                ctx.beginPath();
+                ctx.roundRect(-this.width/2, -this.height/2, this.width/2, this.height, [8, 0, 0, 8]);
+                ctx.fill();
+                
+                // Draw North (Red)
+                ctx.fillStyle = '#ef4444';
+                ctx.beginPath();
+                ctx.roundRect(0, -this.height/2, this.width/2, this.height, [0, 8, 8, 0]);
+                ctx.fill();
+
+                // Labels
+                ctx.fillStyle = 'rgba(255,255,255,0.8)';
+                ctx.font = 'bold 16px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText('S', -this.width/4, 6);
+                ctx.fillText('N', this.width/4, 6);
+
+                // Highlight if dragging
+                if (draggingMagnet === this) {
+                    ctx.strokeStyle = 'white';
+                    ctx.lineWidth = 2;
+                    ctx.strokeRect(-this.width/2 - 2, -this.height/2 - 2, this.width + 4, this.height + 4);
+                }
+
+                ctx.restore();
+            }
+        }
+
+        function init() {
+            resize();
+            const centerX = width / 2;
+            const centerY = height / 2;
+
+            magnets = [
+                new Magnet(centerX - 150, centerY, 0),
+                new Magnet(centerX + 150, centerY, Math.PI)
+            ];
+
+            window.addEventListener('resize', resize);
+            canvas.addEventListener('mousedown', startDrag);
+            canvas.addEventListener('mousemove', drag);
+            canvas.addEventListener('mouseup', endDrag);
+            canvas.addEventListener('touchstart', (e) => startDrag(e.touches[0]), {passive: false});
+            canvas.addEventListener('touchmove', (e) => drag(e.touches[0]), {passive: false});
+            canvas.addEventListener('touchend', endDrag);
+
+            toggleBtn.addEventListener('click', () => {
+                showFields = !showFields;
+                toggleBtn.innerText = showFields ? "Hide Field Lines" : "Show Field Lines";
+                toggleBtn.classList.toggle('active', showFields);
+            });
+
+            resetBtn.addEventListener('click', () => {
+                magnets[0].x = width / 2 - 150;
+                magnets[0].y = height / 2;
+                magnets[0].vx = magnets[0].vy = magnets[0].va = magnets[0].angle = 0;
+                
+                magnets[1].x = width / 2 + 150;
+                magnets[1].y = height / 2;
+                magnets[1].vx = magnets[1].vy = magnets[1].va = 0;
+                magnets[1].angle = Math.PI;
+            });
+
+            requestAnimationFrame(update);
+        }
+
+        function resize() {
+            width = window.innerWidth;
+            height = window.innerHeight;
+            canvas.width = width;
+            canvas.height = height;
+        }
+
+        function startDrag(e) {
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+
+            for (const m of magnets) {
+                // Simplified hit detection for the rectangle
+                const dx = x - m.x;
+                const dy = y - m.y;
+                const dist = Math.sqrt(dx*dx + dy*dy);
+                if (dist < m.width / 2) {
+                    draggingMagnet = m;
+                    dragOffset.x = dx;
+                    dragOffset.y = dy;
+                    return;
+                }
+            }
+        }
+
+        function drag(e) {
+            if (!draggingMagnet) return;
+            const rect = canvas.getBoundingClientRect();
+            draggingMagnet.x = e.clientX - rect.left - dragOffset.x;
+            draggingMagnet.y = e.clientY - rect.top - dragOffset.y;
+            draggingMagnet.vx = 0;
+            draggingMagnet.vy = 0;
+            draggingMagnet.va = 0;
+        }
+
+        function endDrag() {
+            draggingMagnet = null;
+        }
+
+        function getFieldAt(x, y) {
+            let fx = 0;
+            let fy = 0;
+
+            magnets.forEach(m => {
+                const n = m.getNorth();
+                const s = m.getSouth();
+
+                // Force from North (+)
+                const dnx = x - n.x;
+                const dny = y - n.y;
+                const distN2 = dnx*dnx + dny*dny + 100;
+                const distN = Math.sqrt(distN2);
+                fx += (dnx / distN) / distN2;
+                fy += (dny / distN) / distN2;
+
+                // Force from South (-)
+                const dsx = x - s.x;
+                const dsy = y - s.y;
+                const distS2 = dsx*dsx + dsy*dsy + 100;
+                const distS = Math.sqrt(distS2);
+                fx -= (dsx / distS) / distS2;
+                fy -= (dsy / distS) / distS2;
+            });
+
+            return { x: fx, y: fy };
+        }
+
+        function drawFieldLines() {
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+            ctx.lineWidth = 1;
+
+            magnets.forEach(m => {
+                const n = m.getNorth();
+                
+                // Start lines from the North pole area
+                for (let i = 0; i < CONFIG.fieldDensity; i++) {
+                    const angle = (i / CONFIG.fieldDensity) * Math.PI * 2;
+                    let curX = n.x + Math.cos(angle) * 5;
+                    let curY = n.y + Math.sin(angle) * 5;
+
+                    ctx.beginPath();
+                    ctx.moveTo(curX, curY);
+
+                    for (let step = 0; step < 100; step++) {
+                        const field = getFieldAt(curX, curY);
+                        const strength = Math.sqrt(field.x*field.x + field.y*field.y);
+                        if (strength < 0.000001) break;
+
+                        // Normalize and step
+                        curX += (field.x / strength) * 8;
+                        curY += (field.y / strength) * 8;
+
+                        ctx.lineTo(curX, curY);
+
+                        // Stop if we hit a magnet or go off screen
+                        let hit = false;
+                        magnets.forEach(m2 => {
+                            const s = m2.getSouth();
+                            if (Math.hypot(curX - s.x, curY - s.y) < 10) hit = true;
+                        });
+                        if (hit) break;
+                        if (curX < -100 || curX > width + 100 || curY < -100 || curY > height + 100) break;
+                    }
+                    ctx.stroke();
+                }
+            });
+        }
+
+        function applyPhysics() {
+            for (let i = 0; i < magnets.length; i++) {
+                const m1 = magnets[i];
+                if (m1 === draggingMagnet) continue;
+
+                for (let j = 0; j < magnets.length; j++) {
+                    if (i === j) continue;
+                    const m2 = magnets[j];
+
+                    // OVERLAP PROTECTION: 
+                    // If centers are extremely close, stop the interaction to prevent infinite spinning/jitter
+                    const distCenters = Math.hypot(m1.x - m2.x, m1.y - m2.y);
+                    if (distCenters < 5) {
+                        m1.vx *= 0.5; // Dampen movement heavily
+                        m1.vy *= 0.5;
+                        m1.va *= 0.5;
+                        continue;
+                    }
+
+                    const poles1 = [m1.getNorth(), m1.getSouth()];
+                    const poles2 = [m2.getNorth(), m2.getSouth()];
+
+                    poles1.forEach(p1 => {
+                        poles2.forEach(p2 => {
+                            const dx = p1.x - p2.x;
+                            const dy = p1.y - p2.y;
+                            const distSq = dx*dx + dy*dy + 800; // Increased softening to prevent spikes
+                            const dist = Math.sqrt(distSq);
+                            
+                            // Magnetic law (approx 1/r^2)
+                            // Attraction if different, Repulsion if same
+                            const magnitude = (p1.type === p2.type ? 1 : -1) * CONFIG.magneticStrength / distSq;
+
+                            const forceX = (dx / dist) * magnitude;
+                            const forceY = (dy / dist) * magnitude;
+
+                            // Apply linear force
+                            m1.vx += forceX / m1.mass;
+                            m1.vy += forceY / m1.mass;
+
+                            // Apply torque
+                            const rx = p1.x - m1.x;
+                            const ry = p1.y - m1.y;
+                            const torque = (rx * forceY - ry * forceX);
+                            m1.va += torque / (m1.mass * 800);
+                        });
+                    });
+                }
+
+                // Apply velocity
+                m1.x += m1.vx;
+                m1.y += m1.vy;
+                m1.angle += m1.va;
+
+                // Friction
+                m1.vx *= CONFIG.friction;
+                m1.vy *= CONFIG.friction;
+                m1.va *= CONFIG.friction;
+
+                // Boundary bounce
+                if (m1.x < 50) { m1.x = 50; m1.vx *= -0.5; }
+                if (m1.x > width - 50) { m1.x = width - 50; m1.vx *= -0.5; }
+                if (m1.y < 50) { m1.y = 50; m1.vy *= -0.5; }
+                if (m1.y > height - 50) { m1.y = height - 50; m1.vy *= -0.5; }
+            }
+        }
+
+        function update() {
+            ctx.clearRect(0, 0, width, height);
+
+            applyPhysics();
+
+            if (showFields) {
+                drawFieldLines();
+            }
+
+            magnets.forEach(m => m.draw());
+
+            requestAnimationFrame(update);
+        }
+
+        window.onload = init;
+    </script>
+</body>
+</html>
