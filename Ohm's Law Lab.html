@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ohm's Law: Resistance Simulator</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- React & ReactDOM -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <!-- Babel for in-browser JSX compilation -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <style>
+        /* Small utility to ensure the canvas doesn't trigger scroll on touch devices when drawing */
+        .touch-none { touch-action: none; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useRef, useEffect } = React;
+
+        // --- ICONS ---
+        const Zap = ({ className }) => <svg className={className} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>;
+        const Activity = ({ className }) => <svg className={className} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>;
+        const RefreshCw = ({ className }) => <svg className={className} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>;
+        const MousePointer2 = ({ className }) => <svg className={className} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4l7.07 17 2.51-7.39L21 11.07z"></path></svg>;
+        const Pencil = ({ className }) => <svg className={className} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>;
+        const AlertCircle = ({ className }) => <svg className={className} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>;
+        const CheckCircle = ({ className }) => <svg className={className} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>;
+
+        // --- CONSTANTS ---
+        const V_MAX = 12;
+        const I_MAX = 1.5;
+        const GRAPH_WIDTH = 400;
+        const GRAPH_HEIGHT = 400;
+        const PAD = { top: 20, right: 20, bottom: 50, left: 50 };
+        const PLOT_W = GRAPH_WIDTH - PAD.left - PAD.right;
+        const PLOT_H = GRAPH_HEIGHT - PAD.top - PAD.bottom;
+
+        function App() {
+          // --- STATE ---
+          const [mysteryR, setMysteryR] = useState(10);
+          
+          // Circuit State
+          const [ammeterSlot, setAmmeterSlot] = useState('tray'); // 'tray', 'series', 'parallel'
+          const [voltmeterSlot, setVoltmeterSlot] = useState('tray'); // 'tray', 'series', 'parallel'
+          const [voltage, setVoltage] = useState(0);
+          
+          // Graph State
+          const [points, setPoints] = useState([]);
+          const [graphMode, setGraphMode] = useState('plot'); // 'plot', 'line'
+          const [bestFitLine, setBestFitLine] = useState(null); // { start: {i, v}, end: {i, v} }
+          const [isDrawing, setIsDrawing] = useState(false);
+          const [hoverCoord, setHoverCoord] = useState(null);
+          
+          // Analysis State
+          const [userResistance, setUserResistance] = useState('');
+          const [feedback, setFeedback] = useState(null);
+
+          const [draggedMeter, setDraggedMeter] = useState(null);
+          const [dragPos, setDragPos] = useState({ x: 0, y: 0 });
+
+          const svgRef = useRef(null);
+          const circuitSvgRef = useRef(null);
+
+          // Initialize randomly
+          useEffect(() => {
+            startNewLab();
+          }, []);
+
+          const startNewLab = () => {
+            const resistances = [10, 15, 20, 25, 30, 40, 50];
+            const randomR = resistances[Math.floor(Math.random() * resistances.length)];
+            setMysteryR(randomR);
+            
+            // Reset Everything
+            setAmmeterSlot('tray');
+            setVoltmeterSlot('tray');
+            setVoltage(0);
+            setPoints([]);
+            setBestFitLine(null);
+            setIsDrawing(false);
+            setUserResistance('');
+            setFeedback(null);
+            setGraphMode('plot');
+          };
+
+          // --- PHYSICS CALCULATIONS ---
+          const R_METER_SERIES = 0.001; // Ideal Ammeter resistance
+          const R_METER_PARALLEL = 1000000; // Ideal Voltmeter resistance
+          const R_OPEN = 1e9; // Open circuit gap
+
+          const rSeriesSlot = 
+            ammeterSlot === 'series' ? R_METER_SERIES :
+            voltmeterSlot === 'series' ? R_METER_PARALLEL : R_OPEN;
+
+          const rParallelSlot = 
+            ammeterSlot === 'parallel' ? R_METER_SERIES :
+            voltmeterSlot === 'parallel' ? R_METER_PARALLEL : R_OPEN;
+
+          // Calculate equivalent resistances
+          const rP = 1 / ((1 / mysteryR) + (1 / rParallelSlot));
+          const rTotal = rSeriesSlot + rP;
+          
+          const iTotal = voltage / rTotal;
+          const vP = iTotal * rP;
+
+          // Determine displayed readings
+          let ammeterReading = 0;
+          if (ammeterSlot === 'series') ammeterReading = iTotal;
+          else if (ammeterSlot === 'parallel') ammeterReading = vP / R_METER_SERIES;
+
+          let voltmeterReading = 0;
+          if (voltmeterSlot === 'series') voltmeterReading = iTotal * R_METER_PARALLEL;
+          else if (voltmeterSlot === 'parallel') voltmeterReading = vP;
+
+          // --- CUSTOM DRAG & DROP LOGIC ---
+          const getCircuitSvgCoords = (e) => {
+            if (!circuitSvgRef.current) return null;
+            const rect = circuitSvgRef.current.getBoundingClientRect();
+            const scaleX = 300 / rect.width;
+            const scaleY = 300 / rect.height;
+            return {
+              x: (e.clientX - rect.left) * scaleX,
+              y: (e.clientY - rect.top) * scaleY
+            };
+          };
+
+          const handleDropLogic = (e, meterType) => {
+            const coords = getCircuitSvgCoords(e);
+            if (!coords) return;
+            
+            const { x, y } = coords;
+            let newSlot = 'tray';
+            
+            // Generous hitboxes for dropping
+            if (x > 200 && x < 300 && y > 70 && y < 190) newSlot = 'series';
+            else if (x > 90 && x < 210 && y > 0 && y < 70) newSlot = 'parallel';
+            
+            if (meterType === 'ammeter') {
+              if (voltmeterSlot === newSlot && newSlot !== 'tray') setVoltmeterSlot('tray');
+              setAmmeterSlot(newSlot);
+            } else if (meterType === 'voltmeter') {
+              if (ammeterSlot === newSlot && newSlot !== 'tray') setAmmeterSlot('tray');
+              setVoltmeterSlot(newSlot);
+            }
+          };
+
+          // --- GRAPHING LOGIC ---
+          const scaleX = (i) => PAD.left + (i / I_MAX) * PLOT_W;
+          const scaleY = (v) => GRAPH_HEIGHT - PAD.bottom - (v / V_MAX) * PLOT_H;
+
+          const getSVGCoords = (e) => {
+            if (!svgRef.current) return null;
+            const rect = svgRef.current.getBoundingClientRect();
+            const scaleFactorX = GRAPH_WIDTH / rect.width;
+            const scaleFactorY = GRAPH_HEIGHT / rect.height;
+            
+            const x = (e.clientX - rect.left) * scaleFactorX;
+            const y = (e.clientY - rect.top) * scaleFactorY;
+
+            if (x >= PAD.left && x <= GRAPH_WIDTH - PAD.right && y >= PAD.top && y <= GRAPH_HEIGHT - PAD.bottom) {
+              const i = ((x - PAD.left) / PLOT_W) * I_MAX;
+              const v = ((GRAPH_HEIGHT - PAD.bottom - y) / PLOT_H) * V_MAX;
+              return { x, y, i: Math.max(0, i), v: Math.max(0, v), clientX: e.clientX, clientY: e.clientY };
+            }
+            return null;
+          };
+
+          const handleGraphMouseDown = (e) => {
+            const coords = getSVGCoords(e);
+            if (!coords) return;
+            
+            if (graphMode === 'line') {
+              setIsDrawing(true);
+              setBestFitLine({ start: { i: coords.i, v: coords.v }, end: { i: coords.i, v: coords.v } });
+            }
+          };
+
+          const handleGraphMouseMove = (e) => {
+            const coords = getSVGCoords(e);
+            if (coords) {
+              setHoverCoord(coords);
+              if (graphMode === 'line' && isDrawing) {
+                setBestFitLine(prev => prev ? { ...prev, end: { i: coords.i, v: coords.v } } : null);
+              }
+            } else {
+              setHoverCoord(null);
+            }
+          };
+
+          const handleGraphMouseUp = (e) => {
+            if (graphMode === 'line') {
+              setIsDrawing(false);
+            } else if (graphMode === 'plot') {
+              const coords = getSVGCoords(e);
+              if (coords) {
+                // Check if clicking near an existing point to remove it
+                const clickedPixelX = scaleX(coords.i);
+                const clickedPixelY = scaleY(coords.v);
+                
+                let removed = false;
+                const newPoints = points.filter(p => {
+                  if (removed) return true;
+                  const pPixelX = scaleX(p.i);
+                  const pPixelY = scaleY(p.v);
+                  const dist = Math.hypot(pPixelX - clickedPixelX, pPixelY - clickedPixelY);
+                  if (dist < 12) { // 12px radius tolerance for clicking
+                    removed = true;
+                    return false;
+                  }
+                  return true;
+                });
+
+                if (removed) {
+                  setPoints(newPoints);
+                } else {
+                  setPoints([...points, { i: coords.i, v: coords.v }]);
+                }
+                setFeedback(null);
+              }
+            }
+          };
+
+          // --- VALIDATION LOGIC ---
+          const checkAnswers = () => {
+            // 1. Circuit Connections Check
+            if (ammeterSlot !== 'series' || voltmeterSlot !== 'parallel') {
+              setFeedback({
+                type: 'error',
+                message: 'Circuit Error: The equipment is not connected correctly. Ammeter must be in SERIES, Voltmeter must be in PARALLEL.'
+              });
+              return;
+            }
+
+            // 2. Data Points Check
+            if (points.length < 3) {
+              setFeedback({
+                type: 'error',
+                message: 'Graph Error: Please plot at least 3 points on the graph representing different voltages.'
+              });
+              return;
+            }
+
+            // 3. Line of Best Fit Check
+            if (!bestFitLine) {
+              setFeedback({
+                type: 'error',
+                message: 'Graph Error: Please draw a line of best fit through your data points.'
+              });
+              return;
+            }
+
+            const dI = bestFitLine.end.i - bestFitLine.start.i;
+            const dV = bestFitLine.end.v - bestFitLine.start.v;
+
+            if (Math.abs(dI) < 0.05) {
+              setFeedback({
+                type: 'error',
+                message: 'Graph Error: Your line of best fit covers too little current range. Draw a longer line.'
+              });
+              return;
+            }
+
+            const lineSlope = dV / dI;
+            const isSlopeAccurate = Math.abs(lineSlope - mysteryR) / mysteryR <= 0.15; // 15% tolerance for visual line
+
+            if (!isSlopeAccurate) {
+              setFeedback({
+                type: 'error',
+                message: 'Graph Error: Your line of best fit slope is inaccurate. Redraw it so it evenly represents the plotted data.'
+              });
+              return;
+            }
+
+            // 4. Resistance Calculation Check
+            const submittedR = parseFloat(userResistance);
+            if (isNaN(submittedR)) {
+              setFeedback({
+                type: 'error',
+                message: 'Calculation Error: Please enter a valid number for the calculated resistance.'
+              });
+              return;
+            }
+
+            const isRAccurate = Math.abs(submittedR - mysteryR) / mysteryR <= 0.1; // 10% tolerance for math
+
+            if (isRAccurate && isSlopeAccurate) {
+              setFeedback({
+                type: 'success',
+                message: `Excellent! You built the circuit perfectly, plotted the V-I data, drew an accurate best-fit line, and calculated the correct resistance. Exact value: ${mysteryR} Ω.`
+              });
+            } else {
+              setFeedback({
+                type: 'error',
+                message: `Calculation Error: Your line is good, but your entered calculation is off. Verify your slope (Rise over Run: V / I).`
+              });
+            }
+          };
+
+          // UI Helpers
+          const getMeterCoords = (slot, type) => {
+            if (slot === 'series') return { x: 260, y: 130 };
+            if (slot === 'parallel') return { x: 150, y: 20 };
+            if (type === 'ammeter') return { x: 80, y: 265 };
+            if (type === 'voltmeter') return { x: 220, y: 265 };
+            return { x: 0, y: 0 };
+          };
+
+          let isHoveringPoint = false;
+          if (hoverCoord && graphMode === 'plot') {
+            isHoveringPoint = points.some(p => {
+              const px = scaleX(p.i);
+              const py = scaleY(p.v);
+              return Math.hypot(px - hoverCoord.x, py - hoverCoord.y) < 12;
+            });
+          }
+
+          return (
+            <div className="min-h-screen bg-slate-50 p-4 md:p-8 font-sans text-slate-800">
+              
+              {/* Dynamic Hover Tooltip Overlay */}
+              {hoverCoord && (
+                <div 
+                  className={`fixed text-white font-mono text-xs px-2 py-1 rounded border pointer-events-none z-50 shadow-md transform -translate-y-full mt-[-10px] ml-[10px] ${isHoveringPoint ? 'bg-red-600/90 border-red-700' : 'bg-slate-800/90 border-slate-700'}`}
+                  style={{ top: hoverCoord.clientY, left: hoverCoord.clientX }}
+                >
+                  {isHoveringPoint ? "Click to remove" : `(I: ${hoverCoord.i.toFixed(2)}A, V: ${hoverCoord.v.toFixed(1)}V)`}
+                </div>
+              )}
+
+              <div className="max-w-6xl mx-auto space-y-6">
+                
+                {/* Header */}
+                <header className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                  <div>
+                    <h1 className="text-3xl font-bold text-indigo-700 flex items-center gap-2">
+                      <Zap className="w-8 h-8" />
+                      Ohm's Law: Mystery Resistor
+                    </h1>
+                    <p className="mt-2 text-slate-600">
+                      Drag the Ammeter and Voltmeter to correctly measure the resistor.
+                    </p>
+                  </div>
+                  <button 
+                    onClick={startNewLab}
+                    className="flex items-center gap-2 px-5 py-2.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold rounded-lg border border-indigo-200 transition-colors"
+                  >
+                    <RefreshCw className="w-4 h-4" />
+                    New Lab
+                  </button>
+                </header>
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  
+                  {/* LEFT COLUMN: SIMULATOR */}
+                  <div className="space-y-6">
+                    
+                    <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                      <h2 className="text-xl font-semibold mb-4 border-b pb-2 flex items-center gap-2">
+                        <Activity className="w-5 h-5 text-indigo-500"/>
+                        Circuit Builder
+                      </h2>
+                      
+                      <div className="flex justify-center mb-6 bg-slate-100 rounded-lg p-4 select-none">
+                        <svg 
+                          ref={circuitSvgRef}
+                          width="300" height="300" viewBox="0 0 300 300" className="max-w-full touch-none"
+                        >
+                          
+                          {/* Wires */}
+                          <polyline points="40,190 40,70 120,70" fill="none" stroke="#334155" strokeWidth="3" />
+                          <polyline points="180,70 260,70" fill="none" stroke="#334155" strokeWidth="3" />
+                          <polyline points="40,190 260,190" fill="none" stroke="#334155" strokeWidth="3" />
+                          
+                          {/* Series Gap */}
+                          <polyline points="260,70 260,110" fill="none" stroke="#334155" strokeWidth="3" />
+                          <polyline points="260,150 260,190" fill="none" stroke="#334155" strokeWidth="3" />
+                          
+                          {/* Parallel Branch */}
+                          <polyline points="100,70 100,20 130,20" fill="none" stroke="#334155" strokeWidth="2" />
+                          <polyline points="170,20 200,20 200,70" fill="none" stroke="#334155" strokeWidth="2" />
+
+                          {/* Components */}
+                          <g transform="translate(10, 110)">
+                            {/* Realistic Power Supply Body */}
+                            <rect x="0" y="0" width="60" height="40" rx="4" fill="#cbd5e1" stroke="#475569" strokeWidth="2" />
+                            {/* Digital Screen */}
+                            <rect x="5" y="5" width="50" height="16" rx="2" fill="#0f172a" />
+                            <text x="30" y="17" textAnchor="middle" fontSize="10" fontFamily="monospace" fontWeight="bold" fill="#22c55e">
+                              {voltage.toFixed(1)}V
+                            </text>
+                            {/* Control Knob */}
+                            <circle cx="15" cy="30" r="5" fill="#94a3b8" stroke="#475569" strokeWidth="1" />
+                            {/* Terminals */}
+                            <circle cx="35" cy="30" r="3" fill="#ef4444" />
+                            <circle cx="45" cy="30" r="3" fill="#1e293b" />
+                          </g>
+
+                          <rect x="120" y="55" width="60" height="30" fill="#fef3c7" stroke="#d97706" strokeWidth="2" />
+                          <text x="150" y="75" textAnchor="middle" fontSize="14" fontWeight="bold" fill="#d97706">R ?</text>
+
+                          {/* Drop Zones */}
+                          <rect x="240" y="110" width="40" height="40" fill={ammeterSlot === 'series' || voltmeterSlot === 'series' ? "transparent" : "#e2e8f0"} stroke="#94a3b8" strokeDasharray="4" rx="4" />
+                          {ammeterSlot !== 'series' && voltmeterSlot !== 'series' && <text x="260" y="134" textAnchor="middle" fontSize="10" fill="#64748b">Series</text>}
+
+                          <rect x="130" y="0" width="40" height="40" fill={ammeterSlot === 'parallel' || voltmeterSlot === 'parallel' ? "transparent" : "#e2e8f0"} stroke="#94a3b8" strokeDasharray="4" rx="4" />
+                          {ammeterSlot !== 'parallel' && voltmeterSlot !== 'parallel' && <text x="150" y="24" textAnchor="middle" fontSize="10" fill="#64748b">Parallel</text>}
+
+                          <rect x="10" y="230" width="280" height="60" fill="#f1f5f9" stroke="#cbd5e1" rx="8" />
+                          <text x="150" y="248" textAnchor="middle" fontSize="11" fill="#94a3b8" fontWeight="bold">EQUIPMENT TRAY</text>
+
+                          {/* Meters */}
+                          <g 
+                            onPointerDown={(e) => {
+                              e.target.setPointerCapture(e.pointerId);
+                              setDraggedMeter('ammeter');
+                              const c = getCircuitSvgCoords(e);
+                              if (c) setDragPos(c);
+                            }}
+                            onPointerMove={(e) => {
+                              if (draggedMeter === 'ammeter') {
+                                const c = getCircuitSvgCoords(e);
+                                if (c) setDragPos(c);
+                              }
+                            }}
+                            onPointerUp={(e) => {
+                              if (draggedMeter === 'ammeter') {
+                                e.target.releasePointerCapture(e.pointerId);
+                                handleDropLogic(e, 'ammeter');
+                                setDraggedMeter(null);
+                              }
+                            }}
+                            className={`cursor-grab ${draggedMeter === 'ammeter' ? 'opacity-80 drop-shadow-lg' : 'hover:opacity-90'}`}
+                            transform={`translate(${draggedMeter === 'ammeter' ? dragPos.x : getMeterCoords(ammeterSlot, 'ammeter').x}, ${draggedMeter === 'ammeter' ? dragPos.y : getMeterCoords(ammeterSlot, 'ammeter').y})`}
+                          >
+                            <circle cx="0" cy="0" r="16" fill="white" stroke="#ef4444" strokeWidth="3" />
+                            <text x="0" y="5" textAnchor="middle" fontSize="14" fontWeight="bold" fill="#ef4444" pointerEvents="none">A</text>
+                          </g>
+
+                          <g 
+                            onPointerDown={(e) => {
+                              e.target.setPointerCapture(e.pointerId);
+                              setDraggedMeter('voltmeter');
+                              const c = getCircuitSvgCoords(e);
+                              if (c) setDragPos(c);
+                            }}
+                            onPointerMove={(e) => {
+                              if (draggedMeter === 'voltmeter') {
+                                const c = getCircuitSvgCoords(e);
+                                if (c) setDragPos(c);
+                              }
+                            }}
+                            onPointerUp={(e) => {
+                              if (draggedMeter === 'voltmeter') {
+                                e.target.releasePointerCapture(e.pointerId);
+                                handleDropLogic(e, 'voltmeter');
+                                setDraggedMeter(null);
+                              }
+                            }}
+                            className={`cursor-grab ${draggedMeter === 'voltmeter' ? 'opacity-80 drop-shadow-lg' : 'hover:opacity-90'}`}
+                            transform={`translate(${draggedMeter === 'voltmeter' ? dragPos.x : getMeterCoords(voltmeterSlot, 'voltmeter').x}, ${draggedMeter === 'voltmeter' ? dragPos.y : getMeterCoords(voltmeterSlot, 'voltmeter').y})`}
+                          >
+                            <circle cx="0" cy="0" r="16" fill="white" stroke="#3b82f6" strokeWidth="3" />
+                            <text x="0" y="5" textAnchor="middle" fontSize="14" fontWeight="bold" fill="#3b82f6" pointerEvents="none">V</text>
+                          </g>
+
+                        </svg>
+                      </div>
+
+                      {/* Voltage Slider */}
+                      <div className="mt-4">
+                        <label className="block text-sm font-medium text-slate-700 mb-2">
+                          Power Supply Voltage: <span className="text-indigo-600 font-bold">{voltage.toFixed(1)} V</span>
+                        </label>
+                        <input 
+                          type="range" 
+                          min="0" max="12" step="0.5" 
+                          value={voltage} 
+                          onChange={(e) => setVoltage(parseFloat(e.target.value))}
+                          className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
+                        />
+                      </div>
+
+                    </div>
+
+                    {/* Readings Display */}
+                    <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex gap-4">
+                      <div className="flex-1 bg-slate-900 p-4 rounded-lg shadow-inner border-b-4 border-blue-500">
+                        <div className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-1 flex items-center gap-1">
+                          Voltmeter
+                          {voltmeterSlot === 'tray' && <span className="text-red-400 normal-case ml-auto">(Disconnected)</span>}
+                        </div>
+                        <div className="font-mono text-3xl text-blue-400 flex justify-between">
+                          <span>{voltmeterSlot === 'tray' ? '---' : voltmeterReading.toFixed(2)}</span>
+                          <span>V</span>
+                        </div>
+                      </div>
+                      <div className="flex-1 bg-slate-900 p-4 rounded-lg shadow-inner border-b-4 border-red-500">
+                        <div className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-1 flex items-center gap-1">
+                          Ammeter
+                          {ammeterSlot === 'tray' && <span className="text-red-400 normal-case ml-auto">(Disconnected)</span>}
+                        </div>
+                        <div className="font-mono text-3xl text-red-400 flex justify-between">
+                          <span>{ammeterSlot === 'tray' ? '---' : ammeterReading.toFixed(2)}</span>
+                          <span>A</span>
+                        </div>
+                      </div>
+                    </div>
+
+                  </div>
+
+                  {/* RIGHT COLUMN: GRAPH & ANALYSIS */}
+                  <div className="space-y-6">
+                    
+                    {/* Graph Area */}
+                    <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-4">
+                        <div className="flex bg-slate-100 rounded-lg p-1 border border-slate-200 w-full sm:w-auto">
+                          <button 
+                            onClick={() => setGraphMode('plot')}
+                            className={`flex-1 flex items-center justify-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${graphMode === 'plot' ? 'bg-white shadow text-indigo-700' : 'text-slate-600 hover:text-slate-900'}`}
+                          >
+                            <MousePointer2 className="w-4 h-4"/> Points
+                          </button>
+                          <button 
+                            onClick={() => setGraphMode('line')}
+                            className={`flex-1 flex items-center justify-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${graphMode === 'line' ? 'bg-white shadow text-indigo-700' : 'text-slate-600 hover:text-slate-900'}`}
+                          >
+                            <Pencil className="w-4 h-4"/> Line
+                          </button>
+                        </div>
+                        
+                        <button 
+                          onClick={() => { setPoints([]); setBestFitLine(null); setFeedback(null); }}
+                          className="text-sm text-slate-500 hover:text-slate-700 underline"
+                        >
+                          Clear Graph
+                        </button>
+                      </div>
+
+                      <div className={`bg-slate-50 border border-slate-200 rounded-lg overflow-hidden relative touch-none ${graphMode === 'line' ? 'cursor-crosshair' : 'cursor-default'}`}>
+                        <svg 
+                          ref={svgRef}
+                          viewBox={`0 0 ${GRAPH_WIDTH} ${GRAPH_HEIGHT}`} 
+                          className="w-full h-auto block"
+                          onPointerDown={handleGraphMouseDown}
+                          onPointerMove={handleGraphMouseMove}
+                          onPointerUp={handleGraphMouseUp}
+                          onPointerLeave={() => { setHoverCoord(null); setIsDrawing(false); }}
+                        >
+                          {/* Grid Lines */}
+                          {[0, 2, 4, 6, 8, 10, 12].map(v => (
+                            <line key={`hy-${v}`} x1={PAD.left} y1={scaleY(v)} x2={GRAPH_WIDTH - PAD.right} y2={scaleY(v)} stroke="#e2e8f0" strokeWidth="1" />
+                          ))}
+                          {[0, 0.25, 0.5, 0.75, 1.0, 1.25, 1.5].map(i => (
+                            <line key={`vx-${i}`} x1={scaleX(i)} y1={PAD.top} x2={scaleX(i)} y2={GRAPH_HEIGHT - PAD.bottom} stroke="#e2e8f0" strokeWidth="1" />
+                          ))}
+
+                          {/* Axes */}
+                          <line x1={PAD.left} y1={PAD.top} x2={PAD.left} y2={GRAPH_HEIGHT - PAD.bottom} stroke="#334155" strokeWidth="2" />
+                          <line x1={PAD.left} y1={GRAPH_HEIGHT - PAD.bottom} x2={GRAPH_WIDTH - PAD.right} y2={GRAPH_HEIGHT - PAD.bottom} stroke="#334155" strokeWidth="2" />
+
+                          {/* Y-axis labels (Voltage) */}
+                          {[0, 2, 4, 6, 8, 10, 12].map(v => (
+                            <text key={`ty-${v}`} x={PAD.left - 8} y={scaleY(v) + 4} textAnchor="end" fontSize="12" fill="#64748b">{v}</text>
+                          ))}
+                          <text x={12} y={GRAPH_HEIGHT / 2} textAnchor="middle" transform={`rotate(-90, 12, ${GRAPH_HEIGHT / 2})`} fontSize="14" fontWeight="bold" fill="#334155">Voltage (V)</text>
+
+                          {/* X-axis labels (Current) */}
+                          {[0, 0.5, 1.0, 1.5].map(i => (
+                            <text key={`tx-${i}`} x={scaleX(i)} y={GRAPH_HEIGHT - PAD.bottom + 20} textAnchor="middle" fontSize="12" fill="#64748b">{i.toFixed(1)}</text>
+                          ))}
+                          <text x={GRAPH_WIDTH / 2} y={GRAPH_HEIGHT - 10} textAnchor="middle" fontSize="14" fontWeight="bold" fill="#334155">Current (A)</text>
+
+                          {/* Plotted Points */}
+                          {points.map((p, index) => (
+                            <circle key={index} cx={scaleX(p.i)} cy={scaleY(p.v)} r="5" fill="#4f46e5" stroke="white" strokeWidth="1.5" />
+                          ))}
+
+                          {/* Line of Best Fit */}
+                          {bestFitLine && (
+                            <line 
+                              x1={scaleX(bestFitLine.start.i)} 
+                              y1={scaleY(bestFitLine.start.v)} 
+                              x2={scaleX(bestFitLine.end.i)} 
+                              y2={scaleY(bestFitLine.end.v)} 
+                              stroke="#10b981" 
+                              strokeWidth="2.5" 
+                              strokeDasharray={isDrawing ? "4" : "0"}
+                            />
+                          )}
+                        </svg>
+                        
+                        {points.length === 0 && !bestFitLine && (
+                          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                            <p className="bg-white/90 px-4 py-2 rounded shadow-sm text-sm text-slate-500 text-center font-medium">
+                              {graphMode === 'plot' ? "Click graph to plot collected points" : "Drag to draw line of best fit"}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Analysis / Input */}
+                    <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                      <h2 className="text-xl font-semibold mb-4 border-b pb-2">Analysis</h2>
+                      
+                      <div className="flex flex-col sm:flex-row gap-4 items-end">
+                        <div className="flex-1 w-full">
+                          <label className="block text-sm font-medium text-slate-700 mb-1">
+                            Calculated Resistance (Ω)
+                          </label>
+                          <div className="relative">
+                            <input 
+                              type="number" 
+                              step="0.1"
+                              value={userResistance}
+                              onChange={(e) => setUserResistance(e.target.value)}
+                              placeholder="e.g. 15.5"
+                              className="w-full border border-slate-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                            />
+                            <span className="absolute right-4 top-2 text-slate-400 font-bold">Ω</span>
+                          </div>
+                          <p className="text-xs text-slate-500 mt-1">Calculate the slope (Rise/Run) from your line of best fit.</p>
+                        </div>
+                        <button 
+                          onClick={checkAnswers}
+                          className="bg-indigo-600 hover:bg-indigo-700 text-white font-medium px-6 py-2 rounded-lg transition-colors w-full sm:w-auto whitespace-nowrap h-[42px]"
+                        >
+                          Check Result
+                        </button>
+                      </div>
+
+                      {/* Feedback Display */}
+                      {feedback && (
+                        <div className={`mt-6 p-4 rounded-lg border flex gap-3 ${feedback.type === 'success' ? 'bg-green-50 border-green-200 text-green-800' : 'bg-orange-50 border-orange-200 text-orange-800'}`}>
+                          {feedback.type === 'success' ? <CheckCircle className="w-6 h-6 flex-shrink-0 text-green-600" /> : <AlertCircle className="w-6 h-6 flex-shrink-0 text-orange-600" />}
+                          <p className="text-sm leading-relaxed">{feedback.message}</p>
+                        </div>
+                      )}
+                    </div>
+
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
