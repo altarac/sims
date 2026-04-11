@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Convection Currents Simulator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        /* Prevent canvas highlighting/selection on mobile */
+        canvas {
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
+            touch-action: none;
+        }
+    </style>
+</head>
+<body class="min-h-screen bg-slate-50 text-slate-800 flex flex-col items-center justify-center p-4 font-sans">
+    
+    <div class="max-w-5xl w-full bg-white rounded-2xl shadow-xl overflow-hidden border border-slate-200">
+        
+        <!-- Header -->
+        <div class="bg-slate-100 p-5 border-b border-slate-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div>
+                <h1 class="text-2xl font-bold text-slate-800 flex items-center gap-2">
+                    <i data-lucide="droplet" class="text-blue-500"></i>
+                    Convection Currents Simulator
+                </h1>
+                <p class="text-sm text-slate-500 mt-1">
+                    Add heat or cold to the bottom plates to create currents. Click or drag to drop dye. Drag the thermometer.
+                </p>
+            </div>
+            <div class="flex gap-2">
+                <button id="btn-vectors" class="px-4 py-2 hover:bg-slate-50 border border-slate-200 rounded-lg shadow-sm transition-all flex items-center gap-2 font-medium bg-white text-slate-700" title="Toggle Field Vectors">
+                    <i data-lucide="wind" class="w-4 h-4"></i>
+                    <span id="label-vectors">Show Flow</span>
+                </button>
+                <button id="btn-reset" class="px-4 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-lg shadow-sm transition-all flex items-center gap-2 font-medium" title="Reset Tank">
+                    <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
+                    <span>Reset Tank</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Main Canvas Area -->
+        <div class="p-6 bg-slate-50 flex justify-center">
+            <div class="relative rounded-xl overflow-hidden shadow-[0_10px_40px_-10px_rgba(0,0,0,0.15)] ring-1 ring-slate-200 bg-white">
+                <canvas id="simCanvas" width="720" height="400" class="block cursor-crosshair"></canvas>
+            </div>
+        </div>
+
+        <!-- Controls -->
+        <div class="bg-white p-5 border-t border-slate-200 grid grid-cols-1 md:grid-cols-3 gap-6">
+            
+            <!-- Left Side Controls -->
+            <div class="bg-slate-50 rounded-xl p-4 border border-slate-200">
+                <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3 text-center">Left Baseplate</h3>
+                <div class="flex gap-2 justify-center">
+                    <button id="btn-left-heat" class="flex-1 py-2 px-3 rounded-lg flex items-center justify-center gap-1.5 transition-all font-medium text-sm shadow-sm bg-white hover:bg-red-50 text-slate-600 border border-slate-200">
+                        <i data-lucide="flame" class="w-4 h-4"></i> Heat
+                    </button>
+                    <button id="btn-left-cool" class="flex-1 py-2 px-3 rounded-lg flex items-center justify-center gap-1.5 transition-all font-medium text-sm shadow-sm bg-white hover:bg-blue-50 text-slate-600 border border-slate-200">
+                        <i data-lucide="snowflake" class="w-4 h-4"></i> Cool
+                    </button>
+                </div>
+            </div>
+
+            <!-- Dye Tools -->
+            <div class="bg-slate-50 rounded-xl p-4 border border-slate-200 flex flex-col items-center justify-center">
+                <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                    <i data-lucide="mouse-pointer-2" class="w-3 h-3"></i> Dye Dropper Color
+                </h3>
+                <div class="flex gap-3" id="dye-palette">
+                    <button data-color="red" class="dye-btn w-10 h-10 rounded-full transition-all border-2 border-white shadow-sm hover:scale-105 bg-red-500 ring-4 ring-red-300 scale-110" title="Select red dye"></button>
+                    <button data-color="blue" class="dye-btn w-10 h-10 rounded-full transition-all border-2 border-white shadow-sm hover:scale-105 bg-blue-500 opacity-80" title="Select blue dye"></button>
+                    <button data-color="green" class="dye-btn w-10 h-10 rounded-full transition-all border-2 border-white shadow-sm hover:scale-105 bg-emerald-500 opacity-80" title="Select green dye"></button>
+                    <button data-color="black" class="dye-btn w-10 h-10 rounded-full transition-all border-2 border-white shadow-sm hover:scale-105 bg-slate-800 opacity-80" title="Select black dye"></button>
+                </div>
+            </div>
+
+            <!-- Right Side Controls -->
+            <div class="bg-slate-50 rounded-xl p-4 border border-slate-200">
+                <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3 text-center">Right Baseplate</h3>
+                <div class="flex gap-2 justify-center">
+                    <button id="btn-right-heat" class="flex-1 py-2 px-3 rounded-lg flex items-center justify-center gap-1.5 transition-all font-medium text-sm shadow-sm bg-white hover:bg-red-50 text-slate-600 border border-slate-200">
+                        <i data-lucide="flame" class="w-4 h-4"></i> Heat
+                    </button>
+                    <button id="btn-right-cool" class="flex-1 py-2 px-3 rounded-lg flex items-center justify-center gap-1.5 transition-all font-medium text-sm shadow-sm bg-white hover:bg-blue-50 text-slate-600 border border-slate-200">
+                        <i data-lucide="snowflake" class="w-4 h-4"></i> Cool
+                    </button>
+                </div>
+            </div>
+
+        </div>
+    </div>
+    
+    <div class="mt-8 max-w-3xl text-center text-sm text-slate-500 leading-relaxed">
+        <p><strong>The Physics:</strong> This simulation solves the Navier-Stokes equations for incompressible fluid flow. Adding heat makes the fluid less dense, generating an upward buoyancy force. This ascending fluid hits the surface and rolls outwards, creating a continuous loop known as a convection cell.</p>
+    </div>
+
+    <script>
+        // Initialize Icons
+        lucide.createIcons();
+
+        // --- Fluid Simulation Constants & Config ---
+        const NX = 90; 
+        const NY = 50; 
+        const iter = 30; 
+        const SIZE = (NX + 2) * (NY + 2);
+
+        const IX = (x, y) => {
+            x = Math.max(0, Math.min(x, NX + 1));
+            y = Math.max(0, Math.min(y, NY + 1));
+            return x + y * (NX + 2);
+        };
+
+        // --- State ---
+        let activeDye = 'red';
+        let leftState = 'off';
+        let rightState = 'off';
+        let isDrawing = false;
+        let showVectors = false;
+        let thermo = { x: 360, y: 150, isDragging: false };
+
+        // Arrays
+        let s = new Float32Array(SIZE);
+        let d_red = new Float32Array(SIZE);
+        let d_blue = new Float32Array(SIZE);
+        let d_green = new Float32Array(SIZE);
+        let d_black = new Float32Array(SIZE);
+        let d_red_prev = new Float32Array(SIZE);
+        let d_blue_prev = new Float32Array(SIZE);
+        let d_green_prev = new Float32Array(SIZE);
+        let d_black_prev = new Float32Array(SIZE);
+        let temp = new Float32Array(SIZE);
+        let temp_prev = new Float32Array(SIZE);
+        let Vx = new Float32Array(SIZE);
+        let Vy = new Float32Array(SIZE);
+        let Vx_prev = new Float32Array(SIZE);
+        let Vy_prev = new Float32Array(SIZE);
+
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+
+        // --- Core Fluid Dynamics Math ---
+        const set_bnd = (b, x) => {
+            for (let i = 1; i <= NY; i++) {
+                x[IX(0, i)] = b === 1 ? -x[IX(1, i)] : x[IX(1, i)];
+                x[IX(NX + 1, i)] = b === 1 ? -x[IX(NX, i)] : x[IX(NX, i)];
+            }
+            for (let i = 1; i <= NX; i++) {
+                x[IX(i, 0)] = b === 2 ? -x[IX(i, 1)] : x[IX(i, 1)];
+                x[IX(i, NY + 1)] = b === 2 ? -x[IX(i, NY)] : x[IX(i, NY)];
+            }
+            x[IX(0, 0)] = 0.5 * (x[IX(1, 0)] + x[IX(0, 1)]);
+            x[IX(0, NY + 1)] = 0.5 * (x[IX(1, NY + 1)] + x[IX(0, NY)]);
+            x[IX(NX + 1, 0)] = 0.5 * (x[IX(NX, 0)] + x[IX(NX + 1, 1)]);
+            x[IX(NX + 1, NY + 1)] = 0.5 * (x[IX(NX, NY + 1)] + x[IX(NX + 1, NY)]);
+        };
+
+        const lin_solve = (b, x, x0, a, c) => {
+            const invC = 1.0 / c;
+            for (let k = 0; k < iter; k++) {
+                for (let j = 1; j <= NY; j++) {
+                    for (let i = 1; i <= NX; i++) {
+                        x[IX(i, j)] = (x0[IX(i, j)] + a * (x[IX(i - 1, j)] + x[IX(i + 1, j)] + x[IX(i, j - 1)] + x[IX(i, j + 1)])) * invC;
+                    }
+                }
+                set_bnd(b, x);
+            }
+        };
+
+        const diffuse = (b, x, x0, diff, dt) => {
+            const a = dt * diff * Math.max(NX, NY) * Math.max(NX, NY);
+            lin_solve(b, x, x0, a, 1 + 4 * a);
+        };
+
+        const advect = (b, d, d0, u, v, dt) => {
+            let i0, j0, i1, j1;
+            let x, y, s0, t0, s1, t1;
+            let dt0 = dt * Math.max(NX, NY);
+
+            for (let j = 1; j <= NY; j++) {
+                for (let i = 1; i <= NX; i++) {
+                    x = i - dt0 * u[IX(i, j)];
+                    y = j - dt0 * v[IX(i, j)];
+
+                    if (x < 0.5) x = 0.5;
+                    if (x > NX + 0.5) x = NX + 0.5;
+                    i0 = Math.floor(x);
+                    i1 = i0 + 1;
+
+                    if (y < 0.5) y = 0.5;
+                    if (y > NY + 0.5) y = NY + 0.5;
+                    j0 = Math.floor(y);
+                    j1 = j0 + 1;
+
+                    s1 = x - i0;
+                    s0 = 1.0 - s1;
+                    t1 = y - j0;
+                    t0 = 1.0 - t1;
+
+                    d[IX(i, j)] =
+                        s0 * (t0 * d0[IX(i0, j0)] + t1 * d0[IX(i0, j1)]) +
+                        s1 * (t0 * d0[IX(i1, j0)] + t1 * d0[IX(i1, j1)]);
+                }
+            }
+            set_bnd(b, d);
+        };
+
+        const project = (u, v, p, div) => {
+            const h = 1.0 / Math.max(NX, NY);
+            for (let j = 1; j <= NY; j++) {
+                for (let i = 1; i <= NX; i++) {
+                    div[IX(i, j)] = -0.5 * h * (u[IX(i + 1, j)] - u[IX(i - 1, j)] + v[IX(i, j + 1)] - v[IX(i, j - 1)]);
+                    p[IX(i, j)] = 0;
+                }
+            }
+            set_bnd(0, div);
+            set_bnd(0, p);
+            lin_solve(0, p, div, 1, 4);
+
+            for (let j = 1; j <= NY; j++) {
+                for (let i = 1; i <= NX; i++) {
+                    u[IX(i, j)] -= 0.5 * (p[IX(i + 1, j)] - p[IX(i - 1, j)]) / h;
+                    v[IX(i, j)] -= 0.5 * (p[IX(i, j + 1)] - p[IX(i, j - 1)]) / h;
+                }
+            }
+            set_bnd(1, u);
+            set_bnd(2, v);
+        };
+
+        // --- Main Simulation Step ---
+        const stepSimulation = () => {
+            const dt = 0.02; 
+            const buoyancyFactor = 0.12; 
+            const fadeRate = 1.0; 
+            const tempFadeRate = 0.998; 
+            const friction = 0.985; 
+
+            const leftStart = Math.floor(NX * 0.15);
+            const leftEnd = Math.floor(NX * 0.35);
+            const rightStart = Math.floor(NX * 0.65);
+            const rightEnd = Math.floor(NX * 0.85);
+            
+            const heatHeight = 3;
+            const coolHeight = 12; 
+            
+            if (leftState === 'heat') {
+                for (let j = NY - heatHeight; j <= NY; j++) {
+                    for(let i=leftStart; i < leftEnd; i++) temp[IX(i, j)] += 1.0;
+                }
+            } else if (leftState === 'cool') {
+                for (let j = NY - coolHeight; j <= NY; j++) {
+                    const factor = (j - (NY - coolHeight)) / coolHeight;
+                    for(let i=leftStart; i < leftEnd; i++) temp[IX(i, j)] -= (0.5 + factor * 1.5);
+                }
+            }
+
+            if (rightState === 'heat') {
+                for (let j = NY - heatHeight; j <= NY; j++) {
+                    for(let i = rightStart; i < rightEnd; i++) temp[IX(i, j)] += 1.0;
+                }
+            } else if (rightState === 'cool') {
+                for (let j = NY - coolHeight; j <= NY; j++) {
+                    const factor = (j - (NY - coolHeight)) / coolHeight;
+                    for(let i = rightStart; i < rightEnd; i++) temp[IX(i, j)] -= (0.5 + factor * 1.5);
+                }
+            }
+
+            for (let j = 1; j <= NY; j++) {
+                for (let i = 1; i <= NX; i++) {
+                    const idx = IX(i, j);
+                    Vy[idx] -= temp[idx] * buoyancyFactor * dt;
+                    temp[idx] *= tempFadeRate; 
+                    
+                    Vx[idx] *= friction;
+                    Vy[idx] *= friction;
+                }
+            }
+
+            Vx_prev.set(Vx);
+            Vy_prev.set(Vy);
+            project(Vx, Vy, Vx_prev, Vy_prev);
+            
+            Vx_prev.set(Vx);
+            Vy_prev.set(Vy);
+            advect(1, Vx, Vx_prev, Vx_prev, Vy_prev, dt);
+            advect(2, Vy, Vy_prev, Vx_prev, Vy_prev, dt);
+            project(Vx, Vy, Vx_prev, Vy_prev);
+
+            temp_prev.set(temp);
+            diffuse(0, temp, temp_prev, 0.015, dt);
+            temp_prev.set(temp);
+            advect(0, temp, temp_prev, Vx, Vy, dt);
+
+            // Clamp temperature
+            for (let i = 0; i < SIZE; i++) {
+                if (temp[i] > 7.0) temp[i] = 7.0;
+                if (temp[i] < -2.0) temp[i] = -2.0;
+            }
+
+            const colors = [
+                { d: d_red, p: d_red_prev },
+                { d: d_blue, p: d_blue_prev },
+                { d: d_green, p: d_green_prev },
+                { d: d_black, p: d_black_prev }
+            ];
+
+            colors.forEach(c => {
+                c.p.set(c.d);
+                advect(0, c.d, c.p, Vx, Vy, dt);
+                for(let i = 0; i < SIZE; i++) c.d[i] *= fadeRate;
+            });
+        };
+
+        // --- Rendering Loop ---
+        const render = () => {
+            stepSimulation();
+
+            const width = canvas.width;
+            const height = canvas.height;
+            const cellW = width / NX;
+            const cellH = height / NY;
+
+            ctx.clearRect(0, 0, width, height);
+
+            const imgData = ctx.createImageData(width, height);
+            const data = imgData.data;
+
+            const wR = 215, wG = 240, wB = 250; 
+
+            for (let y = 0; y < height; y++) {
+                for (let x = 0; x < width; x++) {
+                    const gridX = Math.floor(x / cellW) + 1;
+                    const gridY = Math.floor(y / cellH) + 1;
+                    const idx = IX(gridX, gridY);
+
+                    const pxIdx = (y * width + x) * 4;
+
+                    const valR = d_red[idx];
+                    const valB = d_blue[idx];
+                    const valG = d_green[idx];
+                    const valK = d_black[idx];
+                    const totalDye = valR + valB + valG + valK;
+
+                    if (totalDye > 0.1) {
+                        const targetR = (valR * 220 + valB * 30  + valG * 20  + valK * 20) / totalDye;
+                        const targetG = (valR * 30  + valB * 60  + valG * 200 + valK * 20) / totalDye;
+                        const targetB = (valR * 40  + valB * 220 + valG * 60  + valK * 20) / totalDye;
+                        
+                        const alpha = Math.min(1.0, totalDye / 255.0);
+                        
+                        data[pxIdx]     = wR * (1 - alpha) + targetR * alpha; 
+                        data[pxIdx + 1] = wG * (1 - alpha) + targetG * alpha; 
+                        data[pxIdx + 2] = wB * (1 - alpha) + targetB * alpha; 
+                    } else {
+                        data[pxIdx]     = wR;
+                        data[pxIdx + 1] = wG;
+                        data[pxIdx + 2] = wB;
+                    }
+                    data[pxIdx + 3] = 255; 
+                }
+            }
+
+            ctx.putImageData(imgData, 0, 0);
+
+            if (showVectors) {
+                ctx.strokeStyle = 'rgba(0, 0, 0, 0.4)'; 
+                ctx.lineWidth = 1.5; 
+                const step = 3; 
+                for (let j = 2; j <= NY-1; j += step) {
+                    for (let i = 2; i <= NX-1; i += step) {
+                        const idx = IX(i, j);
+                        const vx = Vx[idx];
+                        const vy = Vy[idx];
+                        const speed = Math.sqrt(vx*vx + vy*vy);
+                        
+                        if (speed > 0.001) {
+                            const cx = (i - 0.5) * cellW;
+                            const cy = (j - 0.5) * cellH;
+                            
+                            let arrowLen = speed * 300;
+                            if (arrowLen > 18) arrowLen = 18;
+                            if (arrowLen < 5) arrowLen = 5;
+
+                            const angle = Math.atan2(vy, vx);
+                            const endX = cx + Math.cos(angle) * arrowLen;
+                            const endY = cy + Math.sin(angle) * arrowLen;
+                            
+                            ctx.beginPath();
+                            ctx.moveTo(cx, cy);
+                            ctx.lineTo(endX, endY);
+                            ctx.stroke();
+                            
+                            ctx.beginPath();
+                            ctx.moveTo(endX, endY);
+                            ctx.lineTo(endX - 5 * Math.cos(angle - Math.PI / 6), endY - 5 * Math.sin(angle - Math.PI / 6));
+                            ctx.lineTo(endX - 5 * Math.cos(angle + Math.PI / 6), endY - 5 * Math.sin(angle + Math.PI / 6));
+                            ctx.closePath();
+                            ctx.fillStyle = 'rgba(0,0,0,0.6)';
+                            ctx.fill();
+                        }
+                    }
+                }
+            }
+
+            // Draw Thermometer
+            const tX = thermo.x;
+            const tY = thermo.y;
+            const tGridX = Math.floor(tX / cellW) + 1;
+            const tGridY = Math.floor(tY / cellH) + 1;
+            const tempAbstract = temp[IX(tGridX, tGridY)] || 0;
+            const tempCelsius = (20 + tempAbstract * 10).toFixed(1);
+
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+            ctx.strokeStyle = 'rgba(0, 0, 0, 0.2)';
+            ctx.lineWidth = 1;
+            ctx.shadowColor = 'rgba(0,0,0,0.3)';
+            ctx.shadowBlur = 5;
+            ctx.beginPath();
+            ctx.arc(tX, tY - 35, 5, Math.PI, 0); 
+            ctx.lineTo(tX + 5, tY + 4); 
+            ctx.arc(tX, tY + 6, 10, 0, Math.PI); 
+            ctx.closePath();
+            ctx.fill();
+            ctx.shadowBlur = 0;
+            ctx.stroke();
+
+            ctx.fillStyle = '#ef4444';
+            ctx.beginPath();
+            ctx.arc(tX, tY + 6, 6, 0, Math.PI * 2);
+            ctx.fill();
+
+            const clampedTemp = Math.max(0, Math.min(90, parseFloat(tempCelsius)));
+            const liquidHeight = (clampedTemp / 90) * 35; 
+            ctx.fillRect(tX - 2, tY + 2 - liquidHeight, 4, liquidHeight + 4);
+
+            ctx.strokeStyle = 'rgba(0, 0, 0, 0.3)';
+            ctx.beginPath();
+            for (let i = 0; i <= 4; i++) {
+                const tickY = (tY + 2) - (i * (35 / 4));
+                ctx.moveTo(tX + 2, tickY);
+                ctx.lineTo(tX + 5, tickY);
+            }
+            ctx.stroke();
+
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
+            ctx.shadowColor = 'rgba(0,0,0,0.1)';
+            ctx.shadowBlur = 4;
+            ctx.beginPath();
+            ctx.roundRect(tX + 16, tY - 20, 56, 24, 6);
+            ctx.fill();
+            ctx.shadowBlur = 0;
+
+            ctx.fillStyle = '#1e293b';
+            ctx.font = 'bold 12px sans-serif';
+            ctx.fillText(`${tempCelsius} °C`, tX + 22, tY - 4);
+
+            // Draw Baseplates
+            const leftStartPx = Math.floor(NX * 0.15) * cellW;
+            const rightStartPx = Math.floor(NX * 0.65) * cellW;
+            const heaterPxWidth = Math.floor(NX * 0.2) * cellW;
+            const plateHeight = 8;
+            
+            ctx.fillStyle = leftState === 'heat' ? 'rgba(239, 68, 68, 0.9)' : 
+                            leftState === 'cool' ? 'rgba(59, 130, 246, 0.9)' : 
+                            'rgba(148, 163, 184, 0.8)';
+            ctx.beginPath();
+            ctx.roundRect(leftStartPx, height - plateHeight, heaterPxWidth, plateHeight, [4, 4, 0, 0]);
+            ctx.fill();
+
+            ctx.fillStyle = rightState === 'heat' ? 'rgba(239, 68, 68, 0.9)' : 
+                            rightState === 'cool' ? 'rgba(59, 130, 246, 0.9)' : 
+                            'rgba(148, 163, 184, 0.8)';
+            ctx.beginPath();
+            ctx.roundRect(rightStartPx, height - plateHeight, heaterPxWidth, plateHeight, [4, 4, 0, 0]);
+            ctx.fill();
+
+            requestAnimationFrame(render);
+        };
+
+        // --- Interaction Handlers ---
+        const handleInteraction = (e) => {
+            const rect = canvas.getBoundingClientRect();
+            
+            let clientX, clientY;
+            if (e.touches && e.touches.length > 0) {
+                clientX = e.touches[0].clientX;
+                clientY = e.touches[0].clientY;
+            } else {
+                clientX = e.clientX;
+                clientY = e.clientY;
+            }
+
+            const x = clientX - rect.left;
+            const y = clientY - rect.top;
+
+            if (e.type === 'mousedown' || e.type === 'touchstart') {
+                const dx = x - thermo.x;
+                const dy = y - thermo.y;
+                if (dx >= -12 && dx <= 75 && dy >= -45 && dy <= 18) {
+                    thermo.isDragging = true;
+                    return;
+                } else {
+                    isDrawing = true;
+                }
+            }
+
+            if (thermo.isDragging) {
+                thermo.x = Math.max(16, Math.min(x, canvas.width - 70));
+                thermo.y = Math.max(16, Math.min(y, canvas.height - 16));
+                return;
+            }
+
+            if (!isDrawing && e.type !== 'mousedown' && e.type !== 'touchstart') return;
+
+            const gridX = Math.floor((x / canvas.width) * NX) + 1;
+            const gridY = Math.floor((y / canvas.height) * NY) + 1;
+
+            const radius = 2;
+            for (let dy = -radius; dy <= radius; dy++) {
+                for (let dx = -radius; dx <= radius; dx++) {
+                    const nx = gridX + dx;
+                    const ny = gridY + dy;
+                    if (nx > 0 && nx <= NX && ny > 0 && ny <= NY) {
+                        const idx = IX(nx, ny);
+                        const amount = 300; 
+                        
+                        if (activeDye === 'red') d_red[idx] += amount;
+                        else if (activeDye === 'blue') d_blue[idx] += amount;
+                        else if (activeDye === 'green') d_green[idx] += amount;
+                        else if (activeDye === 'black') d_black[idx] += amount;
+                    }
+                }
+            }
+        };
+
+        canvas.addEventListener('mousedown', handleInteraction);
+        canvas.addEventListener('mousemove', handleInteraction);
+        canvas.addEventListener('mouseup', () => { isDrawing = false; thermo.isDragging = false; });
+        canvas.addEventListener('mouseleave', () => { isDrawing = false; thermo.isDragging = false; });
+        canvas.addEventListener('touchstart', handleInteraction, {passive: true});
+        canvas.addEventListener('touchmove', handleInteraction, {passive: true});
+        canvas.addEventListener('touchend', () => { isDrawing = false; thermo.isDragging = false; });
+
+        // --- UI Logic ---
+        const updateUI = () => {
+            // Vectors btn
+            const btnVectors = document.getElementById('btn-vectors');
+            if (showVectors) {
+                btnVectors.className = 'px-4 py-2 hover:bg-slate-50 border border-slate-200 rounded-lg shadow-sm transition-all flex items-center gap-2 font-medium bg-blue-50 text-blue-700';
+                document.getElementById('label-vectors').innerText = 'Hide Flow';
+            } else {
+                btnVectors.className = 'px-4 py-2 hover:bg-slate-50 border border-slate-200 rounded-lg shadow-sm transition-all flex items-center gap-2 font-medium bg-white text-slate-700';
+                document.getElementById('label-vectors').innerText = 'Show Flow';
+            }
+
+            // Left Heat
+            const btnLeftHeat = document.getElementById('btn-left-heat');
+            if (leftState === 'heat') {
+                btnLeftHeat.className = 'flex-1 py-2 px-3 rounded-lg flex items-center justify-center gap-1.5 transition-all font-medium text-sm shadow-sm bg-red-500 text-white border border-red-600';
+                btnLeftHeat.querySelector('svg').classList.remove('text-red-500');
+            } else {
+                btnLeftHeat.className = 'flex-1 py-2 px-3 rounded-lg flex items-center justify-center gap-1.5 transition-all font-medium text-sm shadow-sm bg-white hover:bg-red-50 text-slate-600 border border-slate-200';
+                btnLeftHeat.querySelector('svg').classList.add('text-red-500');
+            }
+
+            // Left Cool
+            const btnLeftCool = document.getElementById('btn-left-cool');
+            if (leftState === 'cool') {
+                btnLeftCool.className = 'flex-1 py-2 px-3 rounded-lg flex items-center justify-center gap-1.5 transition-all font-medium text-sm shadow-sm bg-blue-500 text-white border border-blue-600';
+                btnLeftCool.querySelector('svg').classList.remove('text-blue-500');
+            } else {
+                btnLeftCool.className = 'flex-1 py-2 px-3 rounded-lg flex items-center justify-center gap-1.5 transition-all font-medium text-sm shadow-sm bg-white hover:bg-blue-50 text-slate-600 border border-slate-200';
+                btnLeftCool.querySelector('svg').classList.add('text-blue-500');
+            }
+
+            // Right Heat
+            const btnRightHeat = document.getElementById('btn-right-heat');
+            if (rightState === 'heat') {
+                btnRightHeat.className = 'flex-1 py-2 px-3 rounded-lg flex items-center justify-center gap-1.5 transition-all font-medium text-sm shadow-sm bg-red-500 text-white border border-red-600';
+                btnRightHeat.querySelector('svg').classList.remove('text-red-500');
+            } else {
+                btnRightHeat.className = 'flex-1 py-2 px-3 rounded-lg flex items-center justify-center gap-1.5 transition-all font-medium text-sm shadow-sm bg-white hover:bg-red-50 text-slate-600 border border-slate-200';
+                btnRightHeat.querySelector('svg').classList.add('text-red-500');
+            }
+
+            // Right Cool
+            const btnRightCool = document.getElementById('btn-right-cool');
+            if (rightState === 'cool') {
+                btnRightCool.className = 'flex-1 py-2 px-3 rounded-lg flex items-center justify-center gap-1.5 transition-all font-medium text-sm shadow-sm bg-blue-500 text-white border border-blue-600';
+                btnRightCool.querySelector('svg').classList.remove('text-blue-500');
+            } else {
+                btnRightCool.className = 'flex-1 py-2 px-3 rounded-lg flex items-center justify-center gap-1.5 transition-all font-medium text-sm shadow-sm bg-white hover:bg-blue-50 text-slate-600 border border-slate-200';
+                btnRightCool.querySelector('svg').classList.add('text-blue-500');
+            }
+
+            // Dye Selection
+            document.querySelectorAll('.dye-btn').forEach(btn => {
+                const color = btn.getAttribute('data-color');
+                const baseClasses = `dye-btn w-10 h-10 rounded-full transition-all border-2 border-white shadow-sm hover:scale-105`;
+                
+                let colorClass = '';
+                let activeRing = '';
+                if(color === 'red') { colorClass = 'bg-red-500'; activeRing = 'ring-red-300'; }
+                if(color === 'blue') { colorClass = 'bg-blue-500'; activeRing = 'ring-blue-300'; }
+                if(color === 'green') { colorClass = 'bg-emerald-500'; activeRing = 'ring-emerald-300'; }
+                if(color === 'black') { colorClass = 'bg-slate-800'; activeRing = 'ring-slate-400'; }
+
+                if (activeDye === color) {
+                    btn.className = `${baseClasses} ${colorClass} ring-4 ${activeRing} scale-110`;
+                } else {
+                    btn.className = `${baseClasses} ${colorClass} opacity-80`;
+                }
+            });
+        };
+
+        // Bind Buttons
+        document.getElementById('btn-vectors').addEventListener('click', () => {
+            showVectors = !showVectors;
+            updateUI();
+        });
+
+        document.getElementById('btn-reset').addEventListener('click', () => {
+            s.fill(0); d_red.fill(0); d_blue.fill(0); d_green.fill(0); d_black.fill(0);
+            d_red_prev.fill(0); d_blue_prev.fill(0); d_green_prev.fill(0); d_black_prev.fill(0);
+            temp.fill(0); temp_prev.fill(0); Vx.fill(0); Vy.fill(0); Vx_prev.fill(0); Vy_prev.fill(0);
+            leftState = 'off';
+            rightState = 'off';
+            updateUI();
+        });
+
+        document.getElementById('btn-left-heat').addEventListener('click', () => { leftState = leftState === 'heat' ? 'off' : 'heat'; updateUI(); });
+        document.getElementById('btn-left-cool').addEventListener('click', () => { leftState = leftState === 'cool' ? 'off' : 'cool'; updateUI(); });
+        document.getElementById('btn-right-heat').addEventListener('click', () => { rightState = rightState === 'heat' ? 'off' : 'heat'; updateUI(); });
+        document.getElementById('btn-right-cool').addEventListener('click', () => { rightState = rightState === 'cool' ? 'off' : 'cool'; updateUI(); });
+
+        document.querySelectorAll('.dye-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                activeDye = e.target.getAttribute('data-color');
+                updateUI();
+            });
+        });
+
+        // Initialize UI and Start Loop
+        updateUI();
+        requestAnimationFrame(render);
+    </script>
+</body>
+</html>
