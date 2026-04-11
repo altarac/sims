@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Seasons Simulator</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-neutral-900 font-sans text-gray-800 select-none flex flex-col items-center justify-center min-h-screen p-4">
+
+  <div class="bg-white rounded-xl shadow-2xl overflow-hidden w-full max-w-5xl border border-gray-300">
+    
+    <!-- Header Tabs -->
+    <div class="flex bg-gray-200 text-gray-600 border-b border-gray-300 relative">
+      <div class="flex-1 flex justify-center space-x-1 pl-4">
+        <button id="btnSpace" class="px-12 py-2 font-bold transition-colors bg-white text-gray-800 shadow-[0_-2px_4px_rgba(0,0,0,0.05)] rounded-t-lg mt-1 z-10">
+          SPACE
+        </button>
+        <button id="btnEarth" class="px-12 py-2 font-bold transition-colors hover:bg-gray-300 mt-1 rounded-t-lg text-gray-500">
+          EARTH
+        </button>
+      </div>
+    </div>
+
+    <!-- Interactive Canvas Area -->
+    <div class="relative bg-[#0f172a] w-full cursor-crosshair overflow-hidden" style="aspect-ratio: 2/1;">
+      <canvas id="simCanvas" width="1000" height="500" class="w-full h-full block"></canvas>
+    </div>
+
+    <!-- Control Panel -->
+    <div class="flex justify-between items-stretch p-4 bg-gray-100 border-t border-gray-300 text-sm">
+      <div class="flex flex-col justify-center space-y-2 w-1/3 text-gray-700">
+        <span id="latDisplay" class="font-bold flex items-center">
+          Current latitude: 44° N
+        </span>
+        <span class="font-bold flex items-center">
+          Earth axis tilt: 23.5° (Fixed)
+        </span>
+      </div>
+      
+      <div class="flex flex-col items-center justify-center space-y-3 w-1/3">
+        <div id="daylightStats" class="text-center text-xs font-semibold text-gray-600 hidden">
+          <div id="juneDaylight">June 21 hours of daylight: --</div>
+          <div id="decDaylight">December 21 hours of daylight: --</div>
+        </div>
+      </div>
+      
+      <div class="flex flex-col justify-center space-y-2 w-1/3 items-end pr-4">
+        <label class="flex items-center space-x-2 cursor-pointer font-bold text-gray-700 hover:text-gray-900 transition-colors">
+          <input type="checkbox" id="chkRays" class="w-4 h-4 accent-orange-500 rounded cursor-pointer" />
+          <span>Show sun rays</span>
+        </label>
+        <label class="flex items-center space-x-2 cursor-pointer font-bold text-gray-700 hover:text-gray-900 transition-colors">
+          <input type="checkbox" id="chkRotate" class="w-4 h-4 accent-orange-500 rounded cursor-pointer" />
+          <span>Rotate Earth</span>
+        </label>
+        <div id="speedControl" class="flex items-center space-x-2 text-xs text-gray-500 mt-0 pt-0 hidden">
+          <span class="font-semibold">Speed:</span>
+          <input type="range" id="speedSlider" min="0.2" max="5" step="0.2" value="1" class="w-24 accent-orange-500 cursor-pointer" />
+        </div>
+        <div id="timeControl" class="flex items-center space-x-2 text-xs text-gray-500 mt-1 hidden">
+          <span class="font-semibold">Time:</span>
+          <input type="range" id="timeSlider" min="0" max="23.99" step="0.1" value="12" class="w-24 accent-orange-500 cursor-pointer" />
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ==========================================
+    // MATH & PHYSICS UTILITIES
+    // ==========================================
+    const clamp = (val, min, max) => Math.min(Math.max(val, min), max);
+    const TILT = 23.5; 
+
+    const SNOWFLAKES = Array.from({length: 100}, () => ({
+      x: Math.random(),
+      y: Math.random(),
+      speed: 0.5 + Math.random() * 1.5,
+      size: 1 + Math.random() * 1.5,
+      drift: Math.random() * Math.PI * 2
+    }));
+
+    function normalizeLat(deg) {
+      let d = deg % 360;
+      if (d < -180) d += 360;
+      if (d > 180) d -= 360;
+      if (d > 90) d = 180 - d;
+      if (d < -90) d = -180 - d;
+      return clamp(d, -90, 90);
+    }
+
+    function getSolarElevation(latitude, declination) {
+      let el = 90 - Math.abs(latitude - declination);
+      return clamp(el, -90, 90);
+    }
+
+    function getDynamicSolarElevation(lat, dec, hourAngle) {
+      let latRad = lat * Math.PI / 180;
+      let decRad = dec * Math.PI / 180;
+      let sinEl = Math.sin(latRad) * Math.sin(decRad) + Math.cos(latRad) * Math.cos(decRad) * Math.cos(hourAngle);
+      let elRad = Math.asin(clamp(sinEl, -1, 1));
+      return elRad * 180 / Math.PI;
+    }
+
+    function formatTime(phase) {
+      let p = ((phase % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
+      let hoursFromNoon = (p / Math.PI) * 12;
+      let totalHours = (12 + hoursFromNoon) % 24;
+      let h = Math.floor(totalHours);
+      let m = Math.floor((totalHours - h) * 60);
+      let ampm = h >= 12 ? 'PM' : 'AM';
+      let displayH = h % 12;
+      if (displayH === 0) displayH = 12;
+      return `${displayH}:${m.toString().padStart(2, '0')} ${ampm}`;
+    }
+
+    function getDaylightHours(latitude, declination) {
+      let latRad = latitude * Math.PI / 180;
+      let decRad = declination * Math.PI / 180;
+      let x = -Math.tan(latRad) * Math.tan(decRad);
+
+      if (x <= -1) return 24;
+      if (x >= 1) return 0;
+
+      let hRad = Math.acos(x);
+      return (2 * hRad * 180 / Math.PI) / 15;
+    }
+
+    function getTemperature(elevation, daylight) {
+      let activeEl = Math.max(0, elevation);
+      let Q = Math.sin(activeEl * Math.PI / 180) * daylight;
+      let tempC = -20 + Q * 3.6;
+      return clamp(tempC, -40, 45); 
+    }
+
+    // ==========================================
+    // APP STATE & ELEMENTS
+    // ==========================================
+    const state = {
+      view: 'space',
+      lat: 44,
+      showRays: false,
+      isRotating: false,
+      rotationSpeed: 1,
+      rotationPhase: 0,
+      draggingType: null
+    };
+
+    const canvas = document.getElementById('simCanvas');
+    const ctx = canvas.getContext('2d');
+    
+    // UI Elements
+    const btnSpace = document.getElementById('btnSpace');
+    const btnEarth = document.getElementById('btnEarth');
+    const latDisplay = document.getElementById('latDisplay');
+    const daylightStats = document.getElementById('daylightStats');
+    const juneDaylight = document.getElementById('juneDaylight');
+    const decDaylight = document.getElementById('decDaylight');
+    const chkRays = document.getElementById('chkRays');
+    const chkRotate = document.getElementById('chkRotate');
+    const speedControl = document.getElementById('speedControl');
+    const speedSlider = document.getElementById('speedSlider');
+    const timeControl = document.getElementById('timeControl');
+    const timeSlider = document.getElementById('timeSlider');
+
+    // ==========================================
+    // UI UPDATES & EVENT LISTENERS
+    // ==========================================
+    function updateUI() {
+      // Tabs
+      if (state.view === 'space') {
+        btnSpace.className = "px-12 py-2 font-bold transition-colors bg-white text-gray-800 shadow-[0_-2px_4px_rgba(0,0,0,0.05)] rounded-t-lg mt-1 z-10";
+        btnEarth.className = "px-12 py-2 font-bold transition-colors hover:bg-gray-300 mt-1 rounded-t-lg text-gray-500";
+        daylightStats.classList.add('hidden');
+        timeControl.classList.add('hidden');
+      } else {
+        btnEarth.className = "px-12 py-2 font-bold transition-colors bg-white text-gray-800 shadow-[0_-2px_4px_rgba(0,0,0,0.05)] rounded-t-lg mt-1 z-10";
+        btnSpace.className = "px-12 py-2 font-bold transition-colors hover:bg-gray-300 mt-1 rounded-t-lg text-gray-500";
+        daylightStats.classList.remove('hidden');
+        timeControl.classList.remove('hidden');
+      }
+
+      // Toggles & Sliders visibility
+      chkRays.checked = state.showRays;
+      chkRotate.checked = state.isRotating;
+      if (state.isRotating) {
+        speedControl.classList.remove('hidden');
+      } else {
+        speedControl.classList.add('hidden');
+      }
+
+      // Text updates
+      latDisplay.textContent = `Current latitude: ${Math.abs(Math.round(state.lat))}° ${state.lat >= 0 ? 'N' : 'S'}`;
+      juneDaylight.textContent = `June 21 hours of daylight: ${getDaylightHours(state.lat, TILT).toFixed(1)}`;
+      decDaylight.textContent = `December 21 hours of daylight: ${getDaylightHours(state.lat, -TILT).toFixed(1)}`;
+    }
+
+    btnSpace.addEventListener('click', () => { state.view = 'space'; updateUI(); });
+    btnEarth.addEventListener('click', () => { state.view = 'earth'; updateUI(); });
+    chkRays.addEventListener('change', (e) => { state.showRays = e.target.checked; updateUI(); });
+    chkRotate.addEventListener('change', (e) => { state.isRotating = e.target.checked; updateUI(); });
+    speedSlider.addEventListener('input', (e) => { state.rotationSpeed = parseFloat(e.target.value); });
+    
+    timeSlider.addEventListener('input', (e) => {
+      let hrs = parseFloat(e.target.value);
+      state.rotationPhase = (hrs - 12) * (Math.PI / 12);
+      state.isRotating = false;
+      updateUI();
+    });
+
+    // MOUSE EVENTS
+    function getCanvasMousePos(e) {
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = canvas.width / rect.width;
+      const scaleY = canvas.height / rect.height;
+      return {
+        x: (e.clientX - rect.left) * scaleX,
+        y: (e.clientY - rect.top) * scaleY
+      };
+    }
+
+    function getMarkers() {
+      const rad = Math.PI / 180;
+      const R = 80; 
+      const cxR = 800, cyR = 250;
+      const latRad = state.lat * rad;
+      const tiltRad = TILT * rad;
+      const aR = Math.PI + latRad + tiltRad;
+
+      return {
+        latRight: { x: cxR + R * Math.cos(aR), y: cyR + R * Math.sin(aR), cx: cxR, cy: cyR },
+      };
+    }
+
+    canvas.addEventListener('mousedown', (e) => {
+      if (state.view !== 'space') return;
+      const mouse = getCanvasMousePos(e);
+      const m = getMarkers();
+      const dist = (p1, p2) => Math.hypot(p1.x - p2.x, p1.y - p2.y);
+      if (dist(mouse, m.latRight) < 25) {
+        state.draggingType = 'latRight';
+        state.dragCX = m.latRight.cx;
+        state.dragCY = m.latRight.cy;
+      }
+    });
+
+    canvas.addEventListener('mousemove', (e) => {
+      if (!state.draggingType) return;
+      const mouse = getCanvasMousePos(e);
+      let theta = Math.atan2(mouse.y - state.dragCY, mouse.x - state.dragCX);
+      let tiltRad = TILT * Math.PI / 180;
+      let calcLat = (theta - Math.PI - tiltRad) * 180 / Math.PI;
+      state.lat = normalizeLat(calcLat);
+      updateUI();
+    });
+
+    const endDrag = () => { state.draggingType = null; };
+    canvas.addEventListener('mouseup', endDrag);
+    canvas.addEventListener('mouseleave', endDrag);
+
+    // ==========================================
+    // DRAWING LOGIC & ANIMATION LOOP
+    // ==========================================
+    function draw() {
+      const width = canvas.width;
+      const height = canvas.height;
+      ctx.clearRect(0, 0, width, height);
+
+      if (state.view === 'space') {
+        drawSpaceView(ctx, width, height, state.lat, state.showRays, state.isRotating, state.rotationPhase);
+      } else {
+        drawEarthView(ctx, width, height, state.lat, state.showRays, state.rotationPhase);
+      }
+    }
+
+    let lastTime = performance.now();
+    function animate(time) {
+      const dt = time - lastTime;
+      lastTime = time;
+      
+      if (state.isRotating) {
+        state.rotationPhase += dt * 0.0002 * state.rotationSpeed;
+      }
+
+      if (timeSlider && state.isRotating) {
+        let p = ((state.rotationPhase % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
+        let hoursFromNoon = p / (Math.PI / 12);
+        let hoursFromMidnight = (hoursFromNoon + 12) % 24;
+        timeSlider.value = hoursFromMidnight;
+      }
+
+      draw();
+      requestAnimationFrame(animate);
+    }
+
+    // Canvas Sub-routines
+    function drawSpaceView(ctx, w, h, lat, showRays, isRotating, phase) {
+      ctx.fillStyle = '#111827';
+      ctx.fillRect(0, 0, w, h);
+      
+      let timeStr = formatTime(phase);
+      ctx.fillStyle = 'rgba(255,255,255,0.9)';
+      ctx.font = 'bold 16px sans-serif';
+      ctx.textAlign = 'right';
+      ctx.fillText(`December 21, ${timeStr}`, w - 20, 30);
+      ctx.textAlign = 'left';
+      ctx.font = '14px sans-serif';
+      ctx.fillText('Not to scale', 20, h - 20);
+
+      const leftX = 200, rightX = 800, sunX = leftX, sunY = h / 2, R = 80, earthY = h / 2;
+
+      if (showRays) {
+        ctx.strokeStyle = 'rgba(255, 235, 59, 0.7)';
+        ctx.lineWidth = 2;
+        for (let y = earthY - R; y <= earthY + R; y += 15) {
+          ctx.beginPath(); ctx.moveTo(sunX + 80, y); ctx.lineTo(rightX, y); ctx.stroke();
+        }
+      }
+
+      const sunGrad = ctx.createRadialGradient(sunX, sunY, 20, sunX, sunY, 120);
+      sunGrad.addColorStop(0, '#ffffff');
+      sunGrad.addColorStop(0.2, '#fde047');
+      sunGrad.addColorStop(0.6, 'rgba(234, 179, 8, 0.3)');
+      sunGrad.addColorStop(1, 'rgba(234, 179, 8, 0)');
+      ctx.fillStyle = sunGrad;
+      ctx.beginPath();
+      ctx.arc(sunX, sunY, 120, 0, Math.PI * 2);
+      ctx.fill();
+
+      drawEarthDisk(ctx, rightX, earthY, R, lat, TILT, isRotating, phase);
+    }
+
+    function drawEarthDisk(ctx, cx, cy, radius, lat, tilt, isRotating, phase) {
+      ctx.save();
+      ctx.translate(cx, cy);
+
+      ctx.save();
+      ctx.rotate(tilt * Math.PI / 180);
+
+      ctx.beginPath();
+      ctx.arc(0, 0, radius, 0, 2 * Math.PI);
+      ctx.fillStyle = '#2b7a9e';
+      ctx.fill();
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(0, 0, radius, 0, 2 * Math.PI);
+      ctx.clip();
+      
+      ctx.fillStyle = '#5c9e47';
+      ctx.beginPath(); ctx.arc(-30, -20, 40, 0, 2*Math.PI); ctx.fill();
+      ctx.beginPath(); ctx.arc(40, 20, 35, 0, 2*Math.PI); ctx.fill();
+      ctx.beginPath(); ctx.arc(-10, 50, 25, 0, 2*Math.PI); ctx.fill();
+      ctx.restore();
+
+      ctx.beginPath();
+      ctx.moveTo(-radius, 0); ctx.lineTo(radius, 0);
+      ctx.strokeStyle = 'rgba(255,255,255,0.7)';
+      ctx.setLineDash([5, 5]); ctx.lineWidth = 2; ctx.stroke(); ctx.setLineDash([]);
+
+      ctx.beginPath();
+      ctx.moveTo(0, -radius * 1.4); ctx.lineTo(0, radius * 1.4);
+      ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2; ctx.stroke();
+
+      ctx.restore(); 
+
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.55)';
+      ctx.beginPath();
+      ctx.arc(0, 0, radius, 1.5 * Math.PI, 0.5 * Math.PI); 
+      ctx.fill();
+
+      ctx.save();
+      ctx.rotate(tilt * Math.PI / 180);
+      
+      let noonAngle = Math.PI;
+      let theta = noonAngle;
+      if (isRotating) theta -= phase;
+      
+      let latRad = lat * Math.PI / 180;
+      let r_lat = radius * Math.cos(latRad);
+      let y_center = -radius * Math.sin(latRad);
+      let perspective = 0.15; 
+
+      if (isRotating) {
+        ctx.beginPath();
+        ctx.ellipse(0, y_center, r_lat, r_lat * perspective, 0, 0, 2 * Math.PI);
+        ctx.strokeStyle = 'rgba(239, 68, 68, 0.5)';
+        ctx.setLineDash([4, 4]); ctx.lineWidth = 1.5; ctx.stroke(); ctx.setLineDash([]);
+      }
+      
+      let x3d = r_lat * Math.cos(theta);
+      let y3d = y_center + r_lat * perspective * Math.sin(theta);
+      let isFront = Math.sin(theta) >= -0.01;
+      let markerAngle2D = Math.atan2(y3d, x3d);
+
+      ctx.translate(x3d, y3d);
+      ctx.rotate(markerAngle2D);
+
+      ctx.beginPath();
+      ctx.moveTo(0, 0); ctx.lineTo(12, -6); ctx.lineTo(12, 6); ctx.closePath();
+
+      if (isFront || !isRotating) {
+        ctx.fillStyle = '#ef4444'; ctx.strokeStyle = '#b91c1c'; ctx.lineWidth = 2;
+        ctx.fill(); ctx.stroke();
+      } else {
+        ctx.fillStyle = 'rgba(239, 68, 68, 0.2)'; ctx.strokeStyle = 'rgba(239, 68, 68, 0.8)'; 
+        ctx.lineWidth = 2; ctx.setLineDash([2, 2]);
+        ctx.fill(); ctx.stroke(); ctx.setLineDash([]);
+      }
+
+      ctx.restore();
+      ctx.restore(); 
+    }
+
+    function drawEarthView(ctx, w, h, lat, showRays, phase) {
+      const panelW = w / 2;
+      drawEnvironmentPanel(ctx, 0, 0, panelW, h, lat, TILT, 'June 21', showRays, phase);
+      
+      ctx.beginPath(); ctx.moveTo(panelW, 0); ctx.lineTo(panelW, h);
+      ctx.strokeStyle = '#cbd5e1'; ctx.lineWidth = 4; ctx.stroke();
+      
+      drawEnvironmentPanel(ctx, panelW, 0, panelW, h, lat, -TILT, 'December 21', showRays, phase);
+    }
+
+    function drawEnvironmentPanel(ctx, xOff, yOff, w, h, lat, declination, title, showRays, phase) {
+      ctx.save();
+      ctx.translate(xOff, yOff);
+      ctx.beginPath(); ctx.rect(0, 0, w, h); ctx.clip();
+
+      let noonElevation = getSolarElevation(lat, declination);
+      let dynamicElevation = getDynamicSolarElevation(lat, declination, phase);
+      let daylight = getDaylightHours(lat, declination);
+      let tempC = getTemperature(noonElevation, daylight);
+      let timeStr = formatTime(phase);
+
+      // Sky
+      if (dynamicElevation <= 0) {
+        ctx.fillStyle = '#0f172a'; 
+      } else {
+        let brightness = Math.max(0.2, dynamicElevation / 90);
+        let skyGrad = ctx.createLinearGradient(0, 0, 0, h);
+        if (tempC < 0) {
+          skyGrad.addColorStop(0, `rgba(135, 206, 235, ${brightness})`);
+          skyGrad.addColorStop(1, `rgba(224, 246, 255, ${brightness + 0.2})`);
+        } else {
+          skyGrad.addColorStop(0, `rgba(56, 189, 248, ${brightness})`);
+          skyGrad.addColorStop(1, `rgba(186, 230, 253, ${brightness + 0.2})`);
+        }
+        ctx.fillStyle = skyGrad;
+      }
+      ctx.fillRect(0, 0, w, h);
+
+      // Title
+      ctx.fillStyle = dynamicElevation <= 0 ? 'rgba(255,255,255,0.8)' : 'rgba(0,0,0,0.8)';
+      ctx.font = 'bold 16px sans-serif'; ctx.textAlign = 'left';
+      ctx.fillText(`${title}, ${timeStr}`, 20, 30);
+
+      // Ground
+      const groundY = h - 60;
+      ctx.fillStyle = tempC < 0 ? '#f8fafc' : '#4ade80';
+      ctx.fillRect(0, groundY, w, h - groundY);
+      
+      // Compass
+      ctx.fillStyle = 'rgba(0,0,0,0.7)';
+      ctx.beginPath(); ctx.arc(40, groundY + 30, 15, 0, 2*Math.PI); ctx.fill();
+      ctx.beginPath(); ctx.arc(w - 40, groundY + 30, 15, 0, 2*Math.PI); ctx.fill();
+      ctx.fillStyle = 'white'; ctx.font = 'bold 16px sans-serif'; 
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(lat >= declination ? 'S' : 'N', 40, groundY + 30);
+      ctx.fillText(lat >= declination ? 'N' : 'S', w - 40, groundY + 30);
+
+      // Tree
+      const treeX = w * 0.7;
+      ctx.fillStyle = '#78350f';
+      ctx.fillRect(treeX - 8, groundY - 120, 16, 120);
+      
+      if (tempC >= 5) {
+        ctx.fillStyle = '#22c55e';
+        ctx.beginPath(); ctx.arc(treeX, groundY - 140, 60, 0, 2*Math.PI); ctx.fill();
+        ctx.beginPath(); ctx.arc(treeX - 40, groundY - 100, 40, 0, 2*Math.PI); ctx.fill();
+        ctx.beginPath(); ctx.arc(treeX + 40, groundY - 100, 40, 0, 2*Math.PI); ctx.fill();
+      } else {
+        ctx.strokeStyle = '#78350f'; ctx.lineWidth = 4;
+        ctx.beginPath(); ctx.moveTo(treeX, groundY - 80); ctx.lineTo(treeX - 40, groundY - 140); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(treeX, groundY - 60); ctx.lineTo(treeX + 40, groundY - 120); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(treeX, groundY - 120); ctx.lineTo(treeX, groundY - 170); ctx.stroke();
+      }
+
+      // Person
+      const personX = w * 0.15;
+      ctx.strokeStyle = dynamicElevation <= 0 ? 'white' : 'black';
+      ctx.fillStyle = dynamicElevation <= 0 ? 'white' : 'black';
+      ctx.lineWidth = 4;
+      ctx.beginPath(); ctx.arc(personX, groundY - 70, 12, 0, 2*Math.PI); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(personX, groundY - 58); ctx.lineTo(personX, groundY - 25); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(personX - 15, groundY - 40); ctx.lineTo(personX + 15, groundY - 40); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(personX, groundY - 25); ctx.lineTo(personX - 12, groundY); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(personX, groundY - 25); ctx.lineTo(personX + 12, groundY); ctx.stroke();
+
+      // Snow
+      if (tempC < 0) {
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+        const timeOffset = performance.now() * 0.02;
+        SNOWFLAKES.forEach(p => {
+          let drift = Math.sin(timeOffset * 0.05 + p.drift) * 15;
+          let px = (p.x * w + drift) % w;
+          if (px < 0) px += w; 
+          let py = (p.y * h + timeOffset * p.speed) % h;
+          ctx.beginPath(); ctx.arc(px, py, p.size, 0, 2 * Math.PI); ctx.fill();
+        });
+        
+        ctx.fillStyle = '#f8fafc';
+        ctx.beginPath(); ctx.ellipse(treeX - 20, groundY - 110, 15, 3, Math.PI / 4, 0, 2*Math.PI); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(treeX + 20, groundY - 90, 12, 3, -Math.PI / 4, 0, 2*Math.PI); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(treeX, groundY - 170, 8, 3, 0, 0, 2*Math.PI); ctx.fill();
+      }
+
+      // Rays
+      if (showRays && dynamicElevation > 0) {
+        ctx.strokeStyle = 'rgba(250, 204, 21, 0.8)';
+        ctx.lineWidth = 3;
+        const angleRad = dynamicElevation * Math.PI / 180;
+        const dirX = lat >= declination ? 1 : -1; 
+        let dx = h / Math.tan(angleRad);
+        if (Math.abs(dx) > w * 10) dx = Math.sign(dx) * w * 10;
+        for (let x = -w; x < w * 2; x += 40) {
+          ctx.beginPath(); ctx.moveTo(x, groundY); ctx.lineTo(x - dirX * dx, 0); ctx.stroke();
+        }
+      }
+
+      // Thermometer
+      const tX = w * 0.45, tY = groundY - 180, tH = 140;
+      ctx.fillStyle = 'white'; ctx.strokeStyle = '#94a3b8'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.roundRect(tX - 8, tY, 16, tH, 8); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = 'white';
+      ctx.beginPath(); ctx.arc(tX, tY + tH, 18, 0, 2*Math.PI); ctx.fill(); ctx.stroke();
+      
+      let fillPct = clamp((tempC + 40) / 90, 0, 1);
+      let fillH = fillPct * (tH - 10);
+      
+      ctx.fillStyle = '#ef4444';
+      ctx.beginPath(); ctx.arc(tX, tY + tH, 14, 0, 2*Math.PI); ctx.fill();
+      ctx.fillRect(tX - 4, tY + tH - fillH, 8, fillH);
+      
+      // Temp Text (Celsius Only as requested)
+      ctx.fillStyle = dynamicElevation <= 0 ? 'white' : 'black';
+      ctx.font = 'bold 18px sans-serif'; ctx.textAlign = 'left';
+      ctx.fillText(`${Math.round(tempC)} °C`, tX + 30, tY + tH - 10);
+      
+      // Daylight Bar Indicator
+      ctx.fillStyle = '#1e293b'; ctx.fillRect(tX + 30, tY + tH + 15, 120, 10);
+      ctx.fillStyle = '#eab308'; ctx.fillRect(tX + 30, tY + tH + 15, 120 * (daylight / 24), 10);
+
+      ctx.restore();
+    }
+
+    // Initialize App
+    updateUI();
+    requestAnimationFrame(animate);
+  </script>
+</body>
+</html>
