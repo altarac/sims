@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Particle Compressibility Simulator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0f172a;
+            color: #f8fafc;
+        }
+
+        /* Custom styling for the range slider */
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 28px;
+            width: 28px;
+            border-radius: 50%;
+            background: #38bdf8;
+            cursor: pointer;
+            margin-top: -10px;
+            box-shadow: 0 0 10px rgba(56, 189, 248, 0.5);
+            transition: transform 0.1s;
+        }
+        input[type=range]::-webkit-slider-thumb:hover {
+            transform: scale(1.1);
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 8px;
+            cursor: pointer;
+            background: #334155;
+            border-radius: 4px;
+        }
+        input[type=range]:focus {
+            outline: none;
+        }
+
+        .tab-btn {
+            transition: all 0.3s ease;
+        }
+        .tab-btn.active-air {
+            background-color: #475569;
+            color: #f8fafc;
+            border-color: #94a3b8;
+        }
+        .tab-btn.active-water {
+            background-color: #1e3a8a;
+            color: #bfdbfe;
+            border-color: #3b82f6;
+        }
+        
+        #canvas-container {
+            box-shadow: inset 0 0 50px rgba(0,0,0,0.5);
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-center p-4">
+
+    <div class="max-w-5xl w-full bg-slate-800 rounded-2xl shadow-2xl overflow-hidden flex flex-col md:flex-row border border-slate-700">
+        
+        <!-- Canvas Section -->
+        <div id="canvas-container" class="w-full md:w-1/2 bg-slate-900 relative flex justify-center items-center p-4 min-h-[550px]">
+            <canvas id="simCanvas" width="400" height="550" class="max-w-full h-auto"></canvas>
+            
+            <!-- Floating Data Labels -->
+            <div class="absolute top-4 left-4 text-xs font-mono text-slate-400">
+                <div>MODE: <span id="lbl-mode" class="text-sky-400 font-bold">AIR (GAS)</span></div>
+                <div>VOL: <span id="lbl-vol" class="text-white">100</span>%</div>
+                <div>PRES: <span id="lbl-pres" class="text-white">1.0</span> ATM</div>
+            </div>
+        </div>
+
+        <!-- Controls Section -->
+        <div class="w-full md:w-1/2 p-8 flex flex-col justify-between">
+            <div>
+                <h1 class="text-3xl font-bold mb-2 text-white tracking-tight">Compressibility</h1>
+                <p class="text-slate-400 mb-8 text-sm leading-relaxed">
+                    Explore how the state of matter affects compressibility. Observe the behavior of particles when external pressure is applied to the syringe.
+                </p>
+
+                <!-- State Toggle -->
+                <div class="flex space-x-4 mb-8">
+                    <button id="btn-air" class="tab-btn active-air flex-1 py-3 px-4 rounded-xl border-2 border-transparent font-semibold flex items-center justify-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z"></path></svg>
+                        Gas (Air)
+                    </button>
+                    <button id="btn-water" class="tab-btn flex-1 py-3 px-4 rounded-xl border-2 border-slate-600 text-slate-400 font-semibold flex items-center justify-center gap-2 hover:bg-slate-700">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 14.66V20a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h5.34"></path><polygon points="18 2 22 6 12 16 8 16 8 12 18 2"></polygon></svg>
+                        Liquid (Water)
+                    </button>
+                </div>
+
+                <!-- Plunger Control -->
+                <div class="mb-8 bg-slate-700/50 p-6 rounded-xl border border-slate-600">
+                    <label for="plungerSlider" class="flex justify-between items-center text-sm font-semibold mb-4">
+                        <span class="text-slate-200">Plunger Force</span>
+                        <span id="force-label" class="bg-slate-900 px-2 py-1 rounded text-sky-400 font-mono">0 N</span>
+                    </label>
+                    <input type="range" id="plungerSlider" min="0" max="100" value="0">
+                    <div class="flex justify-between text-xs text-slate-400 mt-2 font-mono">
+                        <span>PULL</span>
+                        <span>PUSH</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Educational Info Panel -->
+            <div id="info-panel" class="bg-sky-900/20 border border-sky-800/50 p-5 rounded-xl">
+                <h3 class="font-bold text-sky-300 mb-2 flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path></svg>
+                    Observation
+                </h3>
+                <p id="desc-text" class="text-sm text-sky-100/80 leading-relaxed">
+                    Gas particles are spaced far apart and move freely. When force is applied, the empty space allows the particles to be squeezed much closer together, easily compressing the gas and increasing its internal pressure.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- Simulation State & Constants ---
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        let mode = 'air'; // 'air' or 'water'
+        let sliderValue = 0; // 0 to 100
+        
+        // Syringe Geometry
+        const syrX = 120;
+        const syrY = 120;
+        const syrW = 160;
+        const syrH = 300;
+        const nozzleW = 16;
+        const nozzleH = 40;
+        
+        // Plunger bounds
+        const maxPlungerTravelAir = 260; 
+        const maxPlungerTravelWater = 4; // Liquids are virtually incompressible
+        
+        let plungerY = 0;
+        let targetPlungerY = 0;
+        let currentPressure = 1.0;
+        
+        // Particles
+        const airParticles = [];
+        const waterParticles = [];
+        const numAir = 80;
+        
+        // Time tracking for water wobble
+        let time = 0;
+
+        // --- Initialization ---
+        function initParticles() {
+            // Initialize Air Particles
+            for (let i = 0; i < numAir; i++) {
+                airParticles.push({
+                    x: syrX + 10 + Math.random() * (syrW - 20),
+                    y: syrY + 20 + Math.random() * (syrH - 30),
+                    vx: (Math.random() - 0.5) * 6,
+                    vy: (Math.random() - 0.5) * 6,
+                    radius: 4
+                });
+            }
+
+            // Initialize Water Particles (Dense Hexagonal Grid)
+            const cols = 22;
+            const rows = 45;
+            for (let r = 0; r < rows; r++) {
+                for (let c = 0; c < cols; c++) {
+                    waterParticles.push({
+                        nx: (c + (r % 2 === 0 ? 0 : 0.5)) / cols, 
+                        ny: r / rows,
+                        phase: Math.random() * Math.PI * 2,
+                        radius: 3.5
+                    });
+                }
+            }
+        }
+
+        // --- Physics & Math ---
+        function updatePhysics() {
+            // Smoothly move plunger to target
+            plungerY += (targetPlungerY - plungerY) * 0.15;
+            
+            // Calculate constraints based on plunger position
+            const topBound = syrY + plungerY + 20; // Bottom of the rubber seal
+            const bottomBound = syrY + syrH;
+            const leftBound = syrX;
+            const rightBound = syrX + syrW;
+            const currentVolumeRatio = (syrH - plungerY) / syrH;
+
+            // Pressure Calculation
+            if (mode === 'air') {
+                // Boyle's Law: P1 * V1 = P2 * V2 -> P2 = P1 / (V2/V1)
+                currentPressure = 1.0 / Math.max(0.05, currentVolumeRatio);
+            } else {
+                // Liquids have immense bulk modulus. Tiny volume change = massive pressure.
+                // Plunger max travel is 4px. 4px / 300px = ~1.3% compression.
+                const compressionRatio = plungerY / maxPlungerTravelWater; 
+                currentPressure = 1.0 + (compressionRatio * 499); // Scales up to 500 ATM
+            }
+
+            // Update DOM Labels
+            document.getElementById('lbl-vol').textContent = (currentVolumeRatio * 100).toFixed(1);
+            document.getElementById('lbl-pres').textContent = currentPressure.toFixed(1);
+
+            // Update Air Particles
+            if (mode === 'air') {
+                // Temperature/Speed increase as it compresses (Adiabatic compression effect)
+                const speedMult = Math.min(2.5, Math.max(1.0, 1.0 / Math.sqrt(currentVolumeRatio)));
+                
+                for (let p of airParticles) {
+                    p.x += p.vx * speedMult;
+                    p.y += p.vy * speedMult;
+
+                    // Bounds checking & bouncing
+                    if (p.x < leftBound + p.radius) {
+                        p.x = leftBound + p.radius;
+                        p.vx = Math.abs(p.vx);
+                    } else if (p.x > rightBound - p.radius) {
+                        p.x = rightBound - p.radius;
+                        p.vx = -Math.abs(p.vx);
+                    }
+
+                    if (p.y > bottomBound - p.radius) {
+                        p.y = bottomBound - p.radius;
+                        p.vy = -Math.abs(p.vy);
+                    } else if (p.y < topBound + p.radius) {
+                        p.y = topBound + p.radius;
+                        p.vy = Math.abs(p.vy);
+                    }
+                }
+            }
+            
+            time += 0.05;
+        }
+
+        // --- Rendering ---
+        function drawSyringe() {
+            // Gauge Base & Pipe
+            ctx.fillStyle = '#475569';
+            ctx.fillRect(syrX - 25, syrY + syrH - 55, 25, 10);
+            
+            // Draw Gauge Face
+            ctx.beginPath();
+            ctx.arc(syrX - 45, syrY + syrH - 50, 35, 0, Math.PI * 2);
+            ctx.fillStyle = '#1e293b';
+            ctx.fill();
+            ctx.lineWidth = 4;
+            ctx.strokeStyle = '#334155';
+            ctx.stroke();
+            
+            // Gauge Ticks
+            for(let i = 0; i <= 10; i++) {
+                let angle = -Math.PI * 0.8 + (Math.PI * 1.6 * (i / 10));
+                let length = i % 5 === 0 ? 8 : 4;
+                ctx.beginPath();
+                ctx.moveTo((syrX - 45) + Math.cos(angle) * 25, (syrY + syrH - 50) + Math.sin(angle) * 25);
+                ctx.lineTo((syrX - 45) + Math.cos(angle) * (25 - length), (syrY + syrH - 50) + Math.sin(angle) * (25 - length));
+                ctx.strokeStyle = '#94a3b8';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            }
+
+            // Gauge Needle
+            let needleAngle;
+            if (mode === 'air') {
+                // Map 1 to 10 ATM
+                needleAngle = -Math.PI * 0.8 + (Math.PI * 1.6 * (Math.min(10, currentPressure) - 1) / 9);
+            } else {
+                // Map 1 to 500 ATM
+                needleAngle = -Math.PI * 0.8 + (Math.PI * 1.6 * (Math.min(500, currentPressure) - 1) / 499);
+            }
+            ctx.beginPath();
+            ctx.moveTo(syrX - 45, syrY + syrH - 50);
+            ctx.lineTo((syrX - 45) + Math.cos(needleAngle) * 22, (syrY + syrH - 50) + Math.sin(needleAngle) * 22);
+            ctx.strokeStyle = '#ef4444';
+            ctx.lineWidth = 3;
+            ctx.lineCap = 'round';
+            ctx.stroke();
+
+            // Gauge Center Pin
+            ctx.beginPath();
+            ctx.arc(syrX - 45, syrY + syrH - 50, 4, 0, Math.PI * 2);
+            ctx.fillStyle = '#cbd5e1';
+            ctx.fill();
+
+            // Syringe Glass Back/Fill
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.03)';
+            ctx.fillRect(syrX, syrY, syrW, syrH);
+
+            // Measurement marks
+            ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+            ctx.lineWidth = 2;
+            for(let i=1; i<=5; i++) {
+                let yLine = syrY + (syrH/6) * i;
+                ctx.beginPath();
+                ctx.moveTo(syrX, yLine);
+                ctx.lineTo(syrX + 15, yLine);
+                ctx.stroke();
+            }
+        }
+
+        function drawParticles() {
+            const topBound = syrY + plungerY + 20;
+
+            if (mode === 'air') {
+                ctx.fillStyle = '#94a3b8';
+                for (let p of airParticles) {
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    // Add subtle motion trail/glow for high pressure
+                    if (currentPressure > 3) {
+                        ctx.fillStyle = `rgba(148, 163, 184, ${0.1 * currentPressure})`;
+                        ctx.beginPath();
+                        ctx.arc(p.x - p.vx*2, p.y - p.vy*2, p.radius * 1.5, 0, Math.PI * 2);
+                        ctx.fill();
+                        ctx.fillStyle = '#94a3b8';
+                    }
+                }
+            } else {
+                // Water mode
+                ctx.save();
+                
+                // 1. Create a clipping path for the exact interior of the syringe body, slope, and nozzle
+                ctx.beginPath();
+                ctx.moveTo(syrX, topBound);
+                ctx.lineTo(syrX, syrY + syrH);
+                ctx.lineTo(syrX + syrW/2 - nozzleW/2, syrY + syrH + 15);
+                ctx.lineTo(syrX + syrW/2 - nozzleW/2, syrY + syrH + nozzleH);
+                ctx.lineTo(syrX + syrW/2 + nozzleW/2, syrY + syrH + nozzleH);
+                ctx.lineTo(syrX + syrW/2 + nozzleW/2, syrY + syrH + 15);
+                ctx.lineTo(syrX + syrW, syrY + syrH);
+                ctx.lineTo(syrX + syrW, topBound);
+                ctx.closePath();
+                ctx.clip();
+
+                // 2. Draw a subtle base liquid background to fill any tiny gaps near the edges
+                ctx.fillStyle = 'rgba(30, 58, 138, 0.4)';
+                ctx.fill();
+
+                ctx.fillStyle = 'rgba(59, 130, 246, 0.8)';
+                
+                // 3. Extend the available height so particles render all the way down into the nozzle
+                const availableHeight = syrH - plungerY + 35; 
+                
+                for (let p of waterParticles) {
+                    // Map grid to current available boundaries
+                    const targetX = syrX + 6 + p.nx * (syrW - 12);
+                    const targetY = topBound + 6 + p.ny * availableHeight;
+                    
+                    // Add liquid wobble
+                    const dx = Math.sin(time * 2 + p.phase) * 1.5;
+                    const dy = Math.cos(time * 2 + p.phase) * 1.5;
+                    
+                    ctx.beginPath();
+                    ctx.arc(targetX + dx, targetY + dy, p.radius, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+
+                ctx.restore();
+
+                // 4. Liquid top surface line (drawn after restore so it doesn't get clipped)
+                ctx.beginPath();
+                ctx.moveTo(syrX, topBound);
+                ctx.lineTo(syrX + syrW, topBound);
+                ctx.strokeStyle = 'rgba(191, 219, 254, 0.5)';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            }
+        }
+
+        function drawForeground() {
+            // Syringe Glass Outlines
+            ctx.strokeStyle = '#64748b';
+            ctx.lineWidth = 6;
+            ctx.lineCap = 'butt';
+            ctx.lineJoin = 'round';
+            
+            ctx.beginPath();
+            // Left wall
+            ctx.moveTo(syrX, syrY - 10);
+            ctx.lineTo(syrX, syrY + syrH);
+            // Bottom slope to nozzle
+            ctx.lineTo(syrX + syrW/2 - nozzleW/2, syrY + syrH + 15);
+            // Nozzle down
+            ctx.lineTo(syrX + syrW/2 - nozzleW/2, syrY + syrH + nozzleH);
+            // Nozzle across
+            ctx.lineTo(syrX + syrW/2 + nozzleW/2, syrY + syrH + nozzleH);
+            // Nozzle up
+            ctx.lineTo(syrX + syrW/2 + nozzleW/2, syrY + syrH + 15);
+            // Bottom slope up
+            ctx.lineTo(syrX + syrW, syrY + syrH);
+            // Right wall
+            ctx.lineTo(syrX + syrW, syrY - 10);
+            ctx.stroke();
+
+            // Plunger Rod
+            const rodWidth = 24;
+            ctx.fillStyle = '#cbd5e1';
+            ctx.fillRect(syrX + syrW/2 - rodWidth/2, syrY - 180 + plungerY, rodWidth, 180 + 10);
+            
+            // Plunger Handle (Top)
+            ctx.fillStyle = '#94a3b8';
+            ctx.beginPath();
+            ctx.roundRect(syrX + syrW/2 - 50, syrY - 180 + plungerY - 15, 100, 15, 5);
+            ctx.fill();
+
+            // Rubber Seal
+            ctx.fillStyle = '#0f172a';
+            ctx.beginPath();
+            ctx.roundRect(syrX + 2, syrY + plungerY, syrW - 4, 20, 2);
+            ctx.fill();
+            
+            // Rubber Seal Ribs
+            ctx.fillStyle = '#1e293b';
+            ctx.fillRect(syrX + 2, syrY + plungerY + 4, syrW - 4, 3);
+            ctx.fillRect(syrX + 2, syrY + plungerY + 13, syrW - 4, 3);
+
+            // Glass Glare
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
+            ctx.fillRect(syrX + 10, syrY, 20, syrH);
+        }
+
+        function animate() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            updatePhysics();
+            drawSyringe();
+            drawParticles();
+            drawForeground();
+
+            requestAnimationFrame(animate);
+        }
+
+        // --- Event Listeners ---
+        const slider = document.getElementById('plungerSlider');
+        const forceLabel = document.getElementById('force-label');
+        const btnAir = document.getElementById('btn-air');
+        const btnWater = document.getElementById('btn-water');
+        const descText = document.getElementById('desc-text');
+        const lblMode = document.getElementById('lbl-mode');
+
+        slider.addEventListener('input', (e) => {
+            sliderValue = e.target.value;
+            forceLabel.textContent = `${sliderValue} N`;
+            
+            if (mode === 'air') {
+                targetPlungerY = (sliderValue / 100) * maxPlungerTravelAir;
+            } else {
+                targetPlungerY = (sliderValue / 100) * maxPlungerTravelWater;
+            }
+        });
+
+        // Spring back when the user lets go of the slider in air mode
+        slider.addEventListener('change', () => {
+            if (mode === 'air') {
+                slider.value = 0;
+                sliderValue = 0;
+                forceLabel.textContent = `0 N`;
+                targetPlungerY = 0;
+            }
+        });
+
+        function switchMode(newMode) {
+            mode = newMode;
+            
+            // Visual slider reset to simulate plunger snapping back due to liquid resistance
+            if (newMode === 'water' && sliderValue > 10) {
+                slider.value = 0;
+                sliderValue = 0;
+                forceLabel.textContent = `0 N`;
+                targetPlungerY = 0;
+            } else if (newMode === 'air') {
+                targetPlungerY = (sliderValue / 100) * maxPlungerTravelAir;
+            } else if (newMode === 'water') {
+                targetPlungerY = (sliderValue / 100) * maxPlungerTravelWater;
+            }
+
+            if (newMode === 'air') {
+                btnAir.classList.add('active-air');
+                btnAir.classList.remove('border-slate-600', 'text-slate-400');
+                btnWater.classList.remove('active-water');
+                btnWater.classList.add('border-slate-600', 'text-slate-400');
+                
+                lblMode.textContent = "AIR (GAS)";
+                lblMode.className = "text-sky-400 font-bold";
+                descText.innerHTML = "Gas particles are spaced far apart and move freely. When force is applied, the empty space allows the particles to be squeezed much closer together, easily <strong>compressing</strong> the gas and increasing its internal pressure.";
+                
+            } else {
+                btnWater.classList.add('active-water');
+                btnWater.classList.remove('border-slate-600', 'text-slate-400');
+                btnAir.classList.remove('active-air');
+                btnAir.classList.add('border-slate-600', 'text-slate-400');
+                
+                lblMode.textContent = "WATER (LIQUID)";
+                lblMode.className = "text-blue-400 font-bold";
+                descText.innerHTML = "Liquid particles are tightly packed and already touching each other. Because there is almost no empty space between them, the liquid resists force and is virtually <strong>incompressible</strong>, causing pressure to skyrocket with almost zero change in volume.";
+            }
+        }
+
+        btnAir.addEventListener('click', () => switchMode('air'));
+        btnWater.addEventListener('click', () => switchMode('water'));
+
+        // Start
+        initParticles();
+        animate();
+
+    </script>
+</body>
+</html>
