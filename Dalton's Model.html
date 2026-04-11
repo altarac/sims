@@ -1,0 +1,804 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dalton's Atomic Model Builder</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        /* Prevents screen scrolling while dragging atoms on touch devices */
+        #main-svg { touch-action: none; }
+        .active-atom { cursor: grab; }
+        .active-atom:active { cursor: grabbing; }
+        .active-atom:hover { filter: brightness(1.1); }
+        .palette-atom:hover { opacity: 0.8; }
+    </style>
+</head>
+<body class="min-h-screen bg-slate-50 flex flex-col items-center py-10 px-4 font-sans text-slate-800">
+
+    <div class="max-w-4xl w-full bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden">
+        
+        <!-- Dynamic Header & Problem Description -->
+        <div class="p-8 border-b border-slate-200">
+            <div class="flex gap-4 items-start mb-6">
+                <div id="question-counter" class="bg-blue-100 text-blue-700 font-bold px-4 py-1.5 rounded-lg text-lg whitespace-nowrap">
+                    Question 1 of 25
+                </div>
+                <p id="question-description" class="text-lg leading-relaxed pt-1">
+                    Loading description...
+                </p>
+            </div>
+
+            <!-- Dynamic Legend -->
+            <div class="flex justify-center mb-4 mt-8">
+                <table class="border-collapse border border-slate-400 text-center" id="legend-table">
+                    <thead id="legend-head">
+                        <!-- Populated by JS -->
+                    </thead>
+                    <tbody id="legend-body">
+                        <!-- Populated by JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Instructions -->
+        <div class="bg-slate-50 py-4 px-8 flex items-center gap-3 border-b border-slate-200">
+            <i data-lucide="info" class="text-blue-500 w-5 h-5 flex-shrink-0"></i>
+            <p class="text-sm font-medium">
+                Complete Dalton's atomic model. Drag atoms from the toolbox below to build your products in the blue box.
+            </p>
+        </div>
+
+        <!-- SVG Workspace -->
+        <div class="w-full flex justify-center bg-white overflow-hidden p-4">
+            <svg id="main-svg" viewBox="0 0 800 500" class="w-full max-w-4xl touch-none select-none drop-shadow-sm rounded-lg">
+                <!-- Grid Definition -->
+                <g class="grid-lines">
+                    <rect x="10" y="10" width="780" height="330" fill="none" stroke="#64748b" stroke-width="2" />
+                    <line x1="10" y1="50" x2="790" y2="50" stroke="#64748b" stroke-width="2" />
+                    <line x1="10" y1="120" x2="790" y2="120" stroke="#94a3b8" stroke-width="1" />
+                    <line x1="140" y1="10" x2="140" y2="340" stroke="#94a3b8" stroke-width="1" />
+                    <line x1="480" y1="10" x2="480" y2="340" stroke="#94a3b8" stroke-width="1" />
+                </g>
+
+                <!-- Grid Text Headers -->
+                <g text-anchor="middle" dominant-baseline="middle" fill="#0f172a" font-size="16" font-weight="bold">
+                    <rect x="140" y="10" width="340" height="40" fill="#e2e8f0" />
+                    <text x="310" y="32">Reactants</text>
+                    <rect x="480" y="10" width="310" height="40" fill="#e2e8f0" />
+                    <text x="635" y="32">Products</text>
+                    
+                    <text x="75" y="75" font-size="14" font-weight="normal">Chemical</text>
+                    <text x="75" y="95" font-size="14" font-weight="normal">equation</text>
+                    <text x="75" y="220" font-size="14" font-weight="normal">Dalton's</text>
+                    <text x="75" y="240" font-size="14" font-weight="normal">atomic model</text>
+                </g>
+
+                <!-- Dynamic Equation Text -->
+                <g id="equation-text" text-anchor="middle" dominant-baseline="middle" fill="#0f172a" font-size="18" font-style="italic" font-family="serif" letter-spacing="1">
+                    <!-- Populated by JS -->
+                </g>
+
+                <text x="310" y="235" text-anchor="middle" dominant-baseline="middle" font-size="24" fill="#0f172a">+</text>
+                <text x="480" y="235" text-anchor="middle" dominant-baseline="middle" font-size="24" fill="#64748b">&rarr;</text>
+
+                <!-- Product Drop Zone -->
+                <rect x="535" y="140" width="200" height="180" fill="#f8fafc" stroke="#3b82f6" stroke-width="3" rx="8" stroke-dasharray="6 4" />
+                <text id="drop-text" x="635" y="230" text-anchor="middle" fill="#94a3b8" font-size="14" class="pointer-events-none">
+                    Drop atoms here
+                </text>
+
+                <!-- Toolbox Area -->
+                <g transform="translate(0, 360)">
+                    <rect x="10" y="0" width="780" height="130" fill="#f1f5f9" rx="12" stroke="#cbd5e1" stroke-width="1" />
+                    <text x="30" y="30" font-size="16" font-weight="bold" fill="#334155">Atom Toolbox</text>
+                    <text x="30" y="55" font-size="13" fill="#64748b">
+                        Drag from here to spawn atoms. Double-click an atom or drag it to the trash to remove.
+                    </text>
+
+                    <!-- Palettes populated by JS -->
+                    <g id="toolbox-palettes"></g>
+
+                    <rect x="630" y="25" width="140" height="80" rx="8" fill="#fee2e2" stroke="#ef4444" stroke-width="2" stroke-dasharray="4 4" />
+                    <text x="700" y="70" text-anchor="middle" font-size="14" fill="#b91c1c" font-weight="bold" class="pointer-events-none">🗑️ Trash</text>
+                </g>
+
+                <!-- Active Atoms Workspace -->
+                <g id="atoms-container">
+                    <!-- Populated by JS -->
+                </g>
+            </svg>
+        </div>
+
+        <!-- Footer Actions & Feedback -->
+        <div class="p-6 bg-slate-50 border-t border-slate-200 flex flex-col items-center relative">
+            
+            <div id="feedback-container" class="w-full max-w-2xl flex justify-center">
+                <!-- Feedback messages appear here -->
+            </div>
+
+            <div class="flex gap-4 w-full justify-center">
+                <button id="btn-reset" class="flex items-center gap-2 px-5 py-2.5 rounded-lg font-medium text-slate-700 bg-white border border-slate-300 hover:bg-slate-100 transition-colors shadow-sm">
+                    <i data-lucide="refresh-ccw" class="w-4 h-4"></i> Reset Workspace
+                </button>
+                <button id="btn-check" class="flex items-center gap-2 px-8 py-2.5 rounded-lg font-bold text-white bg-blue-600 hover:bg-blue-700 transition-colors shadow-md hover:shadow-lg">
+                    Check Answer
+                </button>
+                
+                <button id="btn-next" class="absolute right-6 flex items-center gap-2 px-5 py-2.5 rounded-lg font-bold transition-all shadow-sm bg-slate-200 text-slate-700 hover:bg-slate-300">
+                    Next <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                </button>
+            </div>
+        </div>
+
+    </div>
+
+<script>
+// ==========================================
+// ELEMENT CONFIGURATION
+// ==========================================
+const ELEMENTS = {
+    Mg: { color: '#94a3b8', radius: 20, stroke: '#475569', name: 'Magnesium' },
+    O:  { color: '#ef4444', radius: 20, stroke: '#991b1b', name: 'Oxygen' },
+    H:  { color: '#ffffff', radius: 14, stroke: '#94a3b8', name: 'Hydrogen' },
+    C:  { color: '#334155', radius: 20, stroke: '#0f172a', name: 'Carbon' },
+    N:  { color: '#3b82f6', radius: 20, stroke: '#1d4ed8', name: 'Nitrogen' },
+    Na: { color: '#a855f7', radius: 20, stroke: '#7e22ce', name: 'Sodium' },
+    Cl: { color: '#22c55e', radius: 22, stroke: '#15803d', name: 'Chlorine' },
+    S:  { color: '#eab308', radius: 24, stroke: '#a16207', name: 'Sulfur' },
+    F:  { color: '#2dd4bf', radius: 16, stroke: '#0f766e', name: 'Fluorine' },
+    K:  { color: '#ec4899', radius: 22, stroke: '#be185d', name: 'Potassium' },
+    Ca: { color: '#f97316', radius: 26, stroke: '#c2410c', name: 'Calcium' },
+    Br: { color: '#8b5cf6', radius: 22, stroke: '#6d28d9', name: 'Bromine' }
+};
+
+// ==========================================
+// QUESTION DATABASE (25 Questions)
+// ==========================================
+const QUESTIONS = [
+    {
+        id: 1, description: "Magnesium (Mg) reacts with Oxygen (O₂) to produce Magnesium Oxide (MgO).",
+        equationSVG: `<text x="220" y="85">2Mg</text><text x="310" y="85">+</text><text x="400" y="85">O<tspan dy="5" font-size="12">2</tspan></text><text x="480" y="85" fill="#64748b">&rarr;</text><text x="635" y="85">2MgO</text>`,
+        elements: ['Mg', 'O'],
+        initialAtoms: [
+            { id: 'r_mg1', type: 'Mg', x: 220, y: 180, moleculeId: 'mol_mg1', locked: true },
+            { id: 'r_mg2', type: 'Mg', x: 220, y: 250, moleculeId: 'mol_mg2', locked: true },
+            { id: 'r_o1', type: 'O', x: 380, y: 215, moleculeId: 'mol_o2', locked: true },
+            { id: 'r_o2', type: 'O', x: 420, y: 215, moleculeId: 'mol_o2', locked: true },
+        ],
+        expectedProducts: [{ count: 2, composition: { Mg: 1, O: 1 } }]
+    },
+    {
+        id: 2, description: "Hydrogen gas (H₂) reacts explosively with Oxygen gas (O₂) to produce Water (H₂O).",
+        equationSVG: `<text x="220" y="85">2H<tspan dy="5" font-size="12">2</tspan></text><text x="310" y="85">+</text><text x="400" y="85">O<tspan dy="5" font-size="12">2</tspan></text><text x="480" y="85" fill="#64748b">&rarr;</text><text x="635" y="85">2H<tspan dy="5" font-size="12">2</tspan><tspan dy="-5">O</tspan></text>`,
+        elements: ['H', 'O'],
+        initialAtoms: [
+            { id: 'h1', type: 'H', x: 205, y: 180, moleculeId: 'm_h1', locked: true },
+            { id: 'h2', type: 'H', x: 233, y: 180, moleculeId: 'm_h1', locked: true },
+            { id: 'h3', type: 'H', x: 205, y: 240, moleculeId: 'm_h2', locked: true },
+            { id: 'h4', type: 'H', x: 233, y: 240, moleculeId: 'm_h2', locked: true },
+            { id: 'o1', type: 'O', x: 380, y: 215, moleculeId: 'm_o1', locked: true },
+            { id: 'o2', type: 'O', x: 420, y: 215, moleculeId: 'm_o1', locked: true },
+        ],
+        expectedProducts: [{ count: 2, composition: { H: 2, O: 1 } }]
+    },
+    {
+        id: 3, description: "Carbon (C) burns completely in Oxygen (O₂) to produce Carbon Dioxide (CO₂).",
+        equationSVG: `<text x="220" y="85">C</text><text x="310" y="85">+</text><text x="400" y="85">O<tspan dy="5" font-size="12">2</tspan></text><text x="480" y="85" fill="#64748b">&rarr;</text><text x="635" y="85">CO<tspan dy="5" font-size="12">2</tspan></text>`,
+        elements: ['C', 'O'],
+        initialAtoms: [
+            { id: 'c1', type: 'C', x: 220, y: 215, moleculeId: 'm_c1', locked: true },
+            { id: 'o1', type: 'O', x: 380, y: 215, moleculeId: 'm_o1', locked: true },
+            { id: 'o2', type: 'O', x: 420, y: 215, moleculeId: 'm_o1', locked: true },
+        ],
+        expectedProducts: [{ count: 1, composition: { C: 1, O: 2 } }]
+    },
+    {
+        id: 4, description: "Nitrogen gas (N₂) and Hydrogen gas (H₂) combine under high pressure to synthesize Ammonia (NH₃).",
+        equationSVG: `<text x="180" y="85">N<tspan dy="5" font-size="12">2</tspan></text><text x="260" y="85">+</text><text x="350" y="85">3H<tspan dy="5" font-size="12">2</tspan></text><text x="480" y="85" fill="#64748b">&rarr;</text><text x="635" y="85">2NH<tspan dy="5" font-size="12">3</tspan></text>`,
+        elements: ['N', 'H'],
+        initialAtoms: [
+            { id: 'n1', type: 'N', x: 160, y: 215, moleculeId: 'm_n1', locked: true },
+            { id: 'n2', type: 'N', x: 200, y: 215, moleculeId: 'm_n1', locked: true },
+            { id: 'h1', type: 'H', x: 335, y: 160, moleculeId: 'm_h1', locked: true },
+            { id: 'h2', type: 'H', x: 363, y: 160, moleculeId: 'm_h1', locked: true },
+            { id: 'h3', type: 'H', x: 335, y: 215, moleculeId: 'm_h2', locked: true },
+            { id: 'h4', type: 'H', x: 363, y: 215, moleculeId: 'm_h2', locked: true },
+            { id: 'h5', type: 'H', x: 335, y: 270, moleculeId: 'm_h3', locked: true },
+            { id: 'h6', type: 'H', x: 363, y: 270, moleculeId: 'm_h3', locked: true },
+        ],
+        expectedProducts: [{ count: 2, composition: { N: 1, H: 3 } }]
+    },
+    {
+        id: 5, description: "Sodium metal (Na) reacts violently with Chlorine gas (Cl₂) to form table salt, Sodium Chloride (NaCl).",
+        equationSVG: `<text x="220" y="85">2Na</text><text x="310" y="85">+</text><text x="400" y="85">Cl<tspan dy="5" font-size="12">2</tspan></text><text x="480" y="85" fill="#64748b">&rarr;</text><text x="635" y="85">2NaCl</text>`,
+        elements: ['Na', 'Cl'],
+        initialAtoms: [
+            { id: 'na1', type: 'Na', x: 220, y: 180, moleculeId: 'm_na1', locked: true },
+            { id: 'na2', type: 'Na', x: 220, y: 250, moleculeId: 'm_na2', locked: true },
+            { id: 'cl1', type: 'Cl', x: 378, y: 215, moleculeId: 'm_cl1', locked: true },
+            { id: 'cl2', type: 'Cl', x: 422, y: 215, moleculeId: 'm_cl1', locked: true },
+        ],
+        expectedProducts: [{ count: 2, composition: { Na: 1, Cl: 1 } }]
+    },
+    {
+        id: 6, description: "Hydrogen gas (H₂) and Chlorine gas (Cl₂) react to form Hydrogen Chloride (HCl).",
+        equationSVG: `<text x="220" y="85">H<tspan dy="5" font-size="12">2</tspan></text><text x="310" y="85">+</text><text x="400" y="85">Cl<tspan dy="5" font-size="12">2</tspan></text><text x="480" y="85" fill="#64748b">&rarr;</text><text x="635" y="85">2HCl</text>`,
+        elements: ['H', 'Cl'],
+        initialAtoms: [
+            { id: 'q6_h1', type: 'H', x: 206, y: 215, moleculeId: 'm_h2', locked: true },
+            { id: 'q6_h2', type: 'H', x: 234, y: 215, moleculeId: 'm_h2', locked: true },
+            { id: 'q6_cl1', type: 'Cl', x: 378, y: 215, moleculeId: 'm_cl2', locked: true },
+            { id: 'q6_cl2', type: 'Cl', x: 422, y: 215, moleculeId: 'm_cl2', locked: true },
+        ],
+        expectedProducts: [{ count: 2, composition: { H: 1, Cl: 1 } }]
+    },
+    {
+        id: 7, description: "Sodium (Na) reacts with Fluorine gas (F₂) to form Sodium Fluoride (NaF).",
+        equationSVG: `<text x="220" y="85">2Na</text><text x="310" y="85">+</text><text x="400" y="85">F<tspan dy="5" font-size="12">2</tspan></text><text x="480" y="85" fill="#64748b">&rarr;</text><text x="635" y="85">2NaF</text>`,
+        elements: ['Na', 'F'],
+        initialAtoms: [
+            { id: 'q7_n1', type: 'Na', x: 220, y: 180, moleculeId: 'm_na1', locked: true },
+            { id: 'q7_n2', type: 'Na', x: 220, y: 250, moleculeId: 'm_na2', locked: true },
+            { id: 'q7_f1', type: 'F', x: 384, y: 215, moleculeId: 'm_f2', locked: true },
+            { id: 'q7_f2', type: 'F', x: 416, y: 215, moleculeId: 'm_f2', locked: true },
+        ],
+        expectedProducts: [{ count: 2, composition: { Na: 1, F: 1 } }]
+    },
+    {
+        id: 8, description: "Carbon (C) reacts with Hydrogen gas (H₂) at high temperatures to form Methane (CH₄).",
+        equationSVG: `<text x="220" y="85">C</text><text x="310" y="85">+</text><text x="400" y="85">2H<tspan dy="5" font-size="12">2</tspan></text><text x="480" y="85" fill="#64748b">&rarr;</text><text x="635" y="85">CH<tspan dy="5" font-size="12">4</tspan></text>`,
+        elements: ['C', 'H'],
+        initialAtoms: [
+            { id: 'q8_c1', type: 'C', x: 220, y: 215, moleculeId: 'm_c1', locked: true },
+            { id: 'q8_h1', type: 'H', x: 386, y: 180, moleculeId: 'm_h1', locked: true },
+            { id: 'q8_h2', type: 'H', x: 414, y: 180, moleculeId: 'm_h1', locked: true },
+            { id: 'q8_h3', type: 'H', x: 386, y: 250, moleculeId: 'm_h2', locked: true },
+            { id: 'q8_h4', type: 'H', x: 414, y: 250, moleculeId: 'm_h2', locked: true },
+        ],
+        expectedProducts: [{ count: 1, composition: { C: 1, H: 4 } }]
+    },
+    {
+        id: 9, description: "Sulfur (S) burns in Oxygen (O₂) to produce Sulfur Dioxide (SO₂).",
+        equationSVG: `<text x="220" y="85">S</text><text x="310" y="85">+</text><text x="400" y="85">O<tspan dy="5" font-size="12">2</tspan></text><text x="480" y="85" fill="#64748b">&rarr;</text><text x="635" y="85">SO<tspan dy="5" font-size="12">2</tspan></text>`,
+        elements: ['S', 'O'],
+        initialAtoms: [
+            { id: 'q9_s1', type: 'S', x: 220, y: 215, moleculeId: 'm_s1', locked: true },
+            { id: 'q9_o1', type: 'O', x: 380, y: 215, moleculeId: 'm_o2', locked: true },
+            { id: 'q9_o2', type: 'O', x: 420, y: 215, moleculeId: 'm_o2', locked: true },
+        ],
+        expectedProducts: [{ count: 1, composition: { S: 1, O: 2 } }]
+    },
+    {
+        id: 10, description: "Nitrogen (N₂) and Oxygen (O₂) react at high temperatures to form Nitric Oxide (NO).",
+        equationSVG: `<text x="220" y="85">N<tspan dy="5" font-size="12">2</tspan></text><text x="310" y="85">+</text><text x="400" y="85">O<tspan dy="5" font-size="12">2</tspan></text><text x="480" y="85" fill="#64748b">&rarr;</text><text x="635" y="85">2NO</text>`,
+        elements: ['N', 'O'],
+        initialAtoms: [
+            { id: 'q10_n1', type: 'N', x: 200, y: 215, moleculeId: 'm_n2', locked: true },
+            { id: 'q10_n2', type: 'N', x: 240, y: 215, moleculeId: 'm_n2', locked: true },
+            { id: 'q10_o1', type: 'O', x: 380, y: 215, moleculeId: 'm_o2', locked: true },
+            { id: 'q10_o2', type: 'O', x: 420, y: 215, moleculeId: 'm_o2', locked: true },
+        ],
+        expectedProducts: [{ count: 2, composition: { N: 1, O: 1 } }]
+    },
+    {
+        id: 11, description: "Nitric Oxide (NO) reacts with Oxygen (O₂) to form Nitrogen Dioxide (NO₂).",
+        equationSVG: `<text x="220" y="85">2NO</text><text x="310" y="85">+</text><text x="400" y="85">O<tspan dy="5" font-size="12">2</tspan></text><text x="480" y="85" fill="#64748b">&rarr;</text><text x="635" y="85">2NO<tspan dy="5" font-size="12">2</tspan></text>`,
+        elements: ['N', 'O'],
+        initialAtoms: [
+            { id: 'q11_n1', type: 'N', x: 200, y: 180, moleculeId: 'm_no1', locked: true },
+            { id: 'q11_o1', type: 'O', x: 240, y: 180, moleculeId: 'm_no1', locked: true },
+            { id: 'q11_n2', type: 'N', x: 200, y: 250, moleculeId: 'm_no2', locked: true },
+            { id: 'q11_o2', type: 'O', x: 240, y: 250, moleculeId: 'm_no2', locked: true },
+            { id: 'q11_o3', type: 'O', x: 380, y: 215, moleculeId: 'm_o2', locked: true },
+            { id: 'q11_o4', type: 'O', x: 420, y: 215, moleculeId: 'm_o2', locked: true },
+        ],
+        expectedProducts: [{ count: 2, composition: { N: 1, O: 2 } }]
+    },
+    {
+        id: 12, description: "Hydrogen (H₂) reacts with Fluorine (F₂) to form Hydrogen Fluoride (HF).",
+        equationSVG: `<text x="220" y="85">H<tspan dy="5" font-size="12">2</tspan></text><text x="310" y="85">+</text><text x="400" y="85">F<tspan dy="5" font-size="12">2</tspan></text><text x="480" y="85" fill="#64748b">&rarr;</text><text x="635" y="85">2HF</text>`,
+        elements: ['H', 'F'],
+        initialAtoms: [
+            { id: 'q12_h1', type: 'H', x: 206, y: 215, moleculeId: 'm_h2', locked: true },
+            { id: 'q12_h2', type: 'H', x: 234, y: 215, moleculeId: 'm_h2', locked: true },
+            { id: 'q12_f1', type: 'F', x: 384, y: 215, moleculeId: 'm_f2', locked: true },
+            { id: 'q12_f2', type: 'F', x: 416, y: 215, moleculeId: 'm_f2', locked: true },
+        ],
+        expectedProducts: [{ count: 2, composition: { H: 1, F: 1 } }]
+    },
+    {
+        id: 13, description: "Potassium (K) reacts violently with Chlorine gas (Cl₂) to produce Potassium Chloride (KCl).",
+        equationSVG: `<text x="220" y="85">2K</text><text x="310" y="85">+</text><text x="400" y="85">Cl<tspan dy="5" font-size="12">2</tspan></text><text x="480" y="85" fill="#64748b">&rarr;</text><text x="635" y="85">2KCl</text>`,
+        elements: ['K', 'Cl'],
+        initialAtoms: [
+            { id: 'q13_k1', type: 'K', x: 220, y: 180, moleculeId: 'm_k1', locked: true },
+            { id: 'q13_k2', type: 'K', x: 220, y: 250, moleculeId: 'm_k2', locked: true },
+            { id: 'q13_cl1', type: 'Cl', x: 378, y: 215, moleculeId: 'm_cl2', locked: true },
+            { id: 'q13_cl2', type: 'Cl', x: 422, y: 215, moleculeId: 'm_cl2', locked: true },
+        ],
+        expectedProducts: [{ count: 2, composition: { K: 1, Cl: 1 } }]
+    },
+    {
+        id: 14, description: "Calcium (Ca) burns in Oxygen (O₂) to produce Calcium Oxide (CaO).",
+        equationSVG: `<text x="220" y="85">2Ca</text><text x="310" y="85">+</text><text x="400" y="85">O<tspan dy="5" font-size="12">2</tspan></text><text x="480" y="85" fill="#64748b">&rarr;</text><text x="635" y="85">2CaO</text>`,
+        elements: ['Ca', 'O'],
+        initialAtoms: [
+            { id: 'q14_ca1', type: 'Ca', x: 220, y: 180, moleculeId: 'm_ca1', locked: true },
+            { id: 'q14_ca2', type: 'Ca', x: 220, y: 250, moleculeId: 'm_ca2', locked: true },
+            { id: 'q14_o1', type: 'O', x: 380, y: 215, moleculeId: 'm_o2', locked: true },
+            { id: 'q14_o2', type: 'O', x: 420, y: 215, moleculeId: 'm_o2', locked: true },
+        ],
+        expectedProducts: [{ count: 2, composition: { Ca: 1, O: 1 } }]
+    },
+    {
+        id: 15, description: "Magnesium (Mg) reacts with Chlorine gas (Cl₂) to form Magnesium Chloride (MgCl₂).",
+        equationSVG: `<text x="220" y="85">Mg</text><text x="310" y="85">+</text><text x="400" y="85">Cl<tspan dy="5" font-size="12">2</tspan></text><text x="480" y="85" fill="#64748b">&rarr;</text><text x="635" y="85">MgCl<tspan dy="5" font-size="12">2</tspan></text>`,
+        elements: ['Mg', 'Cl'],
+        initialAtoms: [
+            { id: 'q15_mg1', type: 'Mg', x: 220, y: 215, moleculeId: 'm_mg1', locked: true },
+            { id: 'q15_cl1', type: 'Cl', x: 378, y: 215, moleculeId: 'm_cl2', locked: true },
+            { id: 'q15_cl2', type: 'Cl', x: 422, y: 215, moleculeId: 'm_cl2', locked: true },
+        ],
+        expectedProducts: [{ count: 1, composition: { Mg: 1, Cl: 2 } }]
+    },
+    {
+        id: 16, description: "Carbon (C) reacts with Sulfur (S) to produce Carbon Disulfide (CS₂).",
+        equationSVG: `<text x="220" y="85">C</text><text x="310" y="85">+</text><text x="400" y="85">2S</text><text x="480" y="85" fill="#64748b">&rarr;</text><text x="635" y="85">CS<tspan dy="5" font-size="12">2</tspan></text>`,
+        elements: ['C', 'S'],
+        initialAtoms: [
+            { id: 'q16_c1', type: 'C', x: 220, y: 215, moleculeId: 'm_c1', locked: true },
+            { id: 'q16_s1', type: 'S', x: 400, y: 180, moleculeId: 'm_s1', locked: true },
+            { id: 'q16_s2', type: 'S', x: 400, y: 250, moleculeId: 'm_s2', locked: true },
+        ],
+        expectedProducts: [{ count: 1, composition: { C: 1, S: 2 } }]
+    },
+    {
+        id: 17, description: "Nitrogen gas (N₂) reacts with excess Oxygen (O₂) to form Nitrogen Dioxide (NO₂).",
+        equationSVG: `<text x="220" y="85">N<tspan dy="5" font-size="12">2</tspan></text><text x="310" y="85">+</text><text x="400" y="85">2O<tspan dy="5" font-size="12">2</tspan></text><text x="480" y="85" fill="#64748b">&rarr;</text><text x="635" y="85">2NO<tspan dy="5" font-size="12">2</tspan></text>`,
+        elements: ['N', 'O'],
+        initialAtoms: [
+            { id: 'q17_n1', type: 'N', x: 200, y: 215, moleculeId: 'm_n2', locked: true },
+            { id: 'q17_n2', type: 'N', x: 240, y: 215, moleculeId: 'm_n2', locked: true },
+            { id: 'q17_o1', type: 'O', x: 380, y: 180, moleculeId: 'm_o2_1', locked: true },
+            { id: 'q17_o2', type: 'O', x: 420, y: 180, moleculeId: 'm_o2_1', locked: true },
+            { id: 'q17_o3', type: 'O', x: 380, y: 250, moleculeId: 'm_o2_2', locked: true },
+            { id: 'q17_o4', type: 'O', x: 420, y: 250, moleculeId: 'm_o2_2', locked: true },
+        ],
+        expectedProducts: [{ count: 2, composition: { N: 1, O: 2 } }]
+    },
+    {
+        id: 18, description: "Methane (CH₄) burns completely in Oxygen (O₂) to produce Carbon Dioxide (CO₂) and Water (H₂O).",
+        equationSVG: `<text x="220" y="85">CH<tspan dy="5" font-size="12">4</tspan></text><text x="310" y="85">+</text><text x="400" y="85">2O<tspan dy="5" font-size="12">2</tspan></text><text x="480" y="85" fill="#64748b">&rarr;</text><text x="635" y="85">CO<tspan dy="5" font-size="12">2</tspan> + 2H<tspan dy="5" font-size="12">2</tspan><tspan dy="-5">O</tspan></text>`,
+        elements: ['C', 'H', 'O'],
+        initialAtoms: [
+            { id: 'q18_c1', type: 'C', x: 220, y: 215, moleculeId: 'm_ch4', locked: true },
+            { id: 'q18_h1', type: 'H', x: 220, y: 181, moleculeId: 'm_ch4', locked: true },
+            { id: 'q18_h2', type: 'H', x: 220, y: 249, moleculeId: 'm_ch4', locked: true },
+            { id: 'q18_h3', type: 'H', x: 186, y: 215, moleculeId: 'm_ch4', locked: true },
+            { id: 'q18_h4', type: 'H', x: 254, y: 215, moleculeId: 'm_ch4', locked: true },
+            { id: 'q18_o1', type: 'O', x: 380, y: 180, moleculeId: 'm_o2_1', locked: true },
+            { id: 'q18_o2', type: 'O', x: 420, y: 180, moleculeId: 'm_o2_1', locked: true },
+            { id: 'q18_o3', type: 'O', x: 380, y: 250, moleculeId: 'm_o2_2', locked: true },
+            { id: 'q18_o4', type: 'O', x: 420, y: 250, moleculeId: 'm_o2_2', locked: true },
+        ],
+        expectedProducts: [{ count: 1, composition: { C: 1, O: 2 } }, { count: 2, composition: { H: 2, O: 1 } }]
+    },
+    {
+        id: 19, description: "Calcium (Ca) reacts with Chlorine gas (Cl₂) to form Calcium Chloride (CaCl₂).",
+        equationSVG: `<text x="220" y="85">Ca</text><text x="310" y="85">+</text><text x="400" y="85">Cl<tspan dy="5" font-size="12">2</tspan></text><text x="480" y="85" fill="#64748b">&rarr;</text><text x="635" y="85">CaCl<tspan dy="5" font-size="12">2</tspan></text>`,
+        elements: ['Ca', 'Cl'],
+        initialAtoms: [
+            { id: 'q19_ca1', type: 'Ca', x: 220, y: 215, moleculeId: 'm_ca', locked: true },
+            { id: 'q19_cl1', type: 'Cl', x: 378, y: 215, moleculeId: 'm_cl2', locked: true },
+            { id: 'q19_cl2', type: 'Cl', x: 422, y: 215, moleculeId: 'm_cl2', locked: true },
+        ],
+        expectedProducts: [{ count: 1, composition: { Ca: 1, Cl: 2 } }]
+    },
+    {
+        id: 20, description: "Magnesium (Mg) reacts with Carbon Dioxide (CO₂) to produce Magnesium Oxide (MgO) and Carbon (C).",
+        equationSVG: `<text x="220" y="85">2Mg</text><text x="310" y="85">+</text><text x="400" y="85">CO<tspan dy="5" font-size="12">2</tspan></text><text x="480" y="85" fill="#64748b">&rarr;</text><text x="635" y="85">2MgO + C</text>`,
+        elements: ['Mg', 'C', 'O'],
+        initialAtoms: [
+            { id: 'q20_mg1', type: 'Mg', x: 220, y: 180, moleculeId: 'm_mg1', locked: true },
+            { id: 'q20_mg2', type: 'Mg', x: 220, y: 250, moleculeId: 'm_mg2', locked: true },
+            { id: 'q20_c1', type: 'C', x: 400, y: 215, moleculeId: 'm_co2', locked: true },
+            { id: 'q20_o1', type: 'O', x: 360, y: 215, moleculeId: 'm_co2', locked: true },
+            { id: 'q20_o2', type: 'O', x: 440, y: 215, moleculeId: 'm_co2', locked: true },
+        ],
+        expectedProducts: [{ count: 2, composition: { Mg: 1, O: 1 } }, { count: 1, composition: { C: 1 } }]
+    },
+    {
+        id: 21, description: "Hydrogen gas (H₂) reacts with Sulfur (S) to produce Hydrogen Sulfide (H₂S).",
+        equationSVG: `<text x="220" y="85">H<tspan dy="5" font-size="12">2</tspan></text><text x="310" y="85">+</text><text x="400" y="85">S</text><text x="480" y="85" fill="#64748b">&rarr;</text><text x="635" y="85">H<tspan dy="5" font-size="12">2</tspan>S</text>`,
+        elements: ['H', 'S'],
+        initialAtoms: [
+            { id: 'q21_h1', type: 'H', x: 206, y: 215, moleculeId: 'm_h2', locked: true },
+            { id: 'q21_h2', type: 'H', x: 234, y: 215, moleculeId: 'm_h2', locked: true },
+            { id: 'q21_s1', type: 'S', x: 400, y: 215, moleculeId: 'm_s1', locked: true },
+        ],
+        expectedProducts: [{ count: 1, composition: { H: 2, S: 1 } }]
+    },
+    {
+        id: 22, description: "Carbon Dioxide (CO₂) reacts with Carbon (C) to produce Carbon Monoxide (CO).",
+        equationSVG: `<text x="220" y="85">CO<tspan dy="5" font-size="12">2</tspan></text><text x="310" y="85">+</text><text x="400" y="85">C</text><text x="480" y="85" fill="#64748b">&rarr;</text><text x="635" y="85">2CO</text>`,
+        elements: ['C', 'O'],
+        initialAtoms: [
+            { id: 'q22_c1', type: 'C', x: 220, y: 215, moleculeId: 'm_co2', locked: true },
+            { id: 'q22_o1', type: 'O', x: 180, y: 215, moleculeId: 'm_co2', locked: true },
+            { id: 'q22_o2', type: 'O', x: 260, y: 215, moleculeId: 'm_co2', locked: true },
+            { id: 'q22_c2', type: 'C', x: 400, y: 215, moleculeId: 'm_c1', locked: true },
+        ],
+        expectedProducts: [{ count: 2, composition: { C: 1, O: 1 } }]
+    },
+    {
+        id: 23, description: "Potassium (K) reacts with Bromine (Br₂) to form Potassium Bromide (KBr).",
+        equationSVG: `<text x="220" y="85">2K</text><text x="310" y="85">+</text><text x="400" y="85">Br<tspan dy="5" font-size="12">2</tspan></text><text x="480" y="85" fill="#64748b">&rarr;</text><text x="635" y="85">2KBr</text>`,
+        elements: ['K', 'Br'],
+        initialAtoms: [
+            { id: 'q23_k1', type: 'K', x: 220, y: 180, moleculeId: 'm_k1', locked: true },
+            { id: 'q23_k2', type: 'K', x: 220, y: 250, moleculeId: 'm_k2', locked: true },
+            { id: 'q23_br1', type: 'Br', x: 378, y: 215, moleculeId: 'm_br2', locked: true },
+            { id: 'q23_br2', type: 'Br', x: 422, y: 215, moleculeId: 'm_br2', locked: true },
+        ],
+        expectedProducts: [{ count: 2, composition: { K: 1, Br: 1 } }]
+    },
+    {
+        id: 24, description: "Sulfur Dioxide (SO₂) reacts with Oxygen (O₂) to form Sulfur Trioxide (SO₃).",
+        equationSVG: `<text x="220" y="85">2SO<tspan dy="5" font-size="12">2</tspan></text><text x="310" y="85">+</text><text x="400" y="85">O<tspan dy="5" font-size="12">2</tspan></text><text x="480" y="85" fill="#64748b">&rarr;</text><text x="635" y="85">2SO<tspan dy="5" font-size="12">3</tspan></text>`,
+        elements: ['S', 'O'],
+        initialAtoms: [
+            { id: 'q24_s1', type: 'S', x: 200, y: 180, moleculeId: 'm_so2_1', locked: true },
+            { id: 'q24_o1', type: 'O', x: 156, y: 180, moleculeId: 'm_so2_1', locked: true },
+            { id: 'q24_o2', type: 'O', x: 244, y: 180, moleculeId: 'm_so2_1', locked: true },
+            { id: 'q24_s2', type: 'S', x: 200, y: 250, moleculeId: 'm_so2_2', locked: true },
+            { id: 'q24_o3', type: 'O', x: 156, y: 250, moleculeId: 'm_so2_2', locked: true },
+            { id: 'q24_o4', type: 'O', x: 244, y: 250, moleculeId: 'm_so2_2', locked: true },
+            { id: 'q24_o5', type: 'O', x: 380, y: 215, moleculeId: 'm_o2', locked: true },
+            { id: 'q24_o6', type: 'O', x: 420, y: 215, moleculeId: 'm_o2', locked: true },
+        ],
+        expectedProducts: [{ count: 2, composition: { S: 1, O: 3 } }]
+    },
+    {
+        id: 25, description: "Carbon Monoxide (CO) burns in Oxygen (O₂) to produce Carbon Dioxide (CO₂).",
+        equationSVG: `<text x="220" y="85">2CO</text><text x="310" y="85">+</text><text x="400" y="85">O<tspan dy="5" font-size="12">2</tspan></text><text x="480" y="85" fill="#64748b">&rarr;</text><text x="635" y="85">2CO<tspan dy="5" font-size="12">2</tspan></text>`,
+        elements: ['C', 'O'],
+        initialAtoms: [
+            { id: 'q25_c1', type: 'C', x: 200, y: 180, moleculeId: 'm_co1', locked: true },
+            { id: 'q25_o1', type: 'O', x: 240, y: 180, moleculeId: 'm_co1', locked: true },
+            { id: 'q25_c2', type: 'C', x: 200, y: 250, moleculeId: 'm_co2', locked: true },
+            { id: 'q25_o2', type: 'O', x: 240, y: 250, moleculeId: 'm_co2', locked: true },
+            { id: 'q25_o3', type: 'O', x: 380, y: 215, moleculeId: 'm_o2', locked: true },
+            { id: 'q25_o4', type: 'O', x: 420, y: 215, moleculeId: 'm_o2', locked: true },
+        ],
+        expectedProducts: [{ count: 2, composition: { C: 1, O: 2 } }]
+    }
+];
+
+// ==========================================
+// STATE MANAGEMENT
+// ==========================================
+let currentIdx = 0;
+let currentQuestion = null;
+let atoms = [];
+let dragInfo = null;
+
+// DOM Elements
+const svgEl = document.getElementById('main-svg');
+const atomsContainer = document.getElementById('atoms-container');
+const dropText = document.getElementById('drop-text');
+const feedbackContainer = document.getElementById('feedback-container');
+
+// ==========================================
+// INITIALIZATION & RENDER
+// ==========================================
+function loadQuestion(idx) {
+    currentIdx = idx;
+    currentQuestion = QUESTIONS[idx];
+    
+    // Deep copy initial atoms
+    atoms = JSON.parse(JSON.stringify(currentQuestion.initialAtoms));
+    
+    // Update Static UI Text
+    document.getElementById('question-counter').innerText = `Question ${idx + 1} of ${QUESTIONS.length}`;
+    document.getElementById('question-description').innerText = currentQuestion.description;
+    document.getElementById('equation-text').innerHTML = currentQuestion.equationSVG;
+    
+    // Update Legend
+    const legendHead = document.getElementById('legend-head');
+    const legendBody = document.getElementById('legend-body');
+    legendHead.innerHTML = `<tr><th colspan="${currentQuestion.elements.length}" class="border border-slate-400 bg-slate-200 py-1 font-semibold">Legend</th></tr><tr>${
+        currentQuestion.elements.map(el => `<th class="border border-slate-400 font-medium py-1 px-4 min-w-[120px]">${ELEMENTS[el].name} (${el})</th>`).join('')
+    }</tr>`;
+    
+    legendBody.innerHTML = `<tr>${
+        currentQuestion.elements.map(el => `
+            <td class="border border-slate-400 py-3">
+                <div class="rounded-full mx-auto" style="width: ${ELEMENTS[el].radius * 2}px; height: ${ELEMENTS[el].radius * 2}px; background-color: ${ELEMENTS[el].color}; border: 2px solid ${ELEMENTS[el].stroke}"></div>
+            </td>
+        `).join('')
+    }</tr>`;
+
+    // Build Toolbox Palettes
+    const palettesContainer = document.getElementById('toolbox-palettes');
+    palettesContainer.innerHTML = currentQuestion.elements.map((el, index) => `
+        <g transform="translate(${150 + (index * 100)}, 85)" class="cursor-pointer palette-atom" data-type="${el}">
+            <circle cx="0" cy="0" r="${ELEMENTS[el].radius}" fill="${ELEMENTS[el].color}" stroke="${ELEMENTS[el].stroke}" stroke-width="2" />
+            <text x="0" y="${ELEMENTS[el].radius + 18}" text-anchor="middle" font-size="14" fill="#334155" font-weight="bold" class="pointer-events-none">${el}</text>
+        </g>
+    `).join('');
+
+    clearFeedback();
+    updateButtonStates();
+    renderAtoms();
+}
+
+function renderAtoms() {
+    atomsContainer.innerHTML = atoms.map(atom => `
+        <g transform="translate(${atom.x}, ${atom.y})" 
+           class="${atom.locked ? '' : 'active-atom'}" 
+           data-id="${atom.id}">
+            <circle cx="2" cy="4" r="${ELEMENTS[atom.type].radius}" fill="rgba(0,0,0,0.15)" class="pointer-events-none" />
+            <circle cx="0" cy="0" r="${ELEMENTS[atom.type].radius}" fill="${ELEMENTS[atom.type].color}" stroke="${ELEMENTS[atom.type].stroke}" stroke-width="2" class="pointer-events-none" />
+        </g>
+    `).join('');
+
+    // Toggle Dropzone text
+    const dropZoneHasAtoms = atoms.some(a => a.x > 535 && a.x < 735 && a.y > 140 && a.y < 320);
+    dropText.style.display = dropZoneHasAtoms ? 'none' : 'block';
+}
+
+// ==========================================
+// DRAG & DROP LOGIC
+// ==========================================
+function getMouseCoords(e) {
+    const CTM = svgEl.getScreenCTM();
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    return {
+        x: (clientX - CTM.e) / CTM.a,
+        y: (clientY - CTM.f) / CTM.d
+    };
+}
+
+svgEl.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    clearFeedback();
+    
+    const pt = getMouseCoords(e);
+    const paletteNode = e.target.closest('.palette-atom');
+    const atomNode = e.target.closest('.active-atom');
+
+    if (paletteNode) {
+        // Spawn from toolbox
+        svgEl.setPointerCapture(e.pointerId);
+        const type = paletteNode.getAttribute('data-type');
+        const newId = `atom_${Date.now()}`;
+        const molId = `mol_${Date.now()}`;
+        
+        atoms.push({ id: newId, type: type, x: pt.x, y: pt.y, moleculeId: molId, locked: false });
+        renderAtoms(); // Re-render to create the DOM node
+        
+        dragInfo = {
+            moleculeId: molId,
+            startMouse: pt,
+            initialPositions: [{ id: newId, x: pt.x, y: pt.y }]
+        };
+    } else if (atomNode) {
+        // Grab existing atom
+        svgEl.setPointerCapture(e.pointerId);
+        const atomId = atomNode.getAttribute('data-id');
+        const targetAtom = atoms.find(a => a.id === atomId);
+        if (!targetAtom || targetAtom.locked) return;
+
+        // Bring to front
+        atoms = atoms.filter(a => a.moleculeId !== targetAtom.moleculeId)
+                     .concat(atoms.filter(a => a.moleculeId === targetAtom.moleculeId));
+        renderAtoms(); // Apply z-index change
+
+        const molAtoms = atoms.filter(a => a.moleculeId === targetAtom.moleculeId);
+        dragInfo = {
+            moleculeId: targetAtom.moleculeId,
+            startMouse: pt,
+            initialPositions: molAtoms.map(a => ({ id: a.id, x: a.x, y: a.y }))
+        };
+    }
+});
+
+svgEl.addEventListener('pointermove', (e) => {
+    if (!dragInfo) return;
+    const pt = getMouseCoords(e);
+    const dx = pt.x - dragInfo.startMouse.x;
+    const dy = pt.y - dragInfo.startMouse.y;
+
+    // Update state and instantly translate DOM elements for high performance
+    atoms.forEach(a => {
+        if (a.moleculeId === dragInfo.moleculeId) {
+            const initPos = dragInfo.initialPositions.find(ia => ia.id === a.id);
+            if(initPos) {
+                a.x = initPos.x + dx;
+                a.y = initPos.y + dy;
+                const domNode = document.querySelector(`.active-atom[data-id="${a.id}"]`);
+                if (domNode) domNode.setAttribute('transform', `translate(${a.x}, ${a.y})`);
+            }
+        }
+    });
+});
+
+svgEl.addEventListener('pointerup', (e) => {
+    if (!dragInfo) return;
+    svgEl.releasePointerCapture(e.pointerId);
+    const pt = getMouseCoords(e);
+    
+    // 1. Check Trash
+    if (pt.x > 630 && pt.x < 770 && pt.y > 380 && pt.y < 460) {
+        atoms = atoms.filter(a => a.moleculeId !== dragInfo.moleculeId);
+        dragInfo = null;
+        renderAtoms();
+        return;
+    }
+
+    // 2. Snapping Logic
+    let draggedAtoms = atoms.filter(a => a.moleculeId === dragInfo.moleculeId);
+    let otherAtoms = atoms.filter(a => a.moleculeId !== dragInfo.moleculeId && !a.locked);
+
+    let snapped = false;
+    let deltaX = 0, deltaY = 0;
+    let targetMoleculeId = null;
+
+    for (let dAtom of draggedAtoms) {
+        if (snapped) break;
+        for (let oAtom of otherAtoms) {
+            const r1 = ELEMENTS[dAtom.type].radius;
+            const r2 = ELEMENTS[oAtom.type].radius;
+            const dist = Math.hypot(dAtom.x - oAtom.x, dAtom.y - oAtom.y);
+            
+            if (dist < (r1 + r2) * 1.5) {
+                const angle = Math.atan2(dAtom.y - oAtom.y, dAtom.x - oAtom.x);
+                const targetX = oAtom.x + Math.cos(angle) * (r1 + r2);
+                const targetY = oAtom.y + Math.sin(angle) * (r1 + r2);
+
+                deltaX = targetX - dAtom.x;
+                deltaY = targetY - dAtom.y;
+                targetMoleculeId = oAtom.moleculeId;
+                snapped = true;
+                break;
+            }
+        }
+    }
+
+    if (snapped) {
+        atoms.forEach(a => {
+            if (a.moleculeId === dragInfo.moleculeId) {
+                a.x += deltaX;
+                a.y += deltaY;
+                a.moleculeId = targetMoleculeId; // merge molecule groups
+            }
+        });
+    }
+
+    dragInfo = null;
+    renderAtoms(); // Final pass to snap visually
+});
+
+// Double click to delete
+svgEl.addEventListener('dblclick', (e) => {
+    const atomNode = e.target.closest('.active-atom');
+    if (atomNode) {
+        const atomId = atomNode.getAttribute('data-id');
+        const targetAtom = atoms.find(a => a.id === atomId);
+        if (targetAtom && !targetAtom.locked) {
+            atoms = atoms.filter(a => a.moleculeId !== targetAtom.moleculeId);
+            renderAtoms();
+        }
+    }
+});
+
+// ==========================================
+// VALIDATION & UI FEEDBACK
+// ==========================================
+function checkAnswer() {
+    clearFeedback();
+    const productAtoms = atoms.filter(a => !a.locked && a.x > 535 && a.x < 735 && a.y > 140 && a.y < 320);
+
+    if (productAtoms.length === 0) {
+        showFeedback('error', "The product box is empty. Drag atoms there to build the products.");
+        return;
+    }
+
+    const molecules = {};
+    productAtoms.forEach(a => {
+        if (!molecules[a.moleculeId]) molecules[a.moleculeId] = [];
+        molecules[a.moleculeId].push(a);
+    });
+
+    const builtMolecules = Object.values(molecules).map(mol => {
+        const composition = {};
+        mol.forEach(atom => { composition[atom.type] = (composition[atom.type] || 0) + 1; });
+        return composition;
+    });
+
+    const expectedMolecules = [];
+    currentQuestion.expectedProducts.forEach(ep => {
+        for (let i = 0; i < ep.count; i++) expectedMolecules.push(ep.composition);
+    });
+
+    if (builtMolecules.length !== expectedMolecules.length) {
+        showFeedback('error', `Incorrect number of molecules. Expected ${expectedMolecules.length}, but found ${builtMolecules.length}.`);
+        return;
+    }
+
+    let remainingExpected = [...expectedMolecules];
+    let allMatched = true;
+
+    for (let built of builtMolecules) {
+        const matchIdx = remainingExpected.findIndex(exp => {
+            const keys = new Set([...Object.keys(built), ...Object.keys(exp)]);
+            for (let k of keys) {
+                if (built[k] !== exp[k]) return false;
+            }
+            return true;
+        });
+
+        if (matchIdx >= 0) {
+            remainingExpected.splice(matchIdx, 1);
+        } else {
+            allMatched = false;
+            break;
+        }
+    }
+
+    if (allMatched && remainingExpected.length === 0) {
+        showFeedback('success', "Correct! You have successfully built the Dalton model for this equation.");
+        document.getElementById('btn-next').classList.replace('bg-slate-200', 'bg-green-500');
+        document.getElementById('btn-next').classList.replace('text-slate-700', 'text-white');
+        document.getElementById('btn-next').classList.add('animate-pulse');
+    } else {
+        showFeedback('error', "Your molecules don't match the required products. Check your atom counts and ensure they are snapped together properly!");
+    }
+}
+
+function showFeedback(type, msg) {
+    feedbackContainer.innerHTML = `
+        <div class="mb-6 w-full p-4 rounded-lg flex items-center gap-3 border ${type === 'success' ? 'bg-green-50 border-green-200 text-green-800' : 'bg-red-50 border-red-200 text-red-800'}">
+            <i data-lucide="${type === 'success' ? 'check-circle-2' : 'x-circle'}" class="w-6 h-6 flex-shrink-0"></i>
+            <p class="font-medium">${msg}</p>
+        </div>
+    `;
+    lucide.createIcons();
+}
+
+function clearFeedback() {
+    feedbackContainer.innerHTML = '';
+    updateButtonStates();
+}
+
+function updateButtonStates() {
+    const nextBtn = document.getElementById('btn-next');
+    nextBtn.className = 'absolute right-6 flex items-center gap-2 px-5 py-2.5 rounded-lg font-bold transition-all shadow-sm bg-slate-200 text-slate-700 hover:bg-slate-300';
+}
+
+// Event Listeners for UI Buttons
+document.getElementById('btn-reset').addEventListener('click', () => {
+    atoms = JSON.parse(JSON.stringify(currentQuestion.initialAtoms));
+    clearFeedback();
+    renderAtoms();
+});
+
+document.getElementById('btn-check').addEventListener('click', checkAnswer);
+
+document.getElementById('btn-next').addEventListener('click', () => {
+    loadQuestion((currentIdx + 1) % QUESTIONS.length);
+});
+
+// Boot up
+document.addEventListener('DOMContentLoaded', () => {
+    lucide.createIcons();
+    loadQuestion(0);
+});
+
+</script>
+</body>
+</html>
