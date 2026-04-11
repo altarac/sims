@@ -1,0 +1,785 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Alveolar Gas Exchange Simulation</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            background-color: #0f172a; /* Slate 900 */
+            color: #f8fafc; /* Slate 50 */
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            overflow-x: hidden;
+        }
+        canvas {
+            display: block;
+            max-width: 100%;
+            height: auto;
+            border-radius: 0.75rem;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }
+        .slider-thumb::-webkit-slider-thumb {
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #3b82f6;
+            cursor: pointer;
+        }
+        .slider-thumb::-moz-range-thumb {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #3b82f6;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col p-4 md:p-8">
+
+    <header class="mb-6">
+        <h1 class="text-3xl md:text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-red-400">
+            Alveolar Gas Exchange Simulation
+        </h1>
+        <p class="text-slate-400 mt-2 max-w-3xl">
+            Watch how oxygen (O₂) and carbon dioxide (CO₂) naturally diffuse across the alveoli-capillary membrane. 
+            Particles move randomly, but a net flow occurs from areas of high concentration to low concentration.
+        </p>
+    </header>
+
+    <main class="flex flex-col lg:flex-row gap-8 items-start">
+        
+        <!-- Simulation Canvas Container -->
+        <div class="w-full lg:w-2/3 bg-slate-800 p-2 md:p-4 rounded-xl border border-slate-700">
+            <canvas id="simCanvas" width="800" height="500" class="bg-slate-900 w-full"></canvas>
+            
+            <div class="flex flex-wrap justify-between mt-4 text-sm px-2">
+                <div class="flex items-center gap-2 mb-2">
+                    <span class="inline-block w-4 h-4 rounded-full bg-white border border-gray-300"></span>
+                    <span>Oxygen (O₂)</span>
+                </div>
+                <div class="flex items-center gap-2 mb-2">
+                    <span class="inline-block w-4 h-4 rounded-full bg-black border border-gray-600"></span>
+                    <span>Carbon Dioxide (CO₂)</span>
+                </div>
+                <div class="flex items-center gap-2 mb-2">
+                    <span class="inline-block w-6 border-b-2 border-dashed border-red-300"></span>
+                    <span>Semi-permeable Membrane</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Dashboard & Controls -->
+        <div class="w-full lg:w-1/3 flex flex-col gap-6">
+            
+            <!-- Controls Panel -->
+            <div class="bg-slate-800 rounded-xl p-6 border border-slate-700">
+                <h2 class="text-xl font-semibold mb-4 border-b border-slate-600 pb-2">Controls</h2>
+                
+                <div class="mb-6">
+                    <button id="playPauseBtn" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-4 rounded transition-colors duration-200">
+                        Pause Simulation
+                    </button>
+                </div>
+
+                <div class="mb-6">
+                    <label class="block text-sm font-medium text-slate-300 mb-2">
+                        Ventilation Rate (Fresh Air)
+                    </label>
+                    <input type="range" id="ventRate" min="1" max="10" value="5" class="w-full h-2 bg-slate-600 rounded-lg appearance-none cursor-pointer slider-thumb">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-slate-300 mb-2">
+                        Blood Flow Rate
+                    </label>
+                    <input type="range" id="bloodRate" min="1" max="10" value="5" class="w-full h-2 bg-slate-600 rounded-lg appearance-none cursor-pointer slider-thumb">
+                </div>
+            </div>
+
+            <!-- Live Stats Panel -->
+            <div class="bg-slate-800 rounded-xl p-6 border border-slate-700">
+                <h2 class="text-xl font-semibold mb-4 border-b border-slate-600 pb-2">Live Concentration</h2>
+                
+                <div class="mb-4 bg-slate-700 p-3 rounded-lg border border-slate-600">
+                    <h3 class="text-white font-medium mb-1">Breathing Phase</h3>
+                    <div id="uiBreathingPhase" class="text-2xl font-bold text-blue-400 uppercase">HOLD</div>
+                </div>
+
+                <div class="mb-4 bg-slate-700 p-3 rounded-lg border border-slate-600">
+                    <h3 class="text-blue-200 font-medium mb-2 flex items-center gap-2">
+                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M5.5 16a3.5 3.5 0 01-.369-6.98 4 4 0 117.759-1.576 3.5 3.5 0 11-7.39 8.556z"></path></svg>
+                        In the Alveolus
+                    </h3>
+                    <div class="flex justify-between items-center text-sm">
+                        <span class="text-slate-300">O₂ Particles:</span>
+                        <span id="alvO2" class="font-mono text-white text-lg font-bold">0</span>
+                    </div>
+                    <div class="flex justify-between items-center text-sm mt-1">
+                        <span class="text-slate-300">CO₂ Particles:</span>
+                        <span id="alvCO2" class="font-mono text-gray-400 text-lg font-bold">0</span>
+                    </div>
+                </div>
+
+                <div class="bg-slate-700 p-3 rounded-lg border border-slate-600">
+                    <h3 class="text-red-300 font-medium mb-2 flex items-center gap-2">
+                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clip-rule="evenodd"></path></svg>
+                        In the Capillary
+                    </h3>
+                    <div class="flex justify-between items-center text-sm">
+                        <span class="text-slate-300">O₂ Particles:</span>
+                        <span id="capO2" class="font-mono text-white text-lg font-bold">0</span>
+                    </div>
+                    <div class="flex justify-between items-center text-sm mt-1">
+                        <span class="text-slate-300">CO₂ Particles:</span>
+                        <span id="capCO2" class="font-mono text-gray-400 text-lg font-bold">0</span>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <script>
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // --- UI Elements ---
+        const playPauseBtn = document.getElementById('playPauseBtn');
+        const ventRateSlider = document.getElementById('ventRate');
+        const bloodRateSlider = document.getElementById('bloodRate');
+        
+        const uiAlvO2 = document.getElementById('alvO2');
+        const uiAlvCO2 = document.getElementById('alvCO2');
+        const uiCapO2 = document.getElementById('capO2');
+        const uiCapCO2 = document.getElementById('capCO2');
+        const uiBreathingPhase = document.getElementById('uiBreathingPhase');
+
+        // --- Simulation State ---
+        let isRunning = true;
+        let particles = [];
+        let rbcs = [];
+        
+        let breathingState = 'HOLD'; // 'INHALE', 'HOLD', 'EXHALE'
+        let breathingTimer = 0;
+        const STATE_DURATIONS = {
+            'INHALE': 120,
+            'HOLD': 250,
+            'EXHALE': 120
+        };
+        
+        // Physics constants
+        const DIFFUSION_JITTER = 1.8;
+        const DAMPING = 0.88;
+        
+        // Canvas Dimensions
+        const WIDTH = 800;
+        const HEIGHT = 500;
+        
+        // Complex Omega Geometry Constants
+        const ALV_CX = 400;
+        const ALV_CY = 230;
+        const ALV_R = 140;
+        const CAP_W = 75;
+        const BRONCH_LEFT = 360;
+        const BRONCH_RIGHT = 440;
+        const BRONCH_TOP = -20;
+        
+        // Shoulder Curves for the Upside-Down Omega
+        const L_SHLDR_CX = 135;
+        const R_SHLDR_CX = 665;
+        const PIPE_TOP = 105; // Inner wall of horizontal pipes
+        const PIPE_BOT = 180; // Outer wall of horizontal pipes
+
+        // --- Classes ---
+
+        class Particle {
+            constructor(type, x, y) {
+                this.type = type; // 'O2' or 'CO2'
+                this.x = x;
+                this.y = y;
+                this.vx = 0;
+                this.vy = 0;
+                this.radius = 3;
+                this.attachedRBC = null;
+                this.targetRBC = null;
+                this.offsetX = 0;
+                this.offsetY = 0;
+                this.inCapillary = type === 'CO2'; // CO2 starts in blood, O2 starts in air
+            }
+
+            attachTo(rbc) {
+                this.attachedRBC = rbc;
+                this.inCapillary = true;
+                this.offsetX = (Math.random() - 0.5) * 20;
+                this.offsetY = (Math.random() - 0.5) * 20;
+                if (this.type === 'O2') rbc.o2Count++;
+            }
+
+            reflect(nx, ny) {
+                let dot = this.vx * nx + this.vy * ny;
+                this.vx -= 2 * dot * nx;
+                this.vy -= 2 * dot * ny;
+            }
+
+            enforceBoundaries() {
+                if (!this.inCapillary) {
+                    // Bronchiole walls
+                    if (this.y < ALV_CY - 96) {
+                        if (this.x < BRONCH_LEFT + this.radius) { this.x = BRONCH_LEFT + this.radius; this.vx *= -1; }
+                        if (this.x > BRONCH_RIGHT - this.radius) { this.x = BRONCH_RIGHT - this.radius; this.vx *= -1; }
+                        return;
+                    }
+                    
+                    // Alveolus circular walls
+                    let dx = this.x - ALV_CX, dy = this.y - ALV_CY;
+                    let dist = Math.hypot(dx, dy);
+                    if (dist > ALV_R - this.radius) {
+                        let inBronchioleOpening = (this.y < ALV_CY && this.x > BRONCH_LEFT && this.x < BRONCH_RIGHT);
+                        if (!inBronchioleOpening) {
+                            // Solid wall or Membrane reflection
+                            let nx = dx/dist, ny = dy/dist;
+                            this.x = ALV_CX + nx*(ALV_R - this.radius); 
+                            this.y = ALV_CY + ny*(ALV_R - this.radius);
+                            this.reflect(-nx, -ny);
+                        }
+                    }
+                } else {
+                    // Inside Capillary
+                    if (this.y < ALV_CY) {
+                        if (this.x < L_SHLDR_CX) {
+                            if (this.y < PIPE_TOP + this.radius) { this.y = PIPE_TOP + this.radius; this.vy *= -1; }
+                            if (this.y > PIPE_BOT - this.radius) { this.y = PIPE_BOT - this.radius; this.vy *= -1; }
+                        } else if (this.x > R_SHLDR_CX) {
+                            if (this.y < PIPE_TOP + this.radius) { this.y = PIPE_TOP + this.radius; this.vy *= -1; }
+                            if (this.y > PIPE_BOT - this.radius) { this.y = PIPE_BOT - this.radius; this.vy *= -1; }
+                        } else if (this.x < ALV_CX - ALV_R) { // Left Shoulder curve
+                            let dx = this.x - L_SHLDR_CX, dy = this.y - ALV_CY;
+                            let dist = Math.hypot(dx, dy);
+                            if (dist < 50 + this.radius) { // Outer pipe wall
+                                let nx = dx/dist, ny = dy/dist;
+                                this.x = L_SHLDR_CX + nx*(50 + this.radius); this.y = ALV_CY + ny*(50 + this.radius);
+                                this.reflect(nx, ny);
+                            } else if (dist > 125 - this.radius) { // Inner pipe wall
+                                let nx = dx/dist, ny = dy/dist;
+                                this.x = L_SHLDR_CX + nx*(125 - this.radius); this.y = ALV_CY + ny*(125 - this.radius);
+                                this.reflect(-nx, -ny);
+                            }
+                        } else if (this.x > ALV_CX + ALV_R) { // Right Shoulder curve
+                            let dx = this.x - R_SHLDR_CX, dy = this.y - ALV_CY;
+                            let dist = Math.hypot(dx, dy);
+                            if (dist < 50 + this.radius) {
+                                let nx = dx/dist, ny = dy/dist;
+                                this.x = R_SHLDR_CX + nx*(50 + this.radius); this.y = ALV_CY + ny*(50 + this.radius);
+                                this.reflect(nx, ny);
+                            } else if (dist > 125 - this.radius) {
+                                let nx = dx/dist, ny = dy/dist;
+                                this.x = R_SHLDR_CX + nx*(125 - this.radius); this.y = ALV_CY + ny*(125 - this.radius);
+                                this.reflect(-nx, -ny);
+                            }
+                        }
+                    } else {
+                        // Central Arc (bottom half)
+                        let dx = this.x - ALV_CX, dy = this.y - ALV_CY;
+                        let dist = Math.hypot(dx, dy);
+                        if (dist > 215 - this.radius) { // Outer bounds
+                            let nx = dx/dist, ny = dy/dist;
+                            this.x = ALV_CX + nx*(215 - this.radius); this.y = ALV_CY + ny*(215 - this.radius);
+                            this.reflect(-nx, -ny);
+                        } else if (dist < 140 + this.radius) { // Membrane bounds
+                            if (this.type === 'CO2') {
+                                this.inCapillary = false; // CO2 crossed membrane into alveolus!
+                            } else if (this.type === 'O2' && !this.targetRBC) {
+                                let nx = dx/dist, ny = dy/dist;
+                                this.x = ALV_CX + nx*(140 + this.radius); this.y = ALV_CY + ny*(140 + this.radius);
+                                this.reflect(nx, ny);
+                            }
+                        }
+                    }
+                }
+            }
+
+            update(ventRate, bloodRate) {
+                if (this.attachedRBC) {
+                    this.inCapillary = true;
+                    this.x = this.attachedRBC.x + this.offsetX;
+                    this.y = this.attachedRBC.y + this.offsetY;
+
+                    // CO2 Detaches when RBC enters the central exchange zone
+                    if (this.type === 'CO2' && this.attachedRBC.s > 350 && this.attachedRBC.s < 750) {
+                        if (Math.random() < 0.02) { // Lowered for a gradual release across the membrane
+                            this.attachedRBC = null;
+                            // Eject aggressively towards alveolus center
+                            let dx = ALV_CX - this.x;
+                            let dy = ALV_CY - this.y;
+                            let dist = Math.hypot(dx, dy);
+                            this.vx = (dx/dist) * 3.0 + (Math.random() - 0.5) * 2;
+                            this.vy = (dy/dist) * 3.0 + (Math.random() - 0.5) * 2;
+                        }
+                    }
+                    return; // Skip fluid physics if attached
+                }
+
+                if (this.targetRBC) {
+                    let dx = this.targetRBC.x - this.x;
+                    let dy = this.targetRBC.y - this.y;
+                    let distSq = dx * dx + dy * dy;
+                    
+                    if (distSq < 100) { 
+                        if (this.targetRBC.o2Count < 4) {
+                            this.targetRBC.incomingO2--;
+                            this.attachTo(this.targetRBC);
+                        } else {
+                            this.targetRBC.incomingO2--;
+                            this.targetRBC = null;
+                            this.vy = -2.0; // Bounce back if rejected
+                        }
+                    } else {
+                        // Home towards target
+                        this.x += dx * 0.15;
+                        this.y += dy * 0.15;
+                    }
+                    return; // Don't enforce boundaries while homing over membrane
+                }
+
+                let dx_alv = this.x - ALV_CX;
+                let dy_alv = this.y - ALV_CY;
+                let dist_alv = Math.hypot(dx_alv, dy_alv);
+                let inBronchiole = (this.y < ALV_CY - 50 && this.x > BRONCH_LEFT && this.x < BRONCH_RIGHT);
+
+                // 1. Scan for RBC targets (O2 near membrane)
+                if (!this.inCapillary && this.type === 'O2' && this.y >= ALV_CY - 10 && dist_alv < ALV_R && dist_alv > ALV_R - 40) {
+                    this.vx += (dx_alv/dist_alv) * 0.3; // Active pull outward to membrane
+                    this.vy += (dy_alv/dist_alv) * 0.3;
+
+                    for (let i = 0; i < rbcs.length; i++) {
+                        let rbc = rbcs[i];
+                        if (rbc.s > 250 && rbc.s < 850 && rbc.o2Count + rbc.incomingO2 < 4) {
+                            let rdx = rbc.x - this.x;
+                            let rdy = rbc.y - this.y;
+                            if (rdx * rdx + rdy * rdy < 15000) { // Lock on radius
+                                this.targetRBC = rbc;
+                                rbc.incomingO2++;
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                // 2. Brownian Motion
+                this.vx += (Math.random() - 0.5) * DIFFUSION_JITTER;
+                this.vy += (Math.random() - 0.5) * DIFFUSION_JITTER;
+
+                // Active Diffusion Bias for CO2
+                if (this.inCapillary && this.type === 'CO2') {
+                    if (this.y > ALV_CY) {
+                        this.vx -= (dx_alv/dist_alv) * 0.6; // Pull inward to membrane
+                        this.vy -= (dy_alv/dist_alv) * 0.6;
+                    } else if (this.y > PIPE_TOP + 20) {
+                        this.vy += 0.5; // Push down away from straight pipe ceiling into the membrane arc
+                    }
+                }
+
+                // 3. Complex Fluid Tangential Forces
+                let speed = bloodRate * 0.04;
+                if (this.inCapillary) {
+                    if (this.y < ALV_CY) {
+                        if (this.x < L_SHLDR_CX) { this.vx += speed; } // Left pipe
+                        else if (this.x > R_SHLDR_CX) { this.vx += speed; } // Right pipe
+                        else if (this.x < ALV_CX - ALV_R) { // Left Shoulder Turn
+                            let dx = this.x - L_SHLDR_CX, dy = this.y - ALV_CY;
+                            let dist = Math.hypot(dx, dy) || 1;
+                            this.vx -= (dy / dist) * speed;
+                            this.vy += (dx / dist) * speed;
+                        } else if (this.x > ALV_CX + ALV_R) { // Right Shoulder Turn
+                            let dx = this.x - R_SHLDR_CX, dy = this.y - ALV_CY;
+                            let dist = Math.hypot(dx, dy) || 1;
+                            this.vx -= (dy / dist) * speed;
+                            this.vy += (dx / dist) * speed;
+                        }
+                    } else { // Central Arc Turn
+                        this.vx += (dy_alv / dist_alv) * speed;
+                        this.vy -= (dx_alv / dist_alv) * speed;
+                    }
+                } else {
+                    // Bronchiole / Alveolus breathing flows
+                    if (breathingState === 'INHALE') {
+                        if (inBronchiole) this.vy += (ventRate * 0.15); 
+                    } else if (breathingState === 'EXHALE') {
+                        let tx = ALV_CX - this.x;
+                        let ty = BRONCH_TOP - this.y;
+                        let tdist = Math.hypot(tx, ty) || 1;
+                        this.vx += (tx/tdist) * ventRate * 0.08;
+                        this.vy += (ty/tdist) * ventRate * 0.08;
+                        if (inBronchiole) this.vy -= ventRate * 0.15;
+                    }
+                }
+
+                // Damp & Move
+                this.vx *= DAMPING;
+                this.vy *= DAMPING;
+                this.x += this.vx;
+                this.y += this.vy;
+
+                this.enforceBoundaries();
+            }
+
+            draw(ctx) {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                if (this.type === 'O2') {
+                    ctx.fillStyle = '#ffffff';
+                    ctx.strokeStyle = '#94a3b8';
+                } else {
+                    ctx.fillStyle = '#000000';
+                    ctx.strokeStyle = '#475569';
+                }
+                ctx.fill();
+                ctx.lineWidth = 1;
+                ctx.stroke();
+            }
+        }
+
+        class RedBloodCell {
+            constructor() {
+                this.s = 0; // 1D Position along the Omega path
+                this.r_offset = (Math.random() - 0.5) * 40; // Offset from centerline
+                this.o2Count = 0;
+                this.incomingO2 = 0;
+                this.updatePosition();
+            }
+            updatePosition() {
+                // Fixed Path Lengths
+                let len_L_pipe = L_SHLDR_CX; // 135
+                let len_L_arc = Math.PI/2 * 87.5; // ~137.4
+                let len_C_arc = Math.PI * 177.5; // ~557.6
+                let len_R_arc = Math.PI/2 * 87.5; // ~137.4
+
+                if (this.s < len_L_pipe) {
+                    this.x = this.s;
+                    this.y = 142.5 + this.r_offset;
+                } else if (this.s < len_L_pipe + len_L_arc) {
+                    let l = this.s - len_L_pipe;
+                    let theta = -Math.PI/2 + (l / 87.5);
+                    let r = 87.5 - this.r_offset; 
+                    this.x = L_SHLDR_CX + r * Math.cos(theta);
+                    this.y = ALV_CY + r * Math.sin(theta);
+                } else if (this.s < len_L_pipe + len_L_arc + len_C_arc) {
+                    let l = this.s - (len_L_pipe + len_L_arc);
+                    let theta = Math.PI - (l / 177.5);
+                    let r = 177.5 + this.r_offset; 
+                    this.x = ALV_CX + r * Math.cos(theta);
+                    this.y = ALV_CY + r * Math.sin(theta);
+                } else if (this.s < len_L_pipe + len_L_arc + len_C_arc + len_R_arc) {
+                    let l = this.s - (len_L_pipe + len_L_arc + len_C_arc);
+                    let theta = Math.PI + (l / 87.5); 
+                    let r = 87.5 - this.r_offset; 
+                    this.x = R_SHLDR_CX + r * Math.cos(theta);
+                    this.y = ALV_CY + r * Math.sin(theta);
+                } else {
+                    let l = this.s - (len_L_pipe + len_L_arc + len_C_arc + len_R_arc);
+                    this.x = R_SHLDR_CX + l;
+                    this.y = 142.5 + this.r_offset;
+                }
+            }
+            update(bloodRate) {
+                // --- Emergency O2 Demand ---
+                // Ensure RBCs pick up at least 2 O2 particles before leaving the exchange zone (s = ~830)
+                let needsO2 = (this.s > 600 && this.s < 830 && (this.o2Count + this.incomingO2) < 2);
+                
+                if (needsO2) {
+                    this.s += bloodRate * 0.1; // Slow down drastically to give O2 time to attach
+                    
+                    // Actively pull the closest available O2 from the alveolus
+                    let closestO2 = null;
+                    let minDistSq = Infinity;
+                    for (let i = 0; i < particles.length; i++) {
+                        let p = particles[i];
+                        // Look for free O2 in the main body of the alveolus
+                        if (p.type === 'O2' && !p.inCapillary && !p.targetRBC && p.y > ALV_CY - 100) {
+                            let dx = p.x - this.x;
+                            let dy = p.y - this.y;
+                            let distSq = dx*dx + dy*dy;
+                            if (distSq < minDistSq) {
+                                minDistSq = distSq;
+                                closestO2 = p;
+                            }
+                        }
+                    }
+                    if (closestO2) {
+                        closestO2.targetRBC = this;
+                        this.incomingO2++; // Mark as incoming so we don't over-pull
+                    }
+                } else {
+                    this.s += bloodRate * 0.4; 
+                }
+
+                this.updatePosition();
+
+                if (this.s > 1150) { // Traveled past right edge
+                    this.s = -80;    // Reset left edge (safely offscreen)
+                    this.r_offset = (Math.random() - 0.5) * 40;
+                    this.o2Count = 0;
+                    this.incomingO2 = 0;
+                    this.updatePosition(); // Update x,y before adding particles
+                    
+                    // Cleanup homing/attached particles
+                    for (let i = particles.length - 1; i >= 0; i--) {
+                        let p = particles[i];
+                        if (p.attachedRBC === this) {
+                            particles.splice(i, 1);
+                        } else if (p.targetRBC === this) {
+                            p.targetRBC = null;
+                            p.vy = -2; 
+                        }
+                    }
+                    
+                    // Load 4 new CO2 particles for the next pass
+                    for(let i=0; i<4; i++) {
+                        let p = new Particle('CO2', this.x, this.y);
+                        p.attachTo(this);
+                        particles.push(p);
+                    }
+                }
+            }
+            draw(ctx) {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, 14, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(185, 28, 28, 0.4)';
+                ctx.fill();
+                ctx.lineWidth = 4;
+                ctx.strokeStyle = 'rgba(225, 29, 72, 0.5)';
+                ctx.stroke();
+            }
+        }
+
+        // --- Initialization ---
+        function init() {
+            particles = [];
+            rbcs = [];
+            breathingState = 'HOLD';
+            breathingTimer = 0;
+
+            let total_len = 1102;
+
+            for(let i=0; i<8; i++) {
+                let rbc = new RedBloodCell();
+                rbc.s = i * (total_len / 8); 
+                rbc.r_offset = (Math.random() - 0.5) * 40;
+                rbc.updatePosition();
+                rbcs.push(rbc);
+                
+                if (rbc.s < 500) {
+                    for(let j=0; j<4; j++) { // Start with 4 CO2 particles per cell
+                        let p = new Particle('CO2', rbc.x, rbc.y);
+                        p.attachTo(rbc);
+                        particles.push(p);
+                    }
+                }
+            }
+
+            for(let i=0; i<250; i++) {
+                let r = Math.random() * (ALV_R - 15);
+                let a = Math.random() * Math.PI * 2;
+                let p = new Particle('O2', ALV_CX + Math.cos(a)*r, ALV_CY + Math.sin(a)*r);
+                p.inCapillary = false;
+                particles.push(p);
+            }
+        }
+
+        // --- Main Loop ---
+        function animate() {
+            if (isRunning) {
+                updatePhysics();
+            }
+            drawEnvironment();
+            drawEntities();
+            updateStatsUI();
+            
+            requestAnimationFrame(animate);
+        }
+
+        function updatePhysics() {
+            const ventRate = parseInt(ventRateSlider.value);
+            const bloodRate = parseInt(bloodRateSlider.value);
+
+            // Breathing State Machine
+            breathingTimer += (1 + ventRate * 0.1); 
+            if (breathingTimer > STATE_DURATIONS[breathingState]) {
+                breathingTimer = 0;
+                if (breathingState === 'INHALE') breathingState = 'HOLD';
+                else if (breathingState === 'HOLD') breathingState = 'EXHALE';
+                else if (breathingState === 'EXHALE') breathingState = 'INHALE';
+            }
+
+            // Spawn O2 in Bronchiole
+            if (breathingState === 'INHALE' && Math.random() < ventRate * 0.6) {
+                let p = new Particle('O2', ALV_CX - 30 + Math.random()*60, BRONCH_TOP);
+                p.inCapillary = false;
+                particles.push(p);
+            }
+
+            for (let i = particles.length - 1; i >= 0; i--) {
+                let p = particles[i];
+                p.update(ventRate, bloodRate);
+                if (p.y < BRONCH_TOP - 20) particles.splice(i, 1); 
+                else if (p.x > WIDTH + 150) particles.splice(i, 1); // Increased boundary to prevent instant despawn
+                else if (p.x < -150) particles.splice(i, 1);        // Increased boundary to prevent instant despawn
+            }
+
+            rbcs.forEach(rbc => rbc.update(bloodRate));
+
+            if (particles.length > 1500) particles.splice(0, particles.length - 1500);
+        }
+
+        function drawEnvironment() {
+            // Background
+            ctx.fillStyle = '#1e1b4b'; 
+            ctx.fillRect(0, 0, WIDTH, HEIGHT);
+
+            // Bronchiole Tube & Alveolus Circle Fill
+            ctx.fillStyle = '#e0f2fe'; 
+            ctx.beginPath();
+            ctx.fillRect(BRONCH_LEFT, BRONCH_TOP, BRONCH_RIGHT - BRONCH_LEFT, ALV_CY - 90);
+            ctx.arc(ALV_CX, ALV_CY, ALV_R, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Omega Capillary Wrapping Curve Fill
+            ctx.beginPath();
+            ctx.moveTo(0, PIPE_TOP);
+            ctx.lineTo(L_SHLDR_CX, PIPE_TOP);
+            ctx.arc(L_SHLDR_CX, ALV_CY, 125, -Math.PI/2, 0, false);
+            ctx.arc(ALV_CX, ALV_CY, 140, Math.PI, 0, true);
+            ctx.arc(R_SHLDR_CX, ALV_CY, 125, Math.PI, -Math.PI/2, false);
+            ctx.lineTo(WIDTH, PIPE_TOP);
+            ctx.lineTo(WIDTH, PIPE_BOT);
+            ctx.lineTo(R_SHLDR_CX, PIPE_BOT);
+            ctx.arc(R_SHLDR_CX, ALV_CY, 50, -Math.PI/2, Math.PI, true);
+            ctx.arc(ALV_CX, ALV_CY, 215, 0, Math.PI, false);
+            ctx.arc(L_SHLDR_CX, ALV_CY, 50, 0, -Math.PI/2, true);
+            ctx.lineTo(0, PIPE_BOT);
+            ctx.closePath();
+            
+            let capGradient = ctx.createLinearGradient(0, 0, WIDTH, 0);
+            capGradient.addColorStop(0, '#312e81'); 
+            capGradient.addColorStop(0.5, '#701a75'); 
+            capGradient.addColorStop(1, '#9f1239'); 
+            ctx.fillStyle = capGradient;
+            ctx.fill();
+
+            // Outline Styles
+            ctx.strokeStyle = '#818cf8'; 
+            ctx.lineWidth = 4;
+            
+            // Bronchiole Walls
+            let intersectY = ALV_CY - Math.sqrt(ALV_R*ALV_R - 40*40); 
+            ctx.beginPath(); ctx.moveTo(BRONCH_LEFT, BRONCH_TOP); ctx.lineTo(BRONCH_LEFT, intersectY); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(BRONCH_RIGHT, BRONCH_TOP); ctx.lineTo(BRONCH_RIGHT, intersectY); ctx.stroke();
+
+            // Alveolus Solid Top Wall
+            let angleRight = Math.atan2(intersectY - ALV_CY, 40);
+            let angleLeft = Math.atan2(intersectY - ALV_CY, -40);
+            ctx.beginPath(); ctx.arc(ALV_CX, ALV_CY, ALV_R, angleRight, 0, false); ctx.stroke();
+            ctx.beginPath(); ctx.arc(ALV_CX, ALV_CY, ALV_R, Math.PI, angleLeft, false); ctx.stroke();
+
+            // Capillary Inner Walls (Alveolus Side)
+            ctx.beginPath();
+            ctx.moveTo(0, PIPE_TOP);
+            ctx.lineTo(L_SHLDR_CX, PIPE_TOP);
+            ctx.arc(L_SHLDR_CX, ALV_CY, 125, -Math.PI/2, 0, false);
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.arc(R_SHLDR_CX, ALV_CY, 125, Math.PI, -Math.PI/2, false);
+            ctx.lineTo(WIDTH, PIPE_TOP);
+            ctx.stroke();
+
+            // Capillary Outer Walls
+            ctx.beginPath();
+            ctx.moveTo(0, PIPE_BOT);
+            ctx.lineTo(L_SHLDR_CX, PIPE_BOT);
+            ctx.arc(L_SHLDR_CX, ALV_CY, 50, -Math.PI/2, 0, false);
+            ctx.arc(ALV_CX, ALV_CY, 215, Math.PI, 0, true);
+            ctx.arc(R_SHLDR_CX, ALV_CY, 50, Math.PI, -Math.PI/2, false);
+            ctx.lineTo(WIDTH, PIPE_BOT);
+            ctx.stroke();
+
+            // Semi-permeable Membrane (Dashed wrap around bottom)
+            ctx.beginPath();
+            ctx.arc(ALV_CX, ALV_CY, ALV_R, Math.PI, 0, true);
+            ctx.strokeStyle = '#fca5a5'; 
+            ctx.lineWidth = 3;
+            ctx.setLineDash([8, 8]);
+            ctx.stroke();
+            ctx.setLineDash([]); 
+            
+            // Labels
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+            ctx.font = '20px sans-serif';
+            ctx.fillText('ALVEOLUS', ALV_CX - 50, ALV_CY - 10);
+            ctx.fillText('CAPILLARY', 20, 150);
+            ctx.fillText('CAPILLARY', ALV_CX - 50, ALV_CY + 215 + 30);
+            ctx.fillText('CAPILLARY', 680, 150);
+
+            // Breathing State Indicator
+            ctx.font = 'bold 24px sans-serif';
+            let stateColor = breathingState === 'INHALE' ? '#60a5fa' : 
+                             breathingState === 'HOLD' ? '#a78bfa' : '#f472b6';
+            ctx.fillStyle = stateColor;
+            ctx.fillText(`Lungs: ${breathingState}`, BRONCH_RIGHT + 20, BRONCH_TOP + 40);
+        }
+
+        function drawEntities() {
+            rbcs.forEach(rbc => rbc.draw(ctx));
+            particles.forEach(p => p.draw(ctx));
+        }
+
+        function updateStatsUI() {
+            if (!isRunning) return;
+
+            let aO2 = 0, aCO2 = 0;
+            let cO2 = 0, cCO2 = 0;
+
+            for (let i = 0; i < particles.length; i++) {
+                let p = particles[i];
+                if (p.inCapillary) {
+                    if (p.type === 'O2') cO2++;
+                    else cCO2++;
+                } else {
+                    if (p.type === 'O2') aO2++;
+                    else aCO2++;
+                }
+            }
+
+            uiAlvO2.innerText = aO2;
+            uiAlvCO2.innerText = aCO2;
+            uiCapO2.innerText = cO2;
+            uiCapCO2.innerText = cCO2;
+
+            uiBreathingPhase.innerText = breathingState;
+            uiBreathingPhase.className = `text-2xl font-bold uppercase ${
+                breathingState === 'INHALE' ? 'text-blue-400' :
+                breathingState === 'HOLD' ? 'text-purple-400' : 'text-pink-400'
+            }`;
+        }
+
+        // --- Event Listeners ---
+        playPauseBtn.addEventListener('click', () => {
+            isRunning = !isRunning;
+            playPauseBtn.innerText = isRunning ? 'Pause Simulation' : 'Resume Simulation';
+            playPauseBtn.classList.toggle('bg-blue-600', isRunning);
+            playPauseBtn.classList.toggle('bg-emerald-600', !isRunning);
+            playPauseBtn.classList.toggle('hover:bg-blue-500', isRunning);
+            playPauseBtn.classList.toggle('hover:bg-emerald-500', !isRunning);
+        });
+
+        // Start App
+        init();
+        animate();
+
+    </script>
+</body>
+</html>
