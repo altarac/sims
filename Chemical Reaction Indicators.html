@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chemical Reaction Simulator</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- React and ReactDOM -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    
+    <!-- Babel for in-browser JSX compilation -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        // --- ICON COMPONENTS (Replaces lucide-react) ---
+        const Palette = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.836-.437-1.124-.298-.336-.492-.792-.492-1.289 0-.962.775-1.748 1.737-1.748H17c2.76 0 5-2.24 5-5 0-5.5-4.5-10-10-10Z"/></svg>;
+        const Wind = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M17.7 7.7a2.5 2.5 0 1 1 1.8 4.3H2"/><path d="M9.6 4.6A2 2 0 1 1 11 8H2"/><path d="M12.6 19.4A2 2 0 1 0 14 16H2"/></svg>;
+        const Droplets = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M7 16.3c2.2 0 4-1.83 4-4.05 0-1.16-.57-2.26-1.71-3.19S7 2.9 7 2.9s-2.29 4.26-3.29 5.16C2.57 9.99 2 11.09 2 12.25c0 2.22 1.8 4.05 4 4.05z"/><path d="M12.56 6.6A10.97 10.97 0 0 1 14 8c2 1.9 3 3.2 3 4.6 0 1.6-1.3 2.9-3 2.9-1.07 0-2.01-.57-2.58-1.41"/></svg>;
+        const Thermometer = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M14 4v10.54a4 4 0 1 1-4 0V4a2 2 0 0 1 4 0Z"/></svg>;
+        const Sun = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>;
+        const FlaskConical = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M10 2v7.527a2 2 0 0 1-.211.896L4.72 20.55a2.5 2.5 0 0 0 2.227 3.45h10.106a2.5 2.5 0 0 0 2.227-3.45l-5.069-10.127A2 2 0 0 1 14 9.527V2"/><path d="M8.5 2h7"/><path d="M7 16h10"/></svg>;
+        const PlayCircle = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/></svg>;
+        const CheckCircle2 = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>;
+        const XCircle = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/></svg>;
+        const ArrowRight = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>;
+        const RefreshCw = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>;
+
+        // --- DATA ---
+        const SIGNS = [
+            { id: 'color', name: 'Color Change', description: 'A new substance forms, causing a distinct change in color not caused by simple mixing.', icon: <Palette className="w-6 h-6" />, color: 'bg-purple-500' },
+            { id: 'gas', name: 'Production of a Gas', description: 'Bubbles fizz and expand as gas is released during the reaction.', icon: <Wind className="w-6 h-6" />, color: 'bg-blue-500' },
+            { id: 'precipitate', name: 'Formation of a Precipitate', description: 'Two liquids mix together and a new solid (precipitate) forms and settles.', icon: <Droplets className="w-6 h-6" />, color: 'bg-emerald-500' },
+            { id: 'temperature', name: 'Temperature Change', description: 'The reaction absorbs or releases thermal energy, causing the temperature to rise or drop sharply.', icon: <Thermometer className="w-6 h-6" />, color: 'bg-red-500' },
+            { id: 'light', name: 'Light Emission', description: 'Energy is released in the form of bright light or a glowing effect during the reaction.', icon: <Sun className="w-6 h-6" />, color: 'bg-yellow-400' }
+        ];
+
+        const QUIZ_QUESTIONS = [
+            { text: "Liquid water freezing into solid ice cubes in a freezer.", type: "physical", explanation: "Freezing is a change of state. The molecules slow down and form a solid structure, but they are still H2O." },
+            { text: "Water boiling in a kettle on the stove and turning into steam.", type: "physical", explanation: "Boiling is a change of state (liquid to gas). The water molecules are still H2O, so it's a physical change." },
+            { text: "Mixing baking soda and vinegar, which fizzes and bubbles violently.", type: "chemical", explanation: "The fizzing indicates the production of a gas (carbon dioxide), which is a classic sign of a chemical reaction." },
+            { text: "An iron nail left outside turns orange and flaky.", type: "chemical", explanation: "Rusting is a chemical reaction (oxidation). The color change and formation of a new substance (rust) are signs." },
+            { text: "Dissolving a spoonful of sugar into a hot cup of tea.", type: "physical", explanation: "The sugar molecules are just spread out in the water, not fundamentally changed. You can evaporate the water to get the sugar back." },
+            { text: "Mixing two completely clear liquids together, and the mixture suddenly turns cloudy white.", type: "chemical", explanation: "The cloudiness is the formation of a solid precipitate from two liquids, a definitive sign of a chemical change." },
+            { text: "Crushing an empty aluminum soda can.", type: "physical", explanation: "The shape has changed, but the material is still just aluminum. No new substance was formed." },
+            { text: "Lighting a piece of wood on fire in a campfire.", type: "chemical", explanation: "Burning releases energy (heat and light) and changes the wood into ash and smoke. This is a chemical change." },
+            { text: "Melting a solid chocolate bar into liquid chocolate in a warm pan.", type: "physical", explanation: "Melting is just a phase change. The chemical structure of the chocolate remains exactly the same." },
+            { text: "Leaving a slice of apple on the table and watching it turn brown.", type: "chemical", explanation: "The unexpected color change is caused by oxidation, a chemical reaction between the apple's enzymes and oxygen in the air." },
+            { text: "Dry ice (solid carbon dioxide) sublimating directly into a thick white gas.", type: "physical", explanation: "Sublimation is a phase change from solid directly to gas. The substance is still carbon dioxide." },
+            { text: "Frying a raw egg in a pan until the clear part turns solid white.", type: "chemical", explanation: "The heat denatures the proteins in the egg, fundamentally changing their chemical structure, which is accompanied by a color change." },
+            { text: "Snapping a wooden pencil in half.", type: "physical", explanation: "The pencil is in two pieces, but the wood and graphite haven't changed their chemical identities." },
+            { text: "Mixing two room-temperature clear liquids, and the beaker suddenly becomes too hot to touch.", type: "chemical", explanation: "A sudden, dramatic temperature change (release of thermal energy) without an external heat source is a strong sign of a chemical reaction." },
+            { text: "Dew drops forming on a cold glass of lemonade on a hot summer day.", type: "physical", explanation: "This is condensation. Water vapor from the air is changing state into liquid water on the cold glass. No new substance is formed." },
+            { text: "A bright green glow stick lighting up after you crack the vial inside it.", type: "chemical", explanation: "The emission of light (chemiluminescence) upon mixing the internal chemicals is a direct sign of a chemical reaction." },
+            { text: "Chopping a whole carrot into small, thin slices.", type: "physical", explanation: "The size and shape of the carrot have changed, but it is still chemically a carrot." },
+            { text: "Baking a cake batter in the oven until it rises and becomes fluffy.", type: "chemical", explanation: "The heat causes baking powder/soda to release gas (making it rise) and alters the proteins/sugars. You cannot reverse this process." },
+            { text: "Leaving a bicycle chain in the rain and noticing a red-brown coating forming on it.", type: "chemical", explanation: "This is rusting (oxidation), where the iron in the chain reacts with oxygen and water to form a completely new substance." },
+            { text: "Adding a few drops of red food coloring to a glass of water, turning it light pink.", type: "physical", explanation: "This is a simple mixture. The color change is expected and just the result of the red dye spreading out, not a new substance forming." }
+        ];
+
+        function shuffleArray(array) {
+            const newArray = [...array];
+            for (let i = newArray.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [newArray[i], newArray[j]] = [newArray[j], newArray[i]];
+            }
+            return newArray;
+        }
+
+        const customStyles = `
+            @keyframes rise {
+                0% { transform: translateY(0px) scale(1); opacity: 0.8; }
+                100% { transform: translateY(-150px) scale(1.5); opacity: 0; }
+            }
+            @keyframes fall {
+                0% { transform: translateY(-120px) scale(0.5); opacity: 0; }
+                20% { opacity: 1; scale: 1; }
+                100% { transform: translateY(0px) scale(1); opacity: 1; }
+            }
+            .animate-rise { animation: rise 2s infinite ease-in; }
+            .animate-fall { animation: fall 2s forwards ease-in; }
+        `;
+
+        function App() {
+            const [activeTab, setActiveTab] = useState('learn');
+            const [activeSign, setActiveSign] = useState(null);
+            
+            const [questionQueue, setQuestionQueue] = useState([]);
+            const [currentQuestion, setCurrentQuestion] = useState(null);
+            const [score, setScore] = useState(0);
+            const [attempts, setAttempts] = useState(0);
+            const [feedback, setFeedback] = useState(null);
+
+            useEffect(() => {
+                if (activeTab === 'quiz' && !currentQuestion) {
+                    loadNextQuestion();
+                }
+            }, [activeTab]);
+
+            const loadNextQuestion = () => {
+                let queue = [...questionQueue];
+                if (queue.length === 0) {
+                    queue = shuffleArray(QUIZ_QUESTIONS);
+                }
+                const nextQ = queue.pop();
+                setCurrentQuestion(nextQ);
+                setQuestionQueue(queue);
+                setFeedback(null);
+            };
+
+            const handleAnswer = (answerType) => {
+                if (feedback) return; 
+                
+                const isCorrect = answerType === currentQuestion.type;
+                setFeedback({
+                    isCorrect,
+                    message: isCorrect ? "Correct!" : "Incorrect.",
+                    explanation: currentQuestion.explanation
+                });
+
+                setAttempts(prev => prev + 1);
+                if (isCorrect) setScore(prev => prev + 1);
+            };
+
+            const resetQuiz = () => {
+                setScore(0);
+                setAttempts(0);
+                setQuestionQueue(shuffleArray(QUIZ_QUESTIONS));
+                setFeedback(null);
+                setCurrentQuestion(null); 
+            };
+
+            const Beaker = ({ activeSign }) => {
+                const [phase, setPhase] = useState('idle');
+
+                useEffect(() => {
+                    if (activeSign) {
+                        setPhase('idle'); 
+                        const timer1 = setTimeout(() => setPhase('pouring'), 100);
+                        const timer2 = setTimeout(() => setPhase('reacting'), 1500); 
+                        return () => { clearTimeout(timer1); clearTimeout(timer2); };
+                    } else {
+                        setPhase('idle');
+                    }
+                }, [activeSign]);
+
+                const particles = Array.from({ length: 15 });
+
+                return (
+                    <div className="relative flex flex-col items-center justify-end w-48 h-64 mx-auto mb-8 mt-12">
+                        
+                        {/* Pouring Stream Animation */}
+                        <div 
+                            className={`absolute top-[-80px] w-3 rounded-b-full bg-cyan-400/80 z-10 transition-all duration-500 ease-in
+                                ${phase === 'pouring' ? 'h-[200px] opacity-100' : 'h-0 opacity-0'}`}
+                        />
+
+                        {/* Beaker Glass */}
+                        <div className="absolute inset-0 z-20 border-4 border-t-0 border-white/60 rounded-b-3xl glass-reflection overflow-hidden shadow-[inset_0_-10px_20px_rgba(255,255,255,0.4)] pointer-events-none">
+                            
+                            {/* Liquid inside beaker */}
+                            <div 
+                                className={`absolute bottom-0 left-0 right-0 transition-all duration-1000 ease-in-out ${
+                                    phase === 'idle' ? 'h-2/5 bg-blue-300/40' : 
+                                    phase === 'pouring' ? 'h-[75%] bg-blue-300/50' : 
+                                    activeSign === 'color' ? 'h-[75%] bg-purple-500/90' : 
+                                    activeSign === 'temperature' ? 'h-[75%] bg-blue-300/50' : 
+                                    activeSign === 'light' ? 'h-[75%] bg-yellow-300/90' :
+                                    'h-[75%] bg-blue-300/50'
+                                }`}
+                            >
+                                {/* Glow effect for Light */}
+                                {activeSign === 'light' && phase === 'reacting' && (
+                                    <div className="absolute inset-0 bg-white/70 mix-blend-overlay animate-pulse shadow-[0_0_60px_30px_rgba(255,255,255,0.8)] rounded-b-3xl z-40"></div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Persistent Thermometer Inside Beaker */}
+                        <div className="absolute left-6 bottom-4 w-4 h-72 rounded-full border-2 border-white/60 bg-white/20 backdrop-blur-md z-30 transition-all duration-700 ease-in-out">
+                            {/* Bulb */}
+                            <div className="absolute -bottom-1 -left-1 w-5 h-5 bg-red-600 rounded-full z-20"></div>
+                            {/* Mercury Line */}
+                            <div className="absolute bottom-2 left-1/2 -translate-x-1/2 w-1.5 bg-red-600 rounded-t-full transition-all duration-[2000ms] ease-out z-10" 
+                                 style={{ height: (phase === 'reacting' && activeSign === 'temperature') ? '220px' : '30px' }} 
+                            />
+                            {/* Measurement ticks */}
+                            {Array.from({ length: 11 }).map((_, i) => (
+                                <div 
+                                    key={`tick-${i}`} 
+                                    className={`absolute left-1/2 h-[2px] bg-white/60 ${i % 2 === 0 ? 'w-2' : 'w-1'}`}
+                                    style={{ top: `${20 + i * 20}px` }}
+                                />
+                            ))}
+                        </div>
+
+                        {/* Beaker lip */}
+                        <div className="absolute top-0 w-[110%] h-4 border-4 border-white/60 rounded-full z-30 -translate-y-2"></div>
+
+                        {/* Particle Animations Container */}
+                        <div className="absolute inset-0 z-10 overflow-hidden rounded-b-3xl">
+                            {/* Gas Bubbles */}
+                            {activeSign === 'gas' && phase === 'reacting' && particles.map((_, i) => (
+                                <div 
+                                    key={`gas-${i}`}
+                                    className="absolute bottom-4 w-3 h-3 bg-white/80 rounded-full animate-rise shadow-sm"
+                                    style={{
+                                        left: `${10 + Math.random() * 80}%`,
+                                        animationDelay: `${Math.random() * 1.5}s`,
+                                        animationDuration: `${1 + Math.random() * 1.5}s`
+                                    }}
+                                />
+                            ))}
+
+                            {/* Precipitate */}
+                            {activeSign === 'precipitate' && phase === 'reacting' && particles.map((_, i) => (
+                                <div 
+                                    key={`prec-${i}`}
+                                    className="absolute bottom-6 w-4 h-4 bg-yellow-200/90 rounded-sm animate-fall rotate-45 shadow-sm"
+                                    style={{
+                                        left: `${15 + Math.random() * 70}%`,
+                                        animationDelay: `${Math.random() * 1.5}s`
+                                    }}
+                                />
+                            ))}
+                        </div>
+                    </div>
+                );
+            };
+
+            return (
+                <div className="min-h-screen bg-slate-900 text-slate-100 font-sans selection:bg-blue-500/30">
+                    <style>{customStyles}</style>
+
+                    <header className="bg-slate-800 border-b border-slate-700 shadow-lg sticky top-0 z-50">
+                        <div className="max-w-4xl mx-auto px-4 py-4 flex flex-col sm:flex-row justify-between items-center gap-4">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 bg-blue-500/20 rounded-lg text-blue-400">
+                                    <FlaskConical className="w-6 h-6" />
+                                </div>
+                                <h1 className="text-xl font-bold tracking-tight">ChemSimul</h1>
+                            </div>
+                            
+                            <div className="flex bg-slate-900 rounded-lg p-1 border border-slate-700">
+                                <button
+                                    onClick={() => setActiveTab('learn')}
+                                    className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                                        activeTab === 'learn' 
+                                            ? 'bg-blue-600 text-white shadow-sm' 
+                                            : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+                                    }`}
+                                >
+                                    Learn Signs
+                                </button>
+                                <button
+                                    onClick={() => setActiveTab('quiz')}
+                                    className={`px-4 py-2 rounded-md text-sm font-medium flex items-center gap-2 transition-all ${
+                                        activeTab === 'quiz' 
+                                            ? 'bg-purple-600 text-white shadow-sm' 
+                                            : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+                                    }`}
+                                >
+                                    <PlayCircle className="w-4 h-4" />
+                                    Test Yourself
+                                </button>
+                            </div>
+                        </div>
+                    </header>
+
+                    <main className="max-w-4xl mx-auto px-4 py-8">
+                        {activeTab === 'learn' && (
+                            <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                                <div className="text-center max-w-2xl mx-auto space-y-4">
+                                    <h2 className="text-3xl font-bold">The 5 Signs of a Chemical Reaction</h2>
+                                    <p className="text-slate-400">
+                                        A chemical reaction forms completely new substances. While we can't see atoms rearranging, 
+                                        we can observe these physical indicators. Click one to simulate it!
+                                    </p>
+                                </div>
+
+                                <div className="flex flex-col md:flex-row gap-6">
+                                    {/* Beaker Section */}
+                                    <div className="flex-1 bg-slate-800/50 border border-slate-700 rounded-2xl p-8 backdrop-blur-sm shadow-xl relative overflow-hidden flex flex-col justify-center">
+                                        <Beaker activeSign={activeSign} />
+                                        
+                                        <div className="mt-4 text-center min-h-[5rem]">
+                                            {activeSign ? (
+                                                <div className="animate-in fade-in slide-in-from-bottom-2">
+                                                    <h3 className={`text-xl font-semibold mb-2 flex items-center justify-center gap-2 
+                                                        ${SIGNS.find(s => s.id === activeSign).color.replace('bg-', 'text-')}
+                                                    `}>
+                                                        {SIGNS.find(s => s.id === activeSign).name}
+                                                    </h3>
+                                                    <p className="text-slate-400">{SIGNS.find(s => s.id === activeSign).description}</p>
+                                                </div>
+                                            ) : (
+                                                <p className="text-slate-500 italic mt-8">Select a sign to add a chemical and see the reaction...</p>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {/* Buttons Section */}
+                                    <div className="w-full md:w-80 shrink-0 flex flex-col gap-3 justify-center">
+                                        {SIGNS.map((sign) => (
+                                            <button
+                                                key={sign.id}
+                                                onClick={() => setActiveSign(sign.id)}
+                                                className={`flex items-center gap-4 p-4 rounded-xl border transition-all duration-300 text-left
+                                                    ${activeSign === sign.id 
+                                                        ? `${sign.color} border-transparent text-white shadow-lg shadow-${sign.color.split('-')[1]}-500/20 scale-[1.02]` 
+                                                        : 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700 hover:border-slate-500 hover:scale-[1.02]'
+                                                    }
+                                                `}
+                                            >
+                                                <div className={`p-3 rounded-full shrink-0 ${activeSign === sign.id ? 'bg-white/20' : 'bg-slate-900'}`}>
+                                                    {sign.icon}
+                                                </div>
+                                                <span className="text-sm font-medium leading-tight">{sign.name}</span>
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                                
+                                <div className="flex justify-center mt-12">
+                                    <button 
+                                        onClick={() => setActiveTab('quiz')}
+                                        className="group flex items-center gap-2 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white px-8 py-4 rounded-full font-bold text-lg shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all"
+                                    >
+                                        Ready? Test Yourself
+                                        <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+
+                        {activeTab === 'quiz' && (
+                            <div className="max-w-2xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500">
+                                
+                                <div className="flex justify-between items-center mb-8">
+                                    <h2 className="text-3xl font-bold flex items-center gap-3">
+                                        <PlayCircle className="text-purple-500 w-8 h-8" />
+                                        Scenario Tester
+                                    </h2>
+                                    <div className="bg-slate-800 border border-slate-700 px-4 py-2 rounded-lg font-mono font-bold text-lg shadow-inner">
+                                        Score: <span className="text-blue-400">{score}</span> / {attempts}
+                                    </div>
+                                </div>
+
+                                {currentQuestion && (
+                                    <div className="bg-slate-800 border border-slate-700 rounded-2xl overflow-hidden shadow-xl">
+                                        <div className="h-1 w-full bg-slate-700">
+                                            <div 
+                                                className="h-full bg-gradient-to-r from-blue-500 to-purple-500 transition-all duration-500" 
+                                                style={{ width: `${Math.min((attempts / 20) * 100, 100)}%` }} 
+                                            />
+                                        </div>
+
+                                        <div className="p-8 space-y-8">
+                                            <div className="space-y-4">
+                                                <div className="flex justify-between items-center">
+                                                    <span className="text-sm font-bold tracking-widest text-slate-500 uppercase">Observe the Scenario</span>
+                                                    <span className="text-xs text-slate-500">{questionQueue.length} questions remaining</span>
+                                                </div>
+                                                <h3 className="text-2xl font-medium leading-relaxed text-white">
+                                                    "{currentQuestion.text}"
+                                                </h3>
+                                            </div>
+
+                                            {!feedback ? (
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4">
+                                                    <button
+                                                        onClick={() => handleAnswer('physical')}
+                                                        className="group relative flex flex-col items-center gap-3 p-6 rounded-xl border-2 border-slate-600 bg-slate-700/30 hover:bg-blue-900/40 hover:border-blue-500 transition-all"
+                                                    >
+                                                        <RefreshCw className="w-8 h-8 text-blue-400 group-hover:rotate-180 transition-transform duration-500" />
+                                                        <span className="font-bold text-lg">Physical Change</span>
+                                                        <span className="text-xs text-slate-400 text-center">Material changes form, state, or shape, but not its fundamental identity.</span>
+                                                    </button>
+
+                                                    <button
+                                                        onClick={() => handleAnswer('chemical')}
+                                                        className="group relative flex flex-col items-center gap-3 p-6 rounded-xl border-2 border-slate-600 bg-slate-700/30 hover:bg-purple-900/40 hover:border-purple-500 transition-all"
+                                                    >
+                                                        <FlaskConical className="w-8 h-8 text-purple-400 group-hover:scale-110 transition-transform duration-500" />
+                                                        <span className="font-bold text-lg">Chemical Change</span>
+                                                        <span className="text-xs text-slate-400 text-center">A completely new substance is formed with new properties.</span>
+                                                    </button>
+                                                </div>
+                                            ) : (
+                                                <div className={`p-6 rounded-xl border-2 animate-in zoom-in-95 duration-300 ${
+                                                    feedback.isCorrect ? 'bg-emerald-900/20 border-emerald-500/50' : 'bg-red-900/20 border-red-500/50'
+                                                }`}>
+                                                    <div className="flex items-start gap-4">
+                                                        {feedback.isCorrect ? (
+                                                            <CheckCircle2 className="w-8 h-8 text-emerald-500 shrink-0 mt-1" />
+                                                        ) : (
+                                                            <XCircle className="w-8 h-8 text-red-500 shrink-0 mt-1" />
+                                                        )}
+                                                        <div className="space-y-2">
+                                                            <h4 className={`text-xl font-bold ${feedback.isCorrect ? 'text-emerald-400' : 'text-red-400'}`}>
+                                                                {feedback.message}
+                                                            </h4>
+                                                            <p className="text-slate-300 leading-relaxed">
+                                                                {feedback.explanation}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+
+                                                    <button
+                                                        onClick={loadNextQuestion}
+                                                        className="mt-6 w-full py-3 px-4 bg-slate-700 hover:bg-slate-600 text-white font-medium rounded-lg transition-colors flex justify-center items-center gap-2"
+                                                    >
+                                                        Next Scenario
+                                                        <ArrowRight className="w-4 h-4" />
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+
+                                <div className="mt-8 text-center">
+                                    <button 
+                                        onClick={resetQuiz}
+                                        className="text-sm text-slate-500 hover:text-slate-300 underline underline-offset-4"
+                                    >
+                                        Reset Score & Reshuffle Questions
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                    </main>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
