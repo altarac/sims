@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Conservation of Mass: Burning Steel Wool</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <style>
+        body {
+            background-color: #f0f2f5;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+        .digital-font {
+            font-family: 'Share Tech Mono', monospace;
+        }
+        
+        /* Steel Wool SVG styles */
+        .wool-strand {
+            fill: none;
+            stroke-width: 2;
+            transition: stroke 0.5s;
+        }
+        .wool-unburned { stroke: #9ca3af; }
+        .wool-burned { stroke: #4a4a4a; }
+        
+        /* Spark animations */
+        .spark {
+            position: absolute;
+            background: #fbbf24;
+            border-radius: 50%;
+            box-shadow: 0 0 8px 2px #f59e0b;
+            opacity: 0;
+            pointer-events: none;
+        }
+        
+        @keyframes sparking {
+            0% { transform: scale(0.5) translateY(0); opacity: 1; }
+            50% { opacity: 1; box-shadow: 0 0 12px 4px #ef4444; }
+            100% { transform: scale(1.5) translateY(-20px); opacity: 0; }
+        }
+    </style>
+</head>
+<body class="min-h-screen p-4 md:p-8 flex flex-col items-center">
+
+    <div class="max-w-6xl w-full bg-white rounded-2xl shadow-xl overflow-hidden">
+        
+        <!-- Header -->
+        <div class="bg-slate-800 text-white p-6">
+            <h1 class="text-3xl font-bold mb-2">Conservation of Mass: Burning Steel Wool</h1>
+            <p class="text-slate-300">Observe what happens to the mass of iron (steel) wool when it undergoes combustion in an open system.</p>
+        </div>
+
+        <!-- Main Content Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-0 border-b border-slate-200">
+            
+            <!-- Left: Macroscopic View -->
+            <div class="p-8 border-r border-slate-200 flex flex-col items-center justify-center bg-slate-50 relative">
+                <h2 class="text-xl font-semibold mb-6 text-slate-700 w-full text-center">Macroscopic View</h2>
+                
+                <div class="relative w-64 h-64 flex flex-col items-center justify-end mb-4">
+                    <!-- Sparks Container -->
+                    <div id="sparksContainer" class="absolute inset-0 z-20 pointer-events-none"></div>
+                    
+                    <!-- Steel Wool Graphic -->
+                    <div class="relative z-10 mb-[-10px]">
+                        <svg id="woolSvg" width="160" height="120" viewBox="0 0 160 120">
+                            <!-- Generated via JS -->
+                        </svg>
+                    </div>
+
+                    <!-- Digital Scale Graphic -->
+                    <div class="w-full bg-gray-300 h-8 rounded-t-lg border-2 border-gray-400 border-b-0 relative z-0"></div>
+                    <div class="w-full bg-slate-800 rounded-b-xl shadow-lg p-4 flex flex-col items-center z-10 relative border-t-4 border-slate-600">
+                        <div class="w-full bg-green-100 rounded border-[3px] border-slate-600 p-2 flex justify-end shadow-inner mb-2">
+                            <span id="scaleDisplay" class="digital-font text-3xl text-slate-800 tracking-wider">0.00 g</span>
+                        </div>
+                        <div class="flex justify-between w-full px-2">
+                            <div class="w-3 h-3 rounded-full bg-red-500" id="powerLed"></div>
+                            <span class="text-xs text-slate-400 font-bold tracking-widest uppercase">Precision Balance</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex gap-4 mt-8">
+                    <button id="startBtn" class="px-6 py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg shadow transition transform hover:scale-105 active:scale-95 flex items-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.879 16.121A3 3 0 1012.015 11L11 14H9c0 .768.293 1.536.879 2.121z"></path></svg>
+                        Ignite Wool
+                    </button>
+                    <button id="resetBtn" class="px-6 py-3 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold rounded-lg shadow transition transform hover:scale-105 active:scale-95">
+                        Reset Experiment
+                    </button>
+                </div>
+            </div>
+
+            <!-- Right: Microscopic View -->
+            <div class="p-8 flex flex-col items-center bg-slate-900 relative overflow-hidden">
+                <h2 class="text-xl font-semibold mb-2 text-slate-100 w-full text-center z-10">Microscopic View</h2>
+                <p class="text-slate-400 text-sm mb-4 text-center z-10">Air (Gas) + Iron Lattice (Solid)</p>
+                
+                <div class="relative rounded-full border-4 border-slate-700 overflow-hidden shadow-2xl" style="width: 320px; height: 320px;">
+                    <canvas id="microCanvas" width="320" height="320" class="absolute top-0 left-0 bg-slate-800"></canvas>
+                </div>
+
+                <!-- Legend -->
+                <div class="mt-6 flex flex-wrap justify-center gap-4 text-sm text-slate-300 z-10">
+                    <div class="flex items-center gap-2">
+                        <div class="w-5 h-5 rounded-full bg-slate-400 shadow-[inset_-2px_-2px_4px_rgba(0,0,0,0.5)]"></div>
+                        <span>Iron (Fe) Atom</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <div class="flex">
+                            <div class="w-4 h-4 rounded-full bg-red-500 shadow-[inset_-1px_-1px_3px_rgba(0,0,0,0.5)] z-10"></div>
+                            <div class="w-4 h-4 rounded-full bg-red-500 shadow-[inset_-1px_-1px_3px_rgba(0,0,0,0.5)] -ml-1"></div>
+                        </div>
+                        <span>Oxygen (O₂) Gas</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <div class="flex items-center justify-center relative w-7 h-7">
+                            <div class="w-5 h-5 rounded-full shadow-[inset_-2px_-2px_4px_rgba(0,0,0,0.5)] absolute" style="background-color: #5c4d42;"></div>
+                            <div class="w-3.5 h-3.5 rounded-full bg-red-500 shadow-[inset_-1px_-1px_3px_rgba(0,0,0,0.5)] absolute z-10" style="top: -2px; right: -2px;"></div>
+                            <div class="w-3.5 h-3.5 rounded-full bg-red-500 shadow-[inset_-1px_-1px_3px_rgba(0,0,0,0.5)] absolute z-10" style="bottom: -2px; left: -2px;"></div>
+                        </div>
+                        <span>Iron Oxide (Rust/Ash)</span>
+                    </div>
+                </div>
+            </div>
+            
+        </div>
+
+        <!-- Explanation Panel -->
+        <div class="p-8 bg-white">
+            <h3 class="text-2xl font-bold text-slate-800 mb-4">What's happening here?</h3>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                <div class="col-span-2 text-slate-600 space-y-4 leading-relaxed">
+                    <p>
+                        When you burn a piece of paper or wood, it usually gets <em>lighter</em> because gases like carbon dioxide escape into the air. However, when you burn steel wool (which is mostly iron), the mass actually <strong>increases</strong>!
+                    </p>
+                    <p>
+                        This occurs due to the <strong>Law of Conservation of Mass</strong>. The iron isn't vanishing; it is actively combining with invisible oxygen molecules from the surrounding air to form a new solid substance called Iron Oxide ($Fe_2O_3$ or $Fe_3O_4$).
+                    </p>
+                    <div class="bg-blue-50 border-l-4 border-blue-500 p-4 text-blue-800 font-medium">
+                        Chemical Equation: <br>
+                        <span class="font-mono text-lg text-blue-900 mt-1 inline-block">4Fe (solid) + 3O₂ (gas) → 2Fe₂O₃ (solid)</span>
+                    </div>
+                    <p>
+                        Because the gaseous oxygen (which was previously floating weightlessly in the room) has now been physically locked into the solid lattice resting on the scale, the digital scale reads the combined mass of the iron <em>plus</em> the trapped oxygen.
+                    </p>
+                </div>
+                <div class="bg-slate-50 p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-center">
+                    <h4 class="font-bold text-slate-700 mb-3 border-b pb-2">Experiment Data Log</h4>
+                    <div class="space-y-3 text-sm">
+                        <div class="flex justify-between">
+                            <span class="text-slate-500">Initial Mass (Fe):</span>
+                            <span id="logInitial" class="font-mono font-bold text-slate-700">-- g</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-slate-500">Final Mass (Fe + O₂):</span>
+                            <span id="logFinal" class="font-mono font-bold text-slate-700">-- g</span>
+                        </div>
+                        <div class="flex justify-between border-t pt-2">
+                            <span class="text-slate-500">Mass of Oxygen Gained:</span>
+                            <span id="logDiff" class="font-mono font-bold text-green-600">-- g</span>
+                        </div>
+                        <div class="flex justify-between border-t pt-2">
+                            <span class="text-slate-500">Percent Increase:</span>
+                            <span id="logPercent" class="font-mono font-bold text-blue-600">-- %</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- State Variables ---
+        let state = {
+            isBurning: false,
+            progress: 0, // 0 to 1
+            initialMass: 0,
+            finalMass: 0,
+            currentMass: 0,
+            duration: 8000, // 8 seconds to burn
+            startTime: 0,
+            animationId: null
+        };
+
+        // --- DOM Elements ---
+        const scaleDisplay = document.getElementById('scaleDisplay');
+        const startBtn = document.getElementById('startBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const powerLed = document.getElementById('powerLed');
+        const woolSvg = document.getElementById('woolSvg');
+        const sparksContainer = document.getElementById('sparksContainer');
+        
+        // Log Elements
+        const logInitial = document.getElementById('logInitial');
+        const logFinal = document.getElementById('logFinal');
+        const logDiff = document.getElementById('logDiff');
+        const logPercent = document.getElementById('logPercent');
+
+        // Canvas Context
+        const canvas = document.getElementById('microCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // --- Microscopic Simulation Objects ---
+        let feAtoms = [];
+        let o2Molecules = [];
+
+        // --- Initialization ---
+        function initExperiment() {
+            // Cancel any ongoing animations
+            if (state.animationId) {
+                cancelAnimationFrame(state.animationId);
+                state.animationId = null;
+            }
+            
+            // Random realistic quantities (around 55g)
+            // Iron to Iron Oxide mass ratio is approx 1.43 (if 100% combustion to Fe2O3). 
+            // In reality, combustion is incomplete. We'll simulate an 18-20% mass increase.
+            state.initialMass = 55.0 + (Math.random() * 2.0); // 55.00g to 57.00g
+            let massIncreaseFactor = 1.17 + (Math.random() * 0.04); // 1.17x to 1.21x
+            state.finalMass = state.initialMass * massIncreaseFactor;
+            
+            state.currentMass = state.initialMass;
+            state.isBurning = false;
+            state.progress = 0;
+            
+            updateScaleDisplay(state.initialMass, false);
+            powerLed.classList.remove('bg-red-500');
+            powerLed.classList.add('bg-green-500');
+            
+            startBtn.disabled = false;
+            startBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+            
+            logInitial.textContent = `${state.initialMass.toFixed(2)} g`;
+            logFinal.textContent = `-- g`;
+            logDiff.textContent = `-- g`;
+            logPercent.textContent = `-- %`;
+
+            generateMacroWool();
+            initMicroSim();
+            drawMicroSim(); // Draw initial frame
+            
+            // Clear sparks
+            sparksContainer.innerHTML = '';
+
+            // Restart idle animation loop
+            state.animationId = requestAnimationFrame(runSimulation);
+        }
+
+        function updateScaleDisplay(mass, isFluctuating) {
+            // Add slight digital scale jitter when active
+            let displayMass = mass;
+            if (isFluctuating && state.progress > 0 && state.progress < 1) {
+                displayMass += (Math.random() * 0.04 - 0.02);
+            }
+            scaleDisplay.textContent = displayMass.toFixed(2) + " g";
+        }
+
+        // --- Macroscopic Graphics ---
+        function generateMacroWool() {
+            woolSvg.innerHTML = '';
+            // Generate a messy clump of SVG paths
+            for (let i = 0; i < 40; i++) {
+                let path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+                let d = `M ${30 + Math.random()*100} ${20 + Math.random()*80} `;
+                
+                // Add bezier curves to make it look tangled
+                for(let j=0; j<4; j++) {
+                    let cx1 = 10 + Math.random()*140;
+                    let cy1 = 10 + Math.random()*100;
+                    let cx2 = 10 + Math.random()*140;
+                    let cy2 = 10 + Math.random()*100;
+                    let ex = 30 + Math.random()*100;
+                    let ey = 20 + Math.random()*80;
+                    d += `C ${cx1} ${cy1}, ${cx2} ${cy2}, ${ex} ${ey} `;
+                }
+                
+                path.setAttribute("d", d);
+                path.setAttribute("class", "wool-strand wool-unburned");
+                path.setAttribute("id", `strand-${i}`);
+                woolSvg.appendChild(path);
+            }
+        }
+
+        function spawnSparks() {
+            if (!state.isBurning || Math.random() > 0.4) return;
+            
+            const spark = document.createElement('div');
+            spark.className = 'spark';
+            
+            // Random position on TOP of the wool area
+            const size = 3 + Math.random() * 4;
+            const left = 60 + Math.random() * 130;
+            const bottom = 180 + Math.random() * 30;
+            
+            spark.style.width = `${size}px`;
+            spark.style.height = `${size}px`;
+            spark.style.left = `${left}px`;
+            spark.style.bottom = `${bottom}px`;
+            spark.style.animation = `sparking ${0.5 + Math.random() * 0.5}s ease-out forwards`;
+            
+            sparksContainer.appendChild(spark);
+            
+            // Clean up spark after animation
+            setTimeout(() => {
+                if(spark.parentNode) spark.parentNode.removeChild(spark);
+            }, 1000);
+        }
+
+        function updateMacroVisuals() {
+            // Gradually darken the wool strands based on progress
+            const strands = document.querySelectorAll('.wool-strand');
+            strands.forEach((strand, index) => {
+                // Determine if this strand should be oxidized based on overall progress + some randomness
+                let threshold = (index / strands.length) * 0.8;
+                if (state.progress > threshold && strand.classList.contains('wool-unburned')) {
+                    strand.classList.remove('wool-unburned');
+                    strand.classList.add('wool-burned');
+                    // Add orange glow transition
+                    strand.style.stroke = '#ea580c'; // Orange
+                    setTimeout(() => {
+                        strand.style.stroke = '#475569'; // Dark slate/oxide
+                    }, 800);
+                }
+            });
+            spawnSparks();
+        }
+
+        // --- Microscopic Graphics & Physics ---
+        function initMicroSim() {
+            feAtoms = [];
+            o2Molecules = [];
+            const cx = canvas.width / 2;
+            const cy = canvas.height / 2;
+
+            // Generate Iron Lattice (a bit messy to represent wool)
+            const rows = 6;
+            const cols = 6;
+            const spacing = 28;
+            for (let r = 0; r < rows; r++) {
+                for (let c = 0; c < cols; c++) {
+                    // Make it look like a diagonal strand structure
+                    if (Math.random() > 0.2) { 
+                        feAtoms.push({
+                            id: `fe-${r}-${c}`,
+                            x: cx - (cols*spacing/2) + c * spacing + (Math.random()*8 - 4),
+                            y: cy - (rows*spacing/2) + r * spacing + (Math.random()*8 - 4),
+                            baseR: 12,
+                            currentR: 12,
+                            oxidized: false,
+                            targetOxygen: 0,
+                            currentOxygen: 0,
+                            color: '#94a3b8' // Slate 400
+                        });
+                    }
+                }
+            }
+
+            // Generate Oxygen gas (lots of it moving around)
+            for (let i = 0; i < 60; i++) {
+                o2Molecules.push({
+                    x: Math.random() * canvas.width,
+                    y: Math.random() * canvas.height,
+                    vx: (Math.random() - 0.5) * 3,
+                    vy: (Math.random() - 0.5) * 3,
+                    angle: Math.random() * Math.PI * 2,
+                    rotSpeed: (Math.random() - 0.5) * 0.2,
+                    targetFe: null,
+                    attached: false
+                });
+            }
+        }
+
+        function updateMicroSim() {
+            // Update O2 Positions
+            o2Molecules.forEach(o2 => {
+                if (o2.attached) return;
+
+                if (state.isBurning && !o2.targetFe) {
+                    // Look for an unoxidized Fe atom
+                    // The chance of targeting depends on the simulation progress to match the scale
+                    let availableFe = feAtoms.filter(fe => !fe.oxidized && fe.targetOxygen < 2);
+                    
+                    // We only want to trigger oxidation proportionally to the visual progress
+                    let desiredOxidizedCount = Math.floor(feAtoms.length * state.progress);
+                    let currentTargetedCount = feAtoms.filter(fe => fe.targetOxygen > 0).length;
+
+                    if (availableFe.length > 0 && currentTargetedCount < desiredOxidizedCount) {
+                        // Pick random available Fe
+                        let target = availableFe[Math.floor(Math.random() * availableFe.length)];
+                        o2.targetFe = target;
+                        target.targetOxygen++;
+                    }
+                }
+
+                if (o2.targetFe) {
+                    // Move towards target
+                    const dx = o2.targetFe.x - o2.x;
+                    const dy = o2.targetFe.y - o2.y;
+                    const dist = Math.sqrt(dx*dx + dy*dy);
+                    
+                    if (dist < (o2.targetFe.currentR + 10)) {
+                        // Hit target!
+                        o2.attached = true;
+                        o2.targetFe.currentOxygen++;
+                        if (o2.targetFe.currentOxygen >= 1) { // 1 O2 molecule makes it look oxidized enough
+                            o2.targetFe.oxidized = true;
+                        }
+                        // Lock position onto the edge of the Iron atom
+                        let angleFromFe = Math.atan2(-dy, -dx);
+                        o2.x = o2.targetFe.x + Math.cos(angleFromFe) * (o2.targetFe.currentR + 5);
+                        o2.y = o2.targetFe.y + Math.sin(angleFromFe) * (o2.targetFe.currentR + 5);
+                        o2.angle = angleFromFe + Math.PI / 2; // Orient it tangentially
+                    } else {
+                        // Steer towards target
+                        o2.vx = (o2.vx * 0.9) + (dx / dist) * 1.5;
+                        o2.vy = (o2.vy * 0.9) + (dy / dist) * 1.5;
+                    }
+                }
+
+                // Normal gas movement
+                o2.x += o2.vx;
+                o2.y += o2.vy;
+                o2.angle += o2.rotSpeed;
+
+                // Bounce off walls if not attached
+                if (!o2.targetFe) {
+                    if (o2.x < 0 || o2.x > canvas.width) o2.vx *= -1;
+                    if (o2.y < 0 || o2.y > canvas.height) o2.vy *= -1;
+                    // Keep in bounds
+                    o2.x = Math.max(0, Math.min(canvas.width, o2.x));
+                    o2.y = Math.max(0, Math.min(canvas.height, o2.y));
+                }
+            });
+        }
+
+        function drawMicroSim() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Draw Fe atoms
+            feAtoms.forEach(fe => {
+                ctx.beginPath();
+                ctx.arc(fe.x, fe.y, fe.currentR, 0, Math.PI * 2);
+                
+                // Color transition logic
+                if (fe.oxidized) {
+                    // Rust/Oxide color: Dark rusted core
+                    ctx.fillStyle = '#5c4d42';
+                } else if (fe.targetOxygen > 0 && fe.currentOxygen === 0) {
+                    // Heating up (glowing)
+                    ctx.fillStyle = '#f59e0b'; // Amber
+                    ctx.shadowBlur = 10;
+                    ctx.shadowColor = '#ef4444';
+                } else {
+                    ctx.fillStyle = fe.color;
+                    ctx.shadowBlur = 0;
+                }
+                
+                ctx.fill();
+                ctx.shadowBlur = 0; // reset
+                
+                // Draw 3D-ish highlight
+                ctx.beginPath();
+                ctx.arc(fe.x - fe.currentR*0.3, fe.y - fe.currentR*0.3, fe.currentR*0.3, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(255,255,255,0.2)';
+                ctx.fill();
+            });
+
+            // Draw O2 molecules
+            o2Molecules.forEach(o2 => {
+                // Draw floating or attached O2 (attached ones are just locked in place)
+                ctx.save();
+                ctx.translate(o2.x, o2.y);
+                ctx.rotate(o2.angle);
+                
+                // Molecule consisting of 2 atoms (larger now)
+                ctx.beginPath();
+                ctx.arc(-6, 0, 7, 0, Math.PI * 2);
+                ctx.arc(6, 0, 7, 0, Math.PI * 2);
+                ctx.fillStyle = '#ef4444';
+                ctx.fill();
+                
+                // Highlights
+                ctx.beginPath();
+                ctx.arc(-8, -2, 2.5, 0, Math.PI * 2);
+                ctx.arc(4, -2, 2.5, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(255,255,255,0.4)';
+                ctx.fill();
+                
+                ctx.restore();
+            });
+        }
+
+        // --- Main Animation Loop ---
+        function runSimulation(timestamp) {
+            if (!state.startTime) state.startTime = timestamp;
+            const elapsed = timestamp - state.startTime;
+            
+            if (state.isBurning) {
+                state.progress = Math.min(elapsed / state.duration, 1);
+                
+                // Calculate current mass linearly based on progress
+                state.currentMass = state.initialMass + ((state.finalMass - state.initialMass) * state.progress);
+                
+                updateScaleDisplay(state.currentMass, true);
+                updateMacroVisuals();
+                
+                if (state.progress >= 1) {
+                    state.isBurning = false;
+                    updateScaleDisplay(state.finalMass, false); // Snap to exact final mass
+                    
+                    // Update Logs
+                    logFinal.textContent = `${state.finalMass.toFixed(2)} g`;
+                    const diff = state.finalMass - state.initialMass;
+                    logDiff.textContent = `+${diff.toFixed(2)} g`;
+                    const pct = (diff / state.initialMass) * 100;
+                    logPercent.textContent = `+${pct.toFixed(1)} %`;
+                }
+            }
+
+            // Always update micro sim to keep gas moving
+            updateMicroSim();
+            drawMicroSim();
+
+            state.animationId = requestAnimationFrame(runSimulation);
+        }
+
+        // --- Event Listeners ---
+        startBtn.addEventListener('click', () => {
+            if (state.isBurning || state.progress === 1) return;
+            state.isBurning = true;
+            state.startTime = null; // Reset start time for animation loop
+            
+            startBtn.disabled = true;
+            startBtn.classList.add('opacity-50', 'cursor-not-allowed');
+            
+            if (!state.animationId) {
+                state.animationId = requestAnimationFrame(runSimulation);
+            }
+        });
+
+        resetBtn.addEventListener('click', () => {
+            initExperiment();
+        });
+
+        // Start everything
+        initExperiment();
+
+    </script>
+</body>
+</html>
