@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Air Mass Experiment</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-4 font-sans text-slate-100">
+
+  <div class="max-w-4xl w-full text-center space-y-4 mb-6">
+    <h1 class="text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-red-400">
+      Does Air Have Mass?
+    </h1>
+    <p class="text-lg text-slate-300">
+      Drag the <span class="text-red-400 font-semibold">red pin</span> to pop a balloon and observe what happens to the balance rod.
+    </p>
+  </div>
+
+  <div class="relative w-full max-w-4xl aspect-video bg-slate-800 rounded-2xl shadow-2xl overflow-hidden border border-slate-700">
+    <button
+      id="btnToggleExpl"
+      class="absolute top-4 left-4 z-10 bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded-lg font-medium transition-colors shadow-lg"
+    >
+      Show Explanation
+    </button>
+    <button
+      id="btnReset"
+      class="absolute top-4 right-4 z-10 bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded-lg font-medium transition-colors shadow-lg"
+    >
+      Reset Experiment
+    </button>
+
+    <!-- Dynamic educational overlay -->
+    <div id="explanationContainer" class="absolute bottom-6 left-0 w-full text-center pointer-events-none px-4" style="display: none;">
+      <p id="explanationText" class="text-xl font-medium bg-slate-900/60 backdrop-blur-md inline-block px-6 py-3 rounded-full shadow-lg">
+        Both balloons have equal amounts of air. The rod is perfectly balanced.
+      </p>
+    </div>
+
+    <svg
+      id="sim-svg"
+      viewBox="0 0 800 450"
+      class="w-full h-full select-none"
+      style="touch-action: none;"
+    >
+      <defs>
+        <radialGradient id="blueBalloon" cx="35%" cy="35%" r="65%">
+          <stop offset="0%" stop-color="#93c5fd" />
+          <stop offset="70%" stop-color="#3b82f6" />
+          <stop offset="100%" stop-color="#1e3a8a" />
+        </radialGradient>
+        <radialGradient id="redBalloon" cx="35%" cy="35%" r="65%">
+          <stop offset="0%" stop-color="#fca5a5" />
+          <stop offset="70%" stop-color="#ef4444" />
+          <stop offset="100%" stop-color="#7f1d1d" />
+        </radialGradient>
+        <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+          <feDropShadow dx="2" dy="4" stdDeviation="3" flood-opacity="0.3" />
+        </filter>
+      </defs>
+
+      <!-- Environment -->
+      <rect x="0" y="0" width="800" height="25" fill="#1e293b" /> <!-- Ceiling -->
+      <path d="M 390,25 L 410,25 L 405,40 L 395,40 Z" fill="#475569" /> <!-- Pivot Mount -->
+
+      <!-- Center String -->
+      <line x1="400" y1="40" x2="400" y2="120" stroke="#94a3b8" stroke-width="2" />
+
+      <!-- Rod -->
+      <line id="rod" stroke="#b45309" stroke-width="10" stroke-linecap="round" />
+      
+      <!-- Pivot Pin -->
+      <circle cx="400" cy="120" r="6" fill="#cbd5e1" />
+      <circle cx="400" cy="120" r="3" fill="#64748b" />
+
+      <!-- LEFT SIDE -->
+      <!-- String -->
+      <line id="leftString" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="3 2" />
+      
+      <!-- Balloon Group -->
+      <g id="leftBalloonGroup">
+        <!-- Unpopped -->
+        <g id="leftUnpopped" filter="url(#shadow)">
+          <polygon points="0,-48 -6,-58 6,-58" fill="#3b82f6" />
+          <path d="M 0,-48 C -15,-33 -40,-18 -40,12 C -40,37 -20,52 0,52 C 20,52 40,37 40,12 C 40,-18 15,-33 0,-48 Z" fill="url(#blueBalloon)" />
+          <!-- Highlight -->
+          <path d="M -20,-10 C -25,0 -25,15 -15,25" stroke="white" stroke-width="3" fill="none" opacity="0.4" stroke-linecap="round" />
+        </g>
+        <!-- Popped / Scrap -->
+        <g id="leftPopped" style="display: none;">
+          <path d="M -8,-2 L 8,-2 L 4,4 C 12,14 -10,24 4,38 C -6,50 8,64 0,72 C -8,64 6,50 -4,38 C 10,24 -12,14 -4,4 Z" fill="#3b82f6" />
+          <path d="M -8,-2 L 8,-2 L 4,4 C 12,14 -10,24 4,38 C -6,50 8,64 0,72 C -8,64 6,50 -4,38 C 10,24 -12,14 -4,4 Z" fill="none" stroke="#1e3a8a" stroke-width="1" opacity="0.4" />
+        </g>
+      </g>
+
+      <!-- RIGHT SIDE -->
+      <!-- String -->
+      <line id="rightString" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="3 2" />
+      
+      <!-- Balloon Group -->
+      <g id="rightBalloonGroup">
+        <!-- Unpopped -->
+        <g id="rightUnpopped" filter="url(#shadow)">
+          <polygon points="0,-48 -6,-58 6,-58" fill="#ef4444" />
+          <path d="M 0,-48 C -15,-33 -40,-18 -40,12 C -40,37 -20,52 0,52 C 20,52 40,37 40,12 C 40,-18 15,-33 0,-48 Z" fill="url(#redBalloon)" />
+          <!-- Highlight -->
+          <path d="M -20,-10 C -25,0 -25,15 -15,25" stroke="white" stroke-width="3" fill="none" opacity="0.4" stroke-linecap="round" />
+        </g>
+        <!-- Popped / Scrap -->
+        <g id="rightPopped" style="display: none;">
+          <path d="M -8,-2 L 8,-2 L 4,4 C 12,14 -10,24 4,38 C -6,50 8,64 0,72 C -8,64 6,50 -4,38 C 10,24 -12,14 -4,4 Z" fill="#ef4444" />
+          <path d="M -8,-2 L 8,-2 L 4,4 C 12,14 -10,24 4,38 C -6,50 8,64 0,72 C -8,64 6,50 -4,38 C 10,24 -12,14 -4,4 Z" fill="none" stroke="#7f1d1d" stroke-width="1" opacity="0.4" />
+        </g>
+      </g>
+
+      <!-- Draggable Needle -->
+      <g
+        id="needle"
+        class="cursor-grab active:cursor-grabbing hover:drop-shadow-xl focus:outline-none"
+        filter="url(#shadow)"
+      >
+        <!-- Invisible Hitbox for easier dragging -->
+        <circle cx="20" cy="20" r="40" fill="transparent" />
+        <!-- Metal Pin -->
+        <line x1="0" y1="0" x2="20" y2="20" stroke="#cbd5e1" stroke-width="3" stroke-linecap="round" />
+        <!-- Plastic Head -->
+        <circle cx="26" cy="26" r="10" fill="#dc2626" />
+        <path d="M 18,18 L 34,18 L 34,34 L 18,34 Z" fill="#991b1b" transform="rotate(45 26 26)" />
+      </g>
+    </svg>
+  </div>
+
+  <script>
+    // Constants
+    const PIVOT_X = 400;
+    const PIVOT_Y = 120;
+    const ROD_LENGTH = 440;
+    const ROD_RADIUS = ROD_LENGTH / 2;
+    const STRING_LEN = 90;
+    const KNOT_OFFSET = -50;
+    const BALLOON_RADIUS = 40;
+
+    // State
+    let leftPopped = false;
+    let rightPopped = false;
+    let needleX = 400;
+    let needleY = 350;
+    let angle = 0;
+    let targetAngle = 0;
+    let velocity = 0;
+    let showExplanation = false;
+    let isDragging = false;
+
+    // DOM Elements
+    const svg = document.getElementById('sim-svg');
+    const rodEl = document.getElementById('rod');
+    const leftStringEl = document.getElementById('leftString');
+    const rightStringEl = document.getElementById('rightString');
+    const leftBalloonGroup = document.getElementById('leftBalloonGroup');
+    const rightBalloonGroup = document.getElementById('rightBalloonGroup');
+    const leftUnpopped = document.getElementById('leftUnpopped');
+    const leftPoppedEl = document.getElementById('leftPopped');
+    const rightUnpopped = document.getElementById('rightUnpopped');
+    const rightPoppedEl = document.getElementById('rightPopped');
+    const needleEl = document.getElementById('needle');
+    const explanationContainer = document.getElementById('explanationContainer');
+    const explanationText = document.getElementById('explanationText');
+    const btnToggleExpl = document.getElementById('btnToggleExpl');
+    const btnReset = document.getElementById('btnReset');
+
+    // UI Buttons
+    btnToggleExpl.addEventListener('click', () => {
+      showExplanation = !showExplanation;
+      explanationContainer.style.display = showExplanation ? 'block' : 'none';
+      btnToggleExpl.textContent = showExplanation ? 'Hide Explanation' : 'Show Explanation';
+    });
+
+    btnReset.addEventListener('click', () => {
+      leftPopped = false;
+      rightPopped = false;
+      needleX = 400;
+      needleY = 350;
+      targetAngle = 0;
+      
+      leftUnpopped.style.display = 'block';
+      leftPoppedEl.style.display = 'none';
+      rightUnpopped.style.display = 'block';
+      rightPoppedEl.style.display = 'none';
+      
+      updateExplanationText();
+      needleEl.setAttribute('transform', `translate(${needleX}, ${needleY})`);
+    });
+
+    function updateExplanationText() {
+      if (!leftPopped && !rightPopped) {
+        explanationText.textContent = "Both balloons have equal amounts of air. The rod is perfectly balanced.";
+      } else if (leftPopped && rightPopped) {
+        explanationText.textContent = "Both balloons popped! The empty rubber pieces weigh the same, so it's balanced again.";
+      } else {
+        explanationText.textContent = "Air has mass! The remaining balloon pulls its side down because the popped side lost the mass of its air.";
+      }
+    }
+
+    // Pointer interactions
+    function getSvgCoords(e) {
+      const pt = svg.createSVGPoint();
+      pt.x = e.clientX || (e.touches && e.touches[0].clientX);
+      pt.y = e.clientY || (e.touches && e.touches[0].clientY);
+      const cursorPt = pt.matrixTransform(svg.getScreenCTM().inverse());
+      return { x: cursorPt.x, y: cursorPt.y };
+    }
+
+    needleEl.addEventListener('pointerdown', (e) => {
+      isDragging = true;
+      needleEl.setPointerCapture(e.pointerId);
+    });
+
+    needleEl.addEventListener('pointermove', (e) => {
+      if (!isDragging) return;
+      const coords = getSvgCoords(e);
+      needleX = coords.x;
+      needleY = coords.y;
+    });
+
+    needleEl.addEventListener('pointerup', (e) => {
+      isDragging = false;
+      needleEl.releasePointerCapture(e.pointerId);
+    });
+    
+    needleEl.addEventListener('pointercancel', (e) => {
+      isDragging = false;
+      needleEl.releasePointerCapture(e.pointerId);
+    });
+
+    // Physics Loop
+    function tick() {
+      // 1. Spring physics for the rod
+      const spring = 0.015;
+      const damp = 0.9;
+      const diff = targetAngle - angle;
+      velocity += diff * spring;
+      velocity *= damp;
+      angle += velocity;
+
+      // 2. Calculate positions
+      const currentAngleRad = (angle * Math.PI) / 180;
+      const a1x = PIVOT_X - ROD_RADIUS * Math.cos(currentAngleRad);
+      const a1y = PIVOT_Y - ROD_RADIUS * Math.sin(currentAngleRad);
+      const b1x = a1x;
+      const b1y = a1y + STRING_LEN - KNOT_OFFSET;
+
+      const a2x = PIVOT_X + ROD_RADIUS * Math.cos(currentAngleRad);
+      const a2y = PIVOT_Y + ROD_RADIUS * Math.sin(currentAngleRad);
+      const b2x = a2x;
+      const b2y = a2y + STRING_LEN - KNOT_OFFSET;
+
+      // 3. Check Collisions
+      const dist1 = Math.hypot(needleX - b1x, needleY - b1y);
+      const dist2 = Math.hypot(needleX - b2x, needleY - b2y);
+      const hitRadius = BALLOON_RADIUS + 5;
+
+      if (!leftPopped && dist1 < hitRadius) {
+        leftPopped = true;
+        leftUnpopped.style.display = 'none';
+        leftPoppedEl.style.display = 'block';
+        updateBalance();
+      }
+      if (!rightPopped && dist2 < hitRadius) {
+        rightPopped = true;
+        rightUnpopped.style.display = 'none';
+        rightPoppedEl.style.display = 'block';
+        updateBalance();
+      }
+
+      // 4. Render Updates
+      rodEl.setAttribute('x1', a1x);
+      rodEl.setAttribute('y1', a1y);
+      rodEl.setAttribute('x2', a2x);
+      rodEl.setAttribute('y2', a2y);
+
+      leftStringEl.setAttribute('x1', a1x);
+      leftStringEl.setAttribute('y1', a1y);
+      leftStringEl.setAttribute('x2', a1x);
+      leftStringEl.setAttribute('y2', a1y + STRING_LEN);
+      leftBalloonGroup.setAttribute('transform', `translate(${leftPopped ? a1x : b1x}, ${leftPopped ? a1y + STRING_LEN : b1y})`);
+
+      rightStringEl.setAttribute('x1', a2x);
+      rightStringEl.setAttribute('y1', a2y);
+      rightStringEl.setAttribute('x2', a2x);
+      rightStringEl.setAttribute('y2', a2y + STRING_LEN);
+      rightBalloonGroup.setAttribute('transform', `translate(${rightPopped ? a2x : b2x}, ${rightPopped ? a2y + STRING_LEN : b2y})`);
+
+      needleEl.setAttribute('transform', `translate(${needleX}, ${needleY})`);
+
+      requestAnimationFrame(tick);
+    }
+
+    function updateBalance() {
+      if (leftPopped && !rightPopped) {
+        targetAngle = 15;
+      } else if (rightPopped && !leftPopped) {
+        targetAngle = -15;
+      } else {
+        targetAngle = 0;
+      }
+      updateExplanationText();
+    }
+
+    // Start Simulation
+    tick();
+
+  </script>
+</body>
+</html>
