@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Solubility Simulation</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="min-h-screen bg-slate-50 flex flex-col items-center py-8 px-4 font-sans text-slate-800">
+
+  <!-- Header -->
+  <div class="w-full max-w-6xl mb-6">
+    <h1 class="text-2xl font-bold text-slate-800">Solubility</h1>
+    <p class="text-slate-400 text-sm">Interactive Simulation</p>
+  </div>
+
+  <!-- Main Content Area -->
+  <div class="w-full max-w-6xl bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden flex flex-col">
+    
+    <!-- Top: Graph and Beaker -->
+    <div class="flex flex-col lg:flex-row border-b border-slate-200">
+      
+      <!-- Left Panel: Graph -->
+      <div class="flex-1 p-6 relative flex justify-center items-center min-h-[500px]">
+        <svg id="main-graph" width="520" height="500" class="overflow-visible" style="max-width: 100%; height: auto;">
+          <defs>
+            <clipPath id="graph-clip">
+              <rect id="clip-rect" x="60" y="20" width="420" height="420" />
+            </clipPath>
+          </defs>
+          
+          <g id="static-grid"></g>
+
+          <!-- Axis Labels -->
+          <text x="270" y="490" text-anchor="middle" fill="#334155" font-size="18" font-weight="600">Temperature (°C)</text>
+          <text transform="rotate(-90 20 230)" x="20" y="230" text-anchor="middle" fill="#334155" font-size="18" font-weight="600">Solubility (g/100g)</text>
+
+          <!-- Axes Base Lines -->
+          <line x1="60" y1="440" x2="480" y2="440" stroke="#94a3b8" stroke-width="2" />
+          <line x1="60" y1="20" x2="60" y2="440" stroke="#94a3b8" stroke-width="2" />
+
+          <!-- Dynamic Curves & Indicator -->
+          <g clip-path="url(#graph-clip)" id="dynamic-curves"></g>
+        </svg>
+      </div>
+
+      <!-- Right Panel: Beaker Simulation -->
+      <div class="flex-1 bg-slate-100 p-6 flex justify-center items-center relative min-h-[500px]">
+        <div class="relative w-[300px] h-[400px]">
+          
+          <!-- Back SVG (Hotplate & Beaker Back) -->
+          <svg class="absolute inset-0 w-full h-full" style="z-index: 10;">
+            <!-- Hotplate Base -->
+            <rect x="20" y="310" width="260" height="40" rx="20" fill="#e2e8f0" stroke="#cbd5e1" stroke-width="2" />
+            <rect x="30" y="350" width="240" height="25" rx="10" fill="#334155" />
+            <!-- Hotplate Element -->
+            <rect x="50" y="305" width="200" height="10" rx="5" fill="#1e293b" />
+            <!-- Hotplate indicator light -->
+            <circle id="hotplate-light" cx="230" cy="330" r="4" fill="#ef4444" />
+            <!-- Knob -->
+            <circle cx="260" cy="330" r="12" fill="#0f172a" />
+            <circle cx="260" cy="330" r="8" fill="#334155" />
+
+            <!-- Beaker Back & Liquid Fill -->
+            <path d="M 60 50 L 60 300 C 60 305, 240 305, 240 300 L 240 50" fill="#e0f2fe" opacity="0.5" />
+          </svg>
+
+          <!-- Particle Canvas -->
+          <canvas id="simulation-canvas" width="300" height="400" class="absolute inset-0 w-full h-full" style="z-index: 20;"></canvas>
+
+          <!-- Front SVG (Beaker Glass Rim & Markings) -->
+          <svg class="absolute inset-0 w-full h-full pointer-events-none" style="z-index: 30;">
+            <!-- Beaker Outline -->
+            <path d="M 60 50 L 60 300 C 60 310, 240 310, 240 300 L 240 50" fill="none" stroke="#94a3b8" stroke-width="3" opacity="0.5" />
+            <!-- Beaker Rims -->
+            <path d="M 50 50 L 75 50 M 225 50 L 250 50" stroke="#94a3b8" stroke-width="3" stroke-linecap="round" opacity="0.5" />
+            <!-- Glare/Reflection lines -->
+            <path d="M 70 80 L 70 280" stroke="#ffffff" stroke-width="4" stroke-linecap="round" opacity="0.5" />
+            <path d="M 230 180 L 230 280" stroke="#ffffff" stroke-width="2" stroke-linecap="round" opacity="0.3" />
+            <!-- Markings -->
+            <line x1="60" y1="100" x2="75" y2="100" stroke="#94a3b8" stroke-width="2" opacity="0.5" />
+            <line x1="60" y1="150" x2="75" y2="150" stroke="#94a3b8" stroke-width="2" opacity="0.5" />
+            <line x1="60" y1="200" x2="75" y2="200" stroke="#94a3b8" stroke-width="2" opacity="0.5" />
+            <line x1="60" y1="250" x2="75" y2="250" stroke="#94a3b8" stroke-width="2" opacity="0.5" />
+          </svg>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- Bottom: Controls -->
+    <div class="p-6 bg-white">
+      <div class="flex flex-col md:flex-row gap-8 justify-center items-center mb-6">
+        
+        <!-- Temperature Slider -->
+        <div class="flex flex-col items-center w-full max-w-xs">
+          <label class="text-sm font-medium text-slate-600 mb-2">
+            Temperature : <span id="temp-display" class="font-bold text-slate-800">56 °C</span>
+          </label>
+          <input 
+            type="range" id="temp-slider" min="0" max="100" step="1" value="56"
+            class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-red-500"
+          />
+        </div>
+
+        <!-- Amount Slider -->
+        <div class="flex flex-col items-center w-full max-w-xs">
+          <label class="text-sm font-medium text-slate-600 mb-2">
+            Amount of solute : <span id="amount-display" class="font-bold text-slate-800">63 g</span>
+          </label>
+          <input 
+            type="range" id="amount-slider" min="0" max="160" step="1" value="63"
+            class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-red-500"
+          />
+        </div>
+
+        <!-- Run Checkbox -->
+        <div class="flex items-center space-x-2 mt-6 md:mt-0">
+          <input 
+            type="checkbox" id="run-sim" checked
+            class="w-5 h-5 text-blue-600 bg-slate-100 border-slate-300 rounded focus:ring-blue-500 cursor-pointer"
+          />
+          <label for="run-sim" class="text-sm font-semibold text-slate-700 cursor-pointer">Run</label>
+        </div>
+      </div>
+
+      <!-- Solute Selection -->
+      <div id="solute-radios" class="flex flex-wrap justify-center gap-6 border-t border-slate-100 pt-6">
+        <!-- Radio buttons injected by JS -->
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    // --- Constants & Data ---
+    const SOLUTES = [
+      { id: 'kno3', name: 'Potassium nitrate', color: '#db2777', particleColor: '#fbcfe8', fn: (t) => 13 + 0.6 * t + 0.017 * t * t },
+      { id: 'nano3', name: 'Sodium nitrate', color: '#ea580c', particleColor: '#fdba74', fn: (t) => 73 + 0.7 * t + 0.003 * t * t },
+      { id: 'cuso4', name: 'Copper sulfate', color: '#0ea5e9', particleColor: '#bae6fd', fn: (t) => 14 + 0.25 * t + 0.0035 * t * t },
+      { id: 'nacl', name: 'Sodium chloride', color: '#10b981', particleColor: '#a7f3d0', fn: (t) => 35.7 + 0.01 * t + 0.0003 * t * t },
+      { id: 'h3bo3', name: 'Boric acid', color: '#64748b', particleColor: '#cbd5e1', fn: (t) => 2.5 + 0.1 * t + 0.0028 * t * t }
+    ];
+
+    // --- Application State ---
+    let state = {
+      temperature: 56,
+      amount: 63,
+      selectedSoluteId: 'kno3',
+      isRunning: true
+    };
+
+    let physicsState = {
+      waterParticles: null,
+      soluteParticles: []
+    };
+
+    // --- DOM Elements ---
+    const tempSlider = document.getElementById('temp-slider');
+    const tempDisplay = document.getElementById('temp-display');
+    const amountSlider = document.getElementById('amount-slider');
+    const amountDisplay = document.getElementById('amount-display');
+    const runSim = document.getElementById('run-sim');
+    const soluteRadiosContainer = document.getElementById('solute-radios');
+    const dynamicCurves = document.getElementById('dynamic-curves');
+    const hotplateLight = document.getElementById('hotplate-light');
+    const canvas = document.getElementById('simulation-canvas');
+    const ctx = canvas.getContext('2d');
+
+    // --- Graph Layout Constants ---
+    const graphW = 420;
+    const graphH = 420;
+    const padLeft = 60;
+    const padTop = 20;
+
+    const scaleX = (x) => padLeft + (x / 100) * graphW;
+    const scaleY = (y) => padTop + graphH - (y / 160) * graphH;
+
+    // --- Initialization ---
+    function init() {
+      drawStaticGrid();
+      buildRadioButtons();
+      updateGraph();
+      setupEventListeners();
+      requestAnimationFrame(renderLoop);
+    }
+
+    function setupEventListeners() {
+      tempSlider.addEventListener('input', (e) => {
+        state.temperature = Number(e.target.value);
+        tempDisplay.textContent = `${state.temperature} °C`;
+        hotplateLight.setAttribute('fill', state.temperature > 0 ? '#ef4444' : '#475569');
+        updateGraph();
+      });
+
+      amountSlider.addEventListener('input', (e) => {
+        state.amount = Number(e.target.value);
+        amountDisplay.textContent = `${state.amount} g`;
+        updateGraph();
+      });
+
+      runSim.addEventListener('change', (e) => {
+        state.isRunning = e.target.checked;
+      });
+    }
+
+    // --- UI Rendering ---
+    function buildRadioButtons() {
+      soluteRadiosContainer.innerHTML = '';
+      SOLUTES.forEach(solute => {
+        const isActive = state.selectedSoluteId === solute.id;
+        
+        const label = document.createElement('label');
+        label.className = 'flex items-center space-x-2 cursor-pointer group';
+        
+        // Generate the inner HTML for the custom radio button
+        label.innerHTML = `
+          <div class="relative flex items-center justify-center w-5 h-5">
+            <input type="radio" name="solute" value="${solute.id}" ${isActive ? 'checked' : ''} class="opacity-0 absolute w-full h-full cursor-pointer" />
+            <div class="radio-indicator w-4 h-4 rounded-full border-2 transition-all ${isActive ? 'border-transparent scale-110' : 'border-slate-300 group-hover:border-slate-400'}" style="background-color: ${isActive ? solute.color : 'transparent'}"></div>
+            ${isActive ? `<div class="radio-ring absolute w-5 h-5 rounded-full border-2 opacity-50" style="border-color: ${solute.color}"></div>` : ''}
+          </div>
+          <span class="radio-text text-sm ${isActive ? 'font-semibold text-slate-800' : 'text-slate-500'}">${solute.name}</span>
+        `;
+
+        // Handle click
+        label.querySelector('input').addEventListener('change', (e) => {
+          if (e.target.checked) {
+            state.selectedSoluteId = solute.id;
+            buildRadioButtons(); // Re-render the radio group to update styles
+            updateGraph();
+          }
+        });
+
+        soluteRadiosContainer.appendChild(label);
+      });
+    }
+
+    // --- SVG Graph Rendering ---
+    function drawStaticGrid() {
+      const staticGrid = document.getElementById('static-grid');
+      let gridHTML = '';
+
+      // X grid lines
+      for (let x = 0; x <= 100; x += 10) {
+        gridHTML += `
+          <line x1="${scaleX(x)}" y1="${padTop}" x2="${scaleX(x)}" y2="${padTop + graphH}" stroke="#f1f5f9" stroke-width="1.5" />
+          <text x="${scaleX(x)}" y="${padTop + graphH + 20}" text-anchor="middle" fill="#64748b" font-size="14">${x}</text>
+        `;
+      }
+      
+      // Y grid lines
+      for (let y = 0; y <= 160; y += 20) {
+        gridHTML += `
+          <line x1="${padLeft}" y1="${scaleY(y)}" x2="${padLeft + graphW}" y2="${scaleY(y)}" stroke="#f1f5f9" stroke-width="1.5" />
+          <text x="${padLeft - 10}" y="${scaleY(y) + 5}" text-anchor="end" fill="#64748b" font-size="14">${y}</text>
+        `;
+      }
+      
+      staticGrid.innerHTML = gridHTML;
+    }
+
+    function generatePath(fn) {
+      let d = "";
+      for (let t = 0; t <= 100; t += 2) {
+        const x = scaleX(t);
+        const y = scaleY(fn(t));
+        if (t === 0) d += `M ${x} ${y} `;
+        else d += `L ${x} ${y} `;
+      }
+      return d;
+    }
+
+    function updateGraph() {
+      let curvesHTML = '';
+      const selectedSolute = SOLUTES.find(s => s.id === state.selectedSoluteId);
+
+      // Draw all curve paths
+      SOLUTES.forEach(solute => {
+        const isActive = solute.id === state.selectedSoluteId;
+        curvesHTML += `
+          <path 
+            d="${generatePath(solute.fn)}" 
+            fill="none" 
+            stroke="${isActive ? solute.color : '#e2e8f0'}" 
+            stroke-width="${isActive ? 4 : 2}" 
+            opacity="${isActive ? 1 : 0.6}" 
+            style="transition: all 0.3s;"
+          />
+        `;
+      });
+
+      // Draw current state indicator lines and dot
+      const cx = scaleX(state.temperature);
+      const cy = scaleY(state.amount);
+      const cColor = selectedSolute.color;
+
+      curvesHTML += `
+        <line x1="${cx}" y1="${cy}" x2="${cx}" y2="${scaleY(0)}" stroke="${cColor}" stroke-width="1.5" stroke-dasharray="6,4" opacity="0.6" />
+        <line x1="${scaleX(0)}" y1="${cy}" x2="${cx}" y2="${cy}" stroke="${cColor}" stroke-width="1.5" stroke-dasharray="6,4" opacity="0.6" />
+        <circle cx="${cx}" cy="${cy}" r="6" fill="${cColor}" stroke="#fff" stroke-width="2" />
+      `;
+
+      dynamicCurves.innerHTML = curvesHTML;
+    }
+
+    // --- Physics Simulation Loop ---
+    function renderLoop() {
+      const selectedSolute = SOLUTES.find(s => s.id === state.selectedSoluteId);
+
+      // 1. Initialize Water Particles once
+      if (!physicsState.waterParticles) {
+        physicsState.waterParticles = [];
+        for(let i=0; i<250; i++) {
+          physicsState.waterParticles.push({
+            x: 80 + Math.random() * 140,
+            y: 120 + Math.random() * 150,
+            vx: (Math.random() - 0.5) * 2,
+            vy: (Math.random() - 0.5) * 2,
+            color: '#3b82f6'
+          });
+        }
+      }
+
+      // 2. Update Physics State for Solute
+      const currentSolubility = selectedSolute.fn(state.temperature);
+      const dissolvedLimit = Math.min(state.amount, currentSolubility);
+      
+      const MULTIPLIER = 1.2; 
+      const targetTotalSolute = Math.floor(state.amount * MULTIPLIER);
+      const targetDissolvedSolute = Math.floor(dissolvedLimit * MULTIPLIER);
+
+      // Add missing solute particles
+      while (physicsState.soluteParticles.length < targetTotalSolute) {
+        const clumpCenter = 100 + Math.floor(Math.random() * 3) * 50; 
+        physicsState.soluteParticles.push({
+          x: 100 + Math.random() * 100,
+          y: 60 + Math.random() * 40,
+          vx: (Math.random() - 0.5) * 2,
+          vy: 0,
+          clumpTargetX: clumpCenter + (Math.random() - 0.5) * 25,
+          baseFloorY: 280 + Math.random() * 5 - Math.random() * 10,
+          isDissolved: false
+        });
+      }
+      
+      // Remove excess solute particles
+      if (physicsState.soluteParticles.length > targetTotalSolute) {
+        physicsState.soluteParticles.splice(targetTotalSolute);
+      }
+
+      const speedFactor = state.isRunning ? (0.2 + (state.temperature / 100) * 1.5) : 0;
+
+      // Process Water Particles
+      for (const w of physicsState.waterParticles) {
+        if (state.isRunning) {
+          w.vx += (Math.random() - 0.5) * speedFactor;
+          w.vy += (Math.random() - 0.5) * speedFactor;
+        }
+        w.vx *= 0.95;
+        w.vy *= 0.95;
+        
+        w.x += w.vx;
+        w.y += w.vy;
+
+        // Hard bounds
+        if (w.x < 70) { w.x = 70; w.vx *= -0.8; }
+        if (w.x > 230) { w.x = 230; w.vx *= -0.8; }
+        if (w.y < 120) { w.y = 120; w.vy *= -0.8; }
+        if (w.y > 275) { w.y = 275; w.vy *= -0.8; }
+      }
+
+      // Process Solute Particles
+      for (let i = 0; i < physicsState.soluteParticles.length; i++) {
+        const p = physicsState.soluteParticles[i];
+        p.isDissolved = i < targetDissolvedSolute;
+
+        if (p.isDissolved) {
+          // Dissolved behavior
+          if (state.isRunning) {
+            p.vx += (Math.random() - 0.5) * speedFactor;
+            p.vy += (Math.random() - 0.5) * speedFactor;
+          }
+
+          p.vx *= 0.95;
+          p.vy *= 0.95;
+
+          p.x += p.vx;
+          p.y += p.vy;
+
+          if (p.x < 70) { p.x = 70; p.vx *= -0.8; }
+          if (p.x > 230) { p.x = 230; p.vx *= -0.8; }
+          if (p.y < 120) { p.y = 120; p.vy *= -0.8; }
+          if (p.y > 275) { p.y = 275; p.vy *= -0.8; }
+
+        } else {
+          // Solid behavior
+          p.vy += 0.2; 
+          p.vx *= 0.8;
+          p.vy *= 0.95;
+
+          p.vx += (p.clumpTargetX - p.x) * 0.015;
+
+          p.x += p.vx;
+          p.y += p.vy;
+
+          const distToCenter = Math.abs(p.x - p.clumpTargetX);
+          const clumpHeight = Math.max(0, 15 - distToCenter);
+          const actualFloorY = p.baseFloorY - clumpHeight;
+
+          if (p.y >= actualFloorY) {
+            p.y = actualFloorY;
+            p.vy = 0;
+            p.vx = 0;
+          }
+
+          if (p.x < 70) { p.x = 70; p.vx *= -0.5; }
+          if (p.x > 230) { p.x = 230; p.vx *= -0.5; }
+        }
+      }
+
+      // 3. Draw Frame
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Draw Water Particles
+      for (const w of physicsState.waterParticles) {
+        ctx.beginPath();
+        ctx.arc(w.x, w.y, 2.5, 0, Math.PI * 2);
+        ctx.fillStyle = w.color;
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(0,0,0,0.1)';
+        ctx.lineWidth = 0.5;
+        ctx.stroke();
+      }
+
+      // Draw Solute Particles
+      for (const p of physicsState.soluteParticles) {
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 3, 0, Math.PI * 2); 
+        ctx.fillStyle = selectedSolute.particleColor;
+        ctx.fill();
+        
+        if (!p.isDissolved) {
+          ctx.strokeStyle = '#000000'; 
+          ctx.lineWidth = 1.5;
+        } else {
+          ctx.strokeStyle = 'rgba(0,0,0,0.2)';
+          ctx.lineWidth = 0.5;
+        }
+        ctx.stroke();
+      }
+
+      requestAnimationFrame(renderLoop);
+    }
+
+    // Start application
+    window.onload = init;
+
+  </script>
+</body>
+</html>
