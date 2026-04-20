@@ -139,7 +139,11 @@
       { id: 'nano3', name: 'Sodium nitrate', color: '#ea580c', particleColor: '#fdba74', fn: (t) => 73 + 0.7 * t + 0.003 * t * t },
       { id: 'cuso4', name: 'Copper sulfate', color: '#0ea5e9', particleColor: '#bae6fd', fn: (t) => 14 + 0.25 * t + 0.0035 * t * t },
       { id: 'nacl', name: 'Sodium chloride', color: '#10b981', particleColor: '#a7f3d0', fn: (t) => 35.7 + 0.01 * t + 0.0003 * t * t },
-      { id: 'h3bo3', name: 'Boric acid', color: '#64748b', particleColor: '#cbd5e1', fn: (t) => 2.5 + 0.1 * t + 0.0028 * t * t }
+      { id: 'h3bo3', name: 'Boric acid', color: '#64748b', particleColor: '#cbd5e1', fn: (t) => 2.5 + 0.1 * t + 0.0028 * t * t },
+      // Added gases: Solubility decreases with temperature. 
+      // (Formulas are approximate mathematical fits scaled for this graph's axes)
+      { id: 'nh3', name: 'Ammonia (Gas)', color: '#8b5cf6', particleColor: '#ddd6fe', isGas: true, fn: (t) => Math.max(0, 90 - 1.2 * t + 0.005 * t * t) },
+      { id: 'co2', name: 'Carbon Dioxide (Gas)', color: '#14b8a6', particleColor: '#99f6e4', isGas: true, fn: (t) => Math.max(0, 40 - 0.8 * t + 0.004 * t * t) }
     ];
 
     // --- Application State ---
@@ -390,32 +394,56 @@
 
           if (p.x < 70) { p.x = 70; p.vx *= -0.8; }
           if (p.x > 230) { p.x = 230; p.vx *= -0.8; }
-          if (p.y < 120) { p.y = 120; p.vy *= -0.8; }
+          // Soft boundary at the top so gas bubbles drawn back into solution don't instantly snap
+          if (p.y < 120) { p.vy += 0.5; } 
           if (p.y > 275) { p.y = 275; p.vy *= -0.8; }
 
         } else {
-          // Solid behavior
-          p.vy += 0.2; 
-          p.vx *= 0.8;
-          p.vy *= 0.95;
+          // Undissolved behavior (Solid vs Gas)
+          if (selectedSolute.isGas) {
+            // Gas behavior: bubble up to the surface
+            p.vy -= 0.1; // Buoyancy
+            p.vx += (Math.random() - 0.5) * 1.5; // Bubble wiggle
+            p.vy *= 0.9;
+            p.vx *= 0.9;
 
-          p.vx += (p.clumpTargetX - p.x) * 0.015;
+            p.x += p.vx;
+            p.y += p.vy;
 
-          p.x += p.vx;
-          p.y += p.vy;
+            // Stop at headspace and keep wiggling
+            if (p.y < 60) {
+              p.y = 60;
+              p.vy = 0;
+              p.vx += (Math.random() - 0.5) * 0.5; 
+            }
 
-          const distToCenter = Math.abs(p.x - p.clumpTargetX);
-          const clumpHeight = Math.max(0, 15 - distToCenter);
-          const actualFloorY = p.baseFloorY - clumpHeight;
+            if (p.x < 70) { p.x = 70; p.vx *= -0.5; }
+            if (p.x > 230) { p.x = 230; p.vx *= -0.5; }
 
-          if (p.y >= actualFloorY) {
-            p.y = actualFloorY;
-            p.vy = 0;
-            p.vx = 0;
+          } else {
+            // Solid behavior: sink to bottom
+            p.vy += 0.2; 
+            p.vx *= 0.8;
+            p.vy *= 0.95;
+
+            p.vx += (p.clumpTargetX - p.x) * 0.015;
+
+            p.x += p.vx;
+            p.y += p.vy;
+
+            const distToCenter = Math.abs(p.x - p.clumpTargetX);
+            const clumpHeight = Math.max(0, 15 - distToCenter);
+            const actualFloorY = p.baseFloorY - clumpHeight;
+
+            if (p.y >= actualFloorY) {
+              p.y = actualFloorY;
+              p.vy = 0;
+              p.vx = 0;
+            }
+
+            if (p.x < 70) { p.x = 70; p.vx *= -0.5; }
+            if (p.x > 230) { p.x = 230; p.vx *= -0.5; }
           }
-
-          if (p.x < 70) { p.x = 70; p.vx *= -0.5; }
-          if (p.x > 230) { p.x = 230; p.vx *= -0.5; }
         }
       }
 
