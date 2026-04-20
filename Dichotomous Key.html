@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dichotomous Key Bug Identifier</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- React and ReactDOM -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    
+    <!-- Babel for in-browser JSX compilation -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <style>
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in {
+            animation: fadeIn 0.4s ease-out forwards;
+        }
+    </style>
+</head>
+<body class="bg-slate-100 overflow-hidden">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useMemo, useRef } = React;
+
+        // --- DATA STRUCTURE ---
+        const treeData = {
+          id: "q1", text: "Does it have legs?",
+          yes: {
+            id: "q3", text: "Does it have exactly 6 legs?",
+            yes: {
+              id: "q6", text: "Does it have wings?",
+              yes: {
+                id: "q7", text: "Are its wings covered by a hard shell?",
+                yes: { id: "ladybug", bug: "Ladybug", emoji: "🐞", isLeaf: true, hasHiddenFeatures: true },
+                no: {
+                  id: "q8", text: "Are its wings large, wide, and colorful?",
+                  yes: { id: "butterfly", bug: "Butterfly", emoji: "🦋", isLeaf: true, hasHiddenFeatures: true },
+                  no: {
+                    id: "q9", text: "Does it have huge, folded back legs for jumping?",
+                    yes: { id: "grasshopper", bug: "Grasshopper", emoji: "🦗", isLeaf: true, hasHiddenFeatures: true },
+                    no: {
+                      id: "q10", text: "Is its body fuzzy with yellow & black stripes?",
+                      yes: { id: "bee", bug: "Bee", emoji: "🐝", isLeaf: true },
+                      no: { id: "fly", bug: "House Fly", emoji: "🪰", isLeaf: true }
+                    }
+                  }
+                }
+              },
+              no: { id: "ant", bug: "Ant", emoji: "🐜", isLeaf: true }
+            },
+            no: {
+              id: "q4", text: "Does it have large pincers & a stinging tail?",
+              yes: { id: "scorpion", bug: "Scorpion", emoji: "🦂", isLeaf: true },
+              no: { id: "spider", bug: "Spider", emoji: "🕷️", isLeaf: true }
+            }
+          },
+          no: {
+            id: "q2", text: "Does it carry a hard, coiled shell on its back?",
+            yes: { id: "snail", bug: "Snail", emoji: "🐌", isLeaf: true },
+            no: { id: "worm", bug: "Earthworm", emoji: "🪱", isLeaf: true }
+          }
+        };
+
+        // --- HELPER FUNCTIONS ---
+        function getLeaves(node) {
+          if (node.isLeaf) return [node];
+          return [...getLeaves(node.yes), ...getLeaves(node.no)];
+        }
+
+        function buildLayout(node, depth = 0, state = { y: 40 }, nodes = [], edges = []) {
+          const x = depth * 240 + 20;
+          const currentNode = { ...node, x };
+
+          if (node.isLeaf) {
+            currentNode.y = state.y;
+            state.y += 80; // Vertical spacing between leaves
+            nodes.push(currentNode);
+            return { node: currentNode, nodes, edges };
+          }
+
+          const yesLayout = buildLayout(node.yes, depth + 1, state, nodes, edges);
+          const noLayout = buildLayout(node.no, depth + 1, state, nodes, edges);
+
+          currentNode.y = (yesLayout.node.y + noLayout.node.y) / 2;
+          nodes.push(currentNode);
+
+          edges.push({ source: currentNode, target: yesLayout.node, label: 'Yes' });
+          edges.push({ source: currentNode, target: noLayout.node, label: 'No' });
+
+          return { node: currentNode, nodes, edges };
+        }
+
+        const allBugs = getLeaves(treeData);
+
+        // --- BUG SVG COMPONENTS ---
+        const BugIllustration = ({ bug }) => {
+          const renderSvg = (id, revealed) => {
+            switch(id) {
+              case 'spider': return (
+                <svg viewBox="0 0 200 200" className="w-full h-full drop-shadow-md">
+                  <g stroke="#334155" strokeWidth="5" fill="none" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M 85 85 L 40 50 L 20 60" />
+                    <path d="M 85 90 L 30 90 L 10 110" />
+                    <path d="M 85 95 L 40 130 L 20 160" />
+                    <path d="M 85 100 L 50 160 L 40 190" />
+                    <path d="M 115 85 L 160 50 L 180 60" />
+                    <path d="M 115 90 L 170 90 L 190 110" />
+                    <path d="M 115 95 L 160 130 L 180 160" />
+                    <path d="M 115 100 L 150 160 L 160 190" />
+                  </g>
+                  <ellipse cx="100" cy="85" rx="18" ry="22" fill="#1e293b" />
+                  <ellipse cx="100" cy="135" rx="28" ry="38" fill="#0f172a" />
+                  <circle cx="93" cy="70" r="3" fill="#ef4444" />
+                  <circle cx="107" cy="70" r="3" fill="#ef4444" />
+                  <path d="M 90 65 L 85 55 M 110 65 L 115 55" stroke="#1e293b" strokeWidth="3" />
+                </svg>
+              );
+              case 'scorpion': return (
+                <svg viewBox="0 0 200 200" className="w-full h-full drop-shadow-md">
+                  <g stroke="#92400e" strokeWidth="4" fill="none" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M 85 85 L 40 70 L 20 90" />
+                    <path d="M 85 95 L 30 100 L 15 120" />
+                    <path d="M 85 105 L 40 130 L 25 150" />
+                    <path d="M 85 115 L 50 150 L 40 175" />
+                    <path d="M 115 85 L 160 70 L 180 90" />
+                    <path d="M 115 95 L 170 100 L 185 120" />
+                    <path d="M 115 105 L 160 130 L 175 150" />
+                    <path d="M 115 115 L 150 150 L 160 175" />
+                  </g>
+                  <g stroke="#78350f" strokeWidth="8" fill="none" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M 90 70 L 50 30" />
+                    <path d="M 110 70 L 150 30" />
+                  </g>
+                  <circle cx="45" cy="25" r="12" fill="#78350f" />
+                  <path d="M 35 15 Q 40 5 55 10" stroke="#78350f" strokeWidth="6" fill="none" />
+                  <circle cx="155" cy="25" r="12" fill="#78350f" />
+                  <path d="M 165 15 Q 160 5 145 10" stroke="#78350f" strokeWidth="6" fill="none" />
+                  <path d="M 100 140 Q 130 160 150 140 Q 170 100 130 50 L 115 45" stroke="#78350f" strokeWidth="12" fill="none" strokeLinecap="round" />
+                  <path d="M 115 45 L 105 35" stroke="#991b1b" strokeWidth="6" fill="none" strokeLinecap="round" />
+                  <rect x="80" y="65" width="40" height="50" rx="10" fill="#78350f" />
+                  <rect x="85" y="110" width="30" height="40" rx="8" fill="#92400e" />
+                </svg>
+              );
+              case 'snail': return (
+                <svg viewBox="0 0 200 200" className="w-full h-full drop-shadow-md">
+                  <path d="M 20 160 Q 100 170 180 160" stroke="#cbd5e1" strokeWidth="15" fill="none" strokeLinecap="round" opacity="0.6" />
+                  <path d="M 40 155 Q 100 145 170 140 Q 190 150 170 160 Q 100 165 40 165 Q 20 160 40 155 Z" fill="#d97706" />
+                  <path d="M 155 143 L 170 110 M 165 142 L 185 115" stroke="#d97706" strokeWidth="4" fill="none" strokeLinecap="round" />
+                  <circle cx="170" cy="110" r="4" fill="#000" />
+                  <circle cx="185" cy="115" r="4" fill="#000" />
+                  <circle cx="90" cy="110" r="45" fill="#fcd34d" stroke="#b45309" strokeWidth="4" />
+                  <path d="M 90 110 Q 110 80 120 110 Q 130 140 90 145 Q 60 140 60 110 Q 60 90 80 85" stroke="#b45309" strokeWidth="4" fill="none" strokeLinecap="round" />
+                </svg>
+              );
+              case 'worm': return (
+                <svg viewBox="0 0 200 200" className="w-full h-full drop-shadow-md">
+                  <path d="M 30 140 Q 60 80 100 100 T 170 60" stroke="#f472b6" strokeWidth="25" fill="none" strokeLinecap="round" />
+                  <path d="M 30 140 Q 60 80 100 100 T 170 60" stroke="#be185d" strokeWidth="25" fill="none" strokeLinecap="round" strokeDasharray="2 6" opacity="0.4" />
+                  <path d="M 60 105 L 75 95" stroke="#be185d" strokeWidth="28" fill="none" strokeLinecap="square" opacity="0.8" />
+                </svg>
+              );
+              case 'ant': return (
+                <svg viewBox="0 0 200 200" className="w-full h-full drop-shadow-md">
+                  <g stroke="#451a03" strokeWidth="4" fill="none" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M 90 85 L 50 60 L 30 70" />
+                    <path d="M 90 100 L 40 100 L 20 110" />
+                    <path d="M 90 115 L 50 140 L 30 170" />
+                    <path d="M 110 85 L 150 60 L 170 70" />
+                    <path d="M 110 100 L 160 100 L 180 110" />
+                    <path d="M 110 115 L 150 140 L 170 170" />
+                  </g>
+                  <path d="M 90 55 L 70 30 L 60 30 M 110 55 L 130 30 L 140 30" stroke="#451a03" strokeWidth="3" fill="none" strokeLinecap="round" />
+                  <circle cx="100" cy="60" r="14" fill="#78350f" />
+                  <ellipse cx="100" cy="100" rx="12" ry="22" fill="#78350f" />
+                  <ellipse cx="100" cy="150" rx="18" ry="26" fill="#78350f" />
+                </svg>
+              );
+              case 'butterfly': return (
+                <svg viewBox="0 0 200 200" className="w-full h-full drop-shadow-md">
+                  <path d="M 95 50 Q 80 20 70 30 M 105 50 Q 120 20 130 30" stroke="#1e293b" strokeWidth="2" fill="none" />
+                  {revealed && (
+                    <g stroke="#1e293b" strokeWidth="4" fill="none" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M 95 80 L 50 60 L 30 70" />
+                      <path d="M 95 100 L 40 100 L 20 110" />
+                      <path d="M 95 120 L 50 140 L 30 160" />
+                      <path d="M 105 80 L 150 60 L 170 70" />
+                      <path d="M 105 100 L 160 100 L 180 110" />
+                      <path d="M 105 120 L 150 140 L 170 160" />
+                    </g>
+                  )}
+                  <g opacity={revealed ? 0.3 : 1} className="transition-opacity duration-300">
+                    <g stroke="#1e293b" strokeWidth="3" fill="none" strokeLinecap="round">
+                      <path d="M 95 80 L 70 60" />
+                      <path d="M 95 100 L 60 90" />
+                      <path d="M 95 120 L 70 140" />
+                      <path d="M 105 80 L 130 60" />
+                      <path d="M 105 100 L 140 90" />
+                      <path d="M 105 120 L 130 140" />
+                    </g>
+                    <path d="M 95 70 C 40 20 10 70 20 110 C 50 120 80 100 95 90 Z" fill="#0ea5e9" stroke="#0284c7" strokeWidth="3" />
+                    <path d="M 105 70 C 160 20 190 70 180 110 C 150 120 120 100 105 90 Z" fill="#0ea5e9" stroke="#0284c7" strokeWidth="3" />
+                    <path d="M 95 100 C 50 120 30 170 50 180 C 70 190 90 150 95 130 Z" fill="#38bdf8" stroke="#0284c7" strokeWidth="3" />
+                    <path d="M 105 100 C 150 120 170 170 150 180 C 130 190 110 150 105 130 Z" fill="#38bdf8" stroke="#0284c7" strokeWidth="3" />
+                    <circle cx="40" cy="80" r="10" fill="#fff" />
+                    <circle cx="160" cy="80" r="10" fill="#fff" />
+                    <circle cx="60" cy="150" r="8" fill="#fff" />
+                    <circle cx="140" cy="150" r="8" fill="#fff" />
+                  </g>
+                  <ellipse cx="100" cy="100" rx="6" ry="35" fill="#334155" />
+                  <circle cx="100" cy="55" r="5" fill="#334155" />
+                </svg>
+              );
+              case 'ladybug': return (
+                <svg viewBox="0 0 200 200" className="w-full h-full drop-shadow-md">
+                  <g stroke="#1e293b" strokeWidth="5" fill="none" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M 85 70 L 40 50 L 30 65" />
+                    <path d="M 80 100 L 30 100 L 20 120" />
+                    <path d="M 85 130 L 40 150 L 30 175" />
+                    <path d="M 115 70 L 160 50 L 170 65" />
+                    <path d="M 120 100 L 170 100 L 180 120" />
+                    <path d="M 115 130 L 160 150 L 170 175" />
+                  </g>
+                  <path d="M 90 40 L 75 25 M 110 40 L 125 25" stroke="#1e293b" strokeWidth="3" fill="none" />
+                  <circle cx="100" cy="45" r="12" fill="#1e293b" />
+                  <path d="M 75 65 Q 100 45 125 65 L 130 80 L 70 80 Z" fill="#1e293b" />
+                  <circle cx="85" cy="65" r="5" fill="#fff" />
+                  <circle cx="115" cy="65" r="5" fill="#fff" />
+                  <ellipse cx="100" cy="120" rx="30" ry="40" fill="#334155" />
+
+                  {revealed ? (
+                    <g>
+                      <path d="M 95 80 C 40 80 10 160 50 190 C 80 200 95 150 95 120 Z" fill="rgba(203, 213, 225, 0.7)" stroke="#94a3b8" strokeWidth="2" />
+                      <path d="M 105 80 C 160 80 190 160 150 190 C 120 200 105 150 105 120 Z" fill="rgba(203, 213, 225, 0.7)" stroke="#94a3b8" strokeWidth="2" />
+                      <g transform="rotate(-30 90 80)">
+                        <path d="M 95 80 C 50 80 40 140 70 170 C 90 180 95 120 95 80 Z" fill="#dc2626" stroke="#991b1b" strokeWidth="2" />
+                        <circle cx="80" cy="110" r="6" fill="#000" />
+                        <circle cx="65" cy="140" r="7" fill="#000" />
+                        <circle cx="85" cy="155" r="5" fill="#000" />
+                      </g>
+                      <g transform="rotate(30 110 80)">
+                        <path d="M 105 80 C 150 80 160 140 130 170 C 110 180 105 120 105 80 Z" fill="#dc2626" stroke="#991b1b" strokeWidth="2" />
+                        <circle cx="120" cy="110" r="6" fill="#000" />
+                        <circle cx="135" cy="140" r="7" fill="#000" />
+                        <circle cx="115" cy="155" r="5" fill="#000" />
+                      </g>
+                    </g>
+                  ) : (
+                    <g>
+                      <ellipse cx="100" cy="120" rx="38" ry="48" fill="#dc2626" stroke="#991b1b" strokeWidth="3" />
+                      <line x1="100" y1="72" x2="100" y2="168" stroke="#991b1b" strokeWidth="3" />
+                      <circle cx="80" cy="100" r="7" fill="#000" />
+                      <circle cx="120" cy="100" r="7" fill="#000" />
+                      <circle cx="70" cy="135" r="8" fill="#000" />
+                      <circle cx="130" cy="135" r="8" fill="#000" />
+                      <circle cx="90" cy="150" r="6" fill="#000" />
+                      <circle cx="110" cy="150" r="6" fill="#000" />
+                    </g>
+                  )}
+                </svg>
+              );
+              case 'grasshopper': return (
+                <svg viewBox="0 0 200 200" className="w-full h-full drop-shadow-md">
+                  <path d="M 95 40 L 80 10 M 105 40 L 120 10" stroke="#166534" strokeWidth="3" fill="none" />
+                  {revealed ? (
+                    <g>
+                      <g stroke="#15803d" strokeWidth="4" fill="none" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M 90 70 L 50 50 L 30 60" />
+                        <path d="M 110 70 L 150 50 L 170 60" />
+                        <path d="M 90 90 L 40 90 L 20 110" />
+                        <path d="M 110 90 L 160 90 L 180 110" />
+                      </g>
+                      <g strokeLinecap="round" strokeLinejoin="round" fill="none">
+                        <path d="M 85 120 L 20 90" stroke="#166534" strokeWidth="12" />
+                        <path d="M 20 90 L 10 160" stroke="#15803d" strokeWidth="5" />
+                        <path d="M 115 120 L 180 90" stroke="#166534" strokeWidth="12" />
+                        <path d="M 180 90 L 190 160" stroke="#15803d" strokeWidth="5" />
+                      </g>
+                      <path d="M 95 100 C 60 110 40 160 70 190 C 90 195 95 140 95 100 Z" fill="rgba(134, 239, 172, 0.8)" stroke="#22c55e" strokeWidth="2" />
+                      <path d="M 105 100 C 140 110 160 160 130 190 C 110 195 105 140 105 100 Z" fill="rgba(134, 239, 172, 0.8)" stroke="#22c55e" strokeWidth="2" />
+                    </g>
+                  ) : (
+                    <g>
+                      <g stroke="#15803d" strokeWidth="4" fill="none" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M 90 70 L 60 50 L 40 70" />
+                        <path d="M 110 70 L 140 50 L 160 70" />
+                        <path d="M 90 90 L 50 90 L 40 110" />
+                        <path d="M 110 90 L 150 90 L 160 110" />
+                      </g>
+                      <g strokeLinecap="round" strokeLinejoin="round" fill="none">
+                        <path d="M 85 110 L 40 160" stroke="#166534" strokeWidth="12" />
+                        <path d="M 40 160 L 80 190" stroke="#15803d" strokeWidth="5" />
+                        <path d="M 115 110 L 160 160" stroke="#166534" strokeWidth="12" />
+                        <path d="M 160 160 L 120 190" stroke="#15803d" strokeWidth="5" />
+                      </g>
+                    </g>
+                  )}
+                  <ellipse cx="100" cy="50" rx="10" ry="15" fill="#166534" />
+                  <rect x="88" y="60" width="24" height="30" rx="8" fill="#15803d" />
+                  <ellipse cx="100" cy="130" rx="12" ry="45" fill="#22c55e" />
+                  {!revealed && (
+                    <path d="M 92 90 L 108 90 L 105 180 L 95 180 Z" fill="#4ade80" stroke="#166534" strokeWidth="2" opacity="0.9" />
+                  )}
+                </svg>
+              );
+              case 'bee': return (
+                <svg viewBox="0 0 200 200" className="w-full h-full drop-shadow-md">
+                  <g stroke="#1e293b" strokeWidth="4" fill="none" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M 85 75 L 50 50 L 30 65" />
+                    <path d="M 80 100 L 40 100 L 20 120" />
+                    <path d="M 85 125 L 50 150 L 40 175" />
+                    <path d="M 115 75 L 150 50 L 170 65" />
+                    <path d="M 120 100 L 160 100 L 180 120" />
+                    <path d="M 115 125 L 150 150 L 160 175" />
+                  </g>
+                  <path d="M 95 90 C 40 50 10 90 30 130 C 50 140 80 110 95 105 Z" fill="rgba(241, 245, 249, 0.7)" stroke="#cbd5e1" strokeWidth="2" />
+                  <path d="M 105 90 C 160 50 190 90 170 130 C 150 140 120 110 105 105 Z" fill="rgba(241, 245, 249, 0.7)" stroke="#cbd5e1" strokeWidth="2" />
+                  <path d="M 95 45 L 80 30 M 105 45 L 120 30" stroke="#1e293b" strokeWidth="3" fill="none" />
+                  <defs>
+                    <clipPath id="beeBody">
+                      <ellipse cx="100" cy="115" rx="28" ry="40" />
+                    </clipPath>
+                  </defs>
+                  <ellipse cx="100" cy="115" rx="32" ry="44" fill="#fbbf24" stroke="#d97706" strokeWidth="4" strokeDasharray="4 4" />
+                  <g clipPath="url(#beeBody)">
+                    <ellipse cx="100" cy="115" rx="28" ry="40" fill="#fbbf24" />
+                    <rect x="50" y="90" width="100" height="15" fill="#1e293b" />
+                    <rect x="50" y="115" width="100" height="15" fill="#1e293b" />
+                    <rect x="50" y="140" width="100" height="15" fill="#1e293b" />
+                  </g>
+                  <circle cx="100" cy="55" r="14" fill="#1e293b" />
+                  <ellipse cx="100" cy="85" rx="20" ry="18" fill="#d97706" stroke="#b45309" strokeWidth="3" strokeDasharray="3 3" />
+                  <path d="M 100 155 L 100 165" stroke="#1e293b" strokeWidth="4" strokeLinecap="round" />
+                </svg>
+              );
+              case 'fly': return (
+                <svg viewBox="0 0 200 200" className="w-full h-full drop-shadow-md">
+                  <g stroke="#0f172a" strokeWidth="3" fill="none" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M 85 85 L 50 60 L 30 75" />
+                    <path d="M 85 105 L 40 110 L 20 130" />
+                    <path d="M 90 125 L 50 150 L 40 175" />
+                    <path d="M 115 85 L 150 60 L 170 75" />
+                    <path d="M 115 105 L 160 110 L 180 130" />
+                    <path d="M 110 125 L 150 150 L 160 175" />
+                  </g>
+                  <path d="M 95 100 C 40 70 0 130 30 170 C 60 180 85 140 95 110 Z" fill="rgba(226, 232, 240, 0.6)" stroke="#94a3b8" strokeWidth="2" />
+                  <path d="M 105 100 C 160 70 200 130 170 170 C 140 180 115 140 105 110 Z" fill="rgba(226, 232, 240, 0.6)" stroke="#94a3b8" strokeWidth="2" />
+                  <circle cx="100" cy="65" r="16" fill="#334155" />
+                  <ellipse cx="88" cy="65" rx="8" ry="12" fill="#ef4444" stroke="#991b1b" strokeWidth="1" />
+                  <ellipse cx="112" cy="65" rx="8" ry="12" fill="#ef4444" stroke="#991b1b" strokeWidth="1" />
+                  <ellipse cx="100" cy="95" rx="18" ry="20" fill="#475569" />
+                  <ellipse cx="100" cy="135" rx="22" ry="30" fill="#334155" />
+                  <path d="M 85 120 Q 100 130 115 120" stroke="#1e293b" strokeWidth="2" fill="none" />
+                  <path d="M 82 140 Q 100 150 118 140" stroke="#1e293b" strokeWidth="2" fill="none" />
+                </svg>
+              );
+              default: return null;
+            }
+          };
+
+          if (!bug) return null;
+
+          return (
+            <div className="flex flex-col items-center w-full">
+              {bug.hasHiddenFeatures ? (
+                <div className="flex flex-col gap-4 w-full">
+                  <div className="flex justify-center gap-4">
+                    <div className="w-28 h-28 md:w-36 md:h-36 bg-white rounded-xl border border-slate-200 p-2 shadow-inner flex flex-col items-center">
+                      {renderSvg(bug.id, false)}
+                      <span className="text-[10px] uppercase font-bold text-slate-400 mt-1">Resting View</span>
+                    </div>
+                    <div className="w-28 h-28 md:w-36 md:h-36 bg-indigo-50 rounded-xl border border-indigo-300 p-2 shadow-inner flex flex-col items-center transition-opacity duration-300">
+                      {renderSvg(bug.id, true)}
+                      <span className="text-[10px] uppercase font-bold text-indigo-600 mt-1">Features Revealed</span>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="w-40 h-40 bg-white rounded-xl border border-slate-200 p-4 shadow-inner">
+                   {renderSvg(bug.id, false)}
+                </div>
+              )}
+            </div>
+          );
+        };
+
+        // --- MAIN COMPONENT ---
+        const DichotomousKeyApp = () => {
+          const [targetBug, setTargetBug] = useState(null);
+          const [currentNode, setCurrentNode] = useState(treeData);
+          const [path, setPath] = useState([treeData.id]);
+          const [status, setStatus] = useState('playing'); // 'playing', 'won', 'lost'
+          
+          const scrollContainerRef = useRef(null);
+
+          // Generate graph layout coordinates once
+          const { nodes, edges } = useMemo(() => {
+            const n = [];
+            const e = [];
+            buildLayout(treeData, 0, { y: 60 }, n, e);
+            return { nodes: n, edges: e };
+          }, []);
+
+          // Initialize Game
+          const initGame = () => {
+            const randomBug = allBugs[Math.floor(Math.random() * allBugs.length)];
+            setTargetBug(randomBug);
+            setCurrentNode(treeData);
+            setPath([treeData.id]);
+            setStatus('playing');
+          };
+
+          useEffect(() => {
+            initGame();
+          }, []);
+
+          // Auto-scroll logic to follow the path dynamically
+          useEffect(() => {
+            if (scrollContainerRef.current && currentNode) {
+              const activeLayoutNode = nodes.find(n => n.id === currentNode.id);
+              if (activeLayoutNode) {
+                scrollContainerRef.current.scrollTo({
+                  left: Math.max(0, activeLayoutNode.x - 50),
+                  top: Math.max(0, activeLayoutNode.y - scrollContainerRef.current.clientHeight / 2),
+                  behavior: 'smooth'
+                });
+              }
+            }
+          }, [currentNode, nodes]);
+
+          const handleAnswer = (isYes) => {
+            const nextNode = isYes ? currentNode.yes : currentNode.no;
+            const newPath = [...path, nextNode.id];
+            
+            setPath(newPath);
+            setCurrentNode(nextNode);
+
+            if (nextNode.isLeaf) {
+              if (nextNode.id === targetBug.id) {
+                setStatus('won');
+              } else {
+                setStatus('lost');
+              }
+            }
+          };
+
+          const handleGoBack = () => {
+            if (path.length <= 1) return;
+            
+            // Remove the last answer from the path
+            const newPath = path.slice(0, -1);
+            setPath(newPath);
+            
+            // Re-traverse the tree to find the correct previous node
+            let curr = treeData;
+            for (let i = 1; i < newPath.length; i++) {
+              if (curr.yes && curr.yes.id === newPath[i]) curr = curr.yes;
+              else if (curr.no && curr.no.id === newPath[i]) curr = curr.no;
+            }
+            
+            setCurrentNode(curr);
+            setStatus('playing');
+          };
+
+          if (!targetBug) return <div className="p-8 text-center">Loading Field Guide...</div>;
+
+          return (
+            <div className="flex flex-col md:flex-row h-screen bg-slate-100 font-sans text-slate-800 overflow-hidden">
+              
+              {/* LEFT PANEL: The Interaction & Question Area */}
+              <div className="w-full md:w-1/3 lg:w-1/4 bg-white shadow-xl z-10 flex flex-col border-r border-slate-200">
+                <div className="p-6 bg-indigo-600 text-white text-center shrink-0">
+                  <h1 className="text-2xl font-bold tracking-tight">Bug Identifier</h1>
+                  <p className="text-indigo-200 text-sm mt-1">Dichotomous Key Training</p>
+                </div>
+
+                <div className="flex-1 p-6 flex flex-col gap-6 overflow-y-auto">
+                  {/* Mystery Bug Display */}
+                  <div className="bg-slate-50 border-2 border-slate-200 rounded-2xl p-6 text-center shadow-sm shrink-0">
+                    <h2 className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-4">Mystery Bug</h2>
+                    <div className="flex justify-center w-full mb-2">
+                      <BugIllustration bug={targetBug} />
+                    </div>
+                    <p className="text-slate-600 text-sm mt-4">Observe the traits of this bug to answer the key.</p>
+                  </div>
+
+                  {/* Active Question or Result */}
+                  {status === 'playing' ? (
+                    <div className="flex flex-col gap-4 animate-fade-in shrink-0">
+                      <h3 className="text-lg font-semibold text-slate-800 text-center px-2">
+                        {currentNode.text}
+                      </h3>
+                      <div className="flex gap-3 mt-2">
+                        <button 
+                          onClick={() => handleAnswer(true)}
+                          className="flex-1 bg-green-500 hover:bg-green-600 active:bg-green-700 text-white font-bold py-4 rounded-xl shadow-md transition-all active:scale-95"
+                        >
+                          YES
+                        </button>
+                        <button 
+                          onClick={() => handleAnswer(false)}
+                          className="flex-1 bg-red-500 hover:bg-red-600 active:bg-red-700 text-white font-bold py-4 rounded-xl shadow-md transition-all active:scale-95"
+                        >
+                          NO
+                        </button>
+                      </div>
+                      
+                      <div className="flex flex-col gap-1 mt-2">
+                          {path.length > 1 && (
+                            <button 
+                              onClick={handleGoBack}
+                              className="text-slate-400 hover:text-slate-600 font-medium py-2 flex items-center justify-center gap-2 transition-colors text-sm w-full"
+                            >
+                              <span>↩</span> Go Back
+                            </button>
+                          )}
+                          <button 
+                              onClick={initGame}
+                              className="text-slate-400 hover:text-indigo-600 font-medium py-2 flex items-center justify-center gap-2 transition-colors text-sm w-full"
+                          >
+                              <span>⏭️</span> Skip this bug
+                          </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className={`p-6 rounded-2xl text-center shadow-md animate-fade-in shrink-0 ${status === 'won' ? 'bg-green-100 border-2 border-green-400' : 'bg-red-100 border-2 border-red-400'}`}>
+                      <h3 className={`text-2xl font-bold mb-2 ${status === 'won' ? 'text-green-700' : 'text-red-700'}`}>
+                        {status === 'won' ? 'Correct Match!' : 'Incorrect Match!'}
+                      </h3>
+                      <p className="mb-6 text-slate-700 font-medium">
+                        {status === 'won' 
+                          ? `You successfully identified the ${targetBug.bug}!` 
+                          : `You identified a ${currentNode.bug}, but the mystery bug was a ${targetBug.bug}.`}
+                      </p>
+                      <div className="flex flex-col gap-3">
+                        <button 
+                          onClick={initGame}
+                          className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-xl shadow-md transition-all active:scale-95"
+                        >
+                          Identify Another Bug
+                        </button>
+                        <button 
+                          onClick={handleGoBack}
+                          className="w-full bg-white border-2 border-slate-200 hover:bg-slate-50 text-slate-600 font-bold py-3 px-4 rounded-xl shadow-sm transition-all active:scale-95 flex justify-center items-center gap-2"
+                        >
+                          <span>↩</span> Change Previous Answer
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* RIGHT PANEL: The Tree Graph Visualization */}
+              <div 
+                ref={scrollContainerRef}
+                className="w-full md:w-2/3 lg:w-3/4 flex-1 overflow-auto bg-slate-50 relative cursor-grab active:cursor-grabbing"
+              >
+                <div className="p-8 pb-24" style={{ minWidth: '1800px', minHeight: '850px' }}>
+                  <h2 className="text-xl font-bold text-slate-400 mb-6 sticky left-8">Dichotomous Tree Map</h2>
+                  
+                  <svg className="w-full h-full overflow-visible" style={{ pointerEvents: 'none' }}>
+                    <defs>
+                      <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+                        <polygon points="0 0, 10 3.5, 0 7" fill="#94a3b8" />
+                      </marker>
+                      <marker id="arrowhead-active" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+                        <polygon points="0 0, 10 3.5, 0 7" fill="#6366f1" />
+                      </marker>
+                    </defs>
+
+                    {/* Draw Edges (Lines) */}
+                    {edges.map((edge, i) => {
+                      const isEdgeActive = path.includes(edge.source.id) && path.includes(edge.target.id);
+                      const isPastEdge = path.includes(edge.target.id) || (!path.includes(edge.target.id) && !path.includes(currentNode.id) && status !== 'playing');
+
+                      const sourceX = edge.source.x + 160;
+                      const sourceY = edge.source.y;
+                      const targetX = edge.target.x - 10; // slightly offset for arrowhead
+                      const targetY = edge.target.y;
+                      
+                      // Draw a smooth cubic bezier curve
+                      const d = `M ${sourceX} ${sourceY} C ${sourceX + 40} ${sourceY}, ${targetX - 40} ${targetY}, ${targetX} ${targetY}`;
+
+                      return (
+                        <g key={i}>
+                          <path 
+                            d={d} 
+                            fill="transparent" 
+                            stroke={isEdgeActive ? "#6366f1" : "#cbd5e1"} 
+                            strokeWidth={isEdgeActive ? "4" : "2"}
+                            markerEnd={isEdgeActive ? "url(#arrowhead-active)" : "url(#arrowhead)"}
+                            className="transition-all duration-500"
+                          />
+                          {/* Label for Yes/No along the path */}
+                          <rect 
+                            x={(sourceX + targetX) / 2 - 15} 
+                            y={(sourceY + targetY) / 2 - 10} 
+                            width="30" 
+                            height="20" 
+                            fill={isEdgeActive ? "#e0e7ff" : "#f8fafc"} 
+                            rx="4"
+                          />
+                          <text 
+                            x={(sourceX + targetX) / 2} 
+                            y={(sourceY + targetY) / 2 + 4} 
+                            textAnchor="middle" 
+                            fontSize="11" 
+                            fontWeight="bold"
+                            fill={isEdgeActive ? "#4f46e5" : "#64748b"}
+                          >
+                            {edge.label}
+                          </text>
+                        </g>
+                      );
+                    })}
+
+                    {/* Draw Nodes (Boxes) */}
+                    {nodes.map(node => {
+                      const isActive = currentNode.id === node.id;
+                      const isVisited = path.includes(node.id);
+                      
+                      return (
+                        <foreignObject 
+                          key={node.id} 
+                          x={node.x} 
+                          y={node.y - (node.isLeaf ? 30 : 40)} 
+                          width="160" 
+                          height={node.isLeaf ? "60" : "80"}
+                          className="transition-all duration-500 overflow-visible"
+                        >
+                          <div className={`
+                            w-full h-full flex flex-col items-center justify-center p-3 text-center rounded-xl border-2 shadow-sm transition-all
+                            ${isActive ? 'bg-indigo-50 border-indigo-500 shadow-indigo-100 scale-105 shadow-lg ring-4 ring-indigo-100' : 
+                              isVisited ? 'bg-white border-indigo-300 shadow-md opacity-100' : 
+                              'bg-white border-slate-200 opacity-50 grayscale hover:grayscale-0 hover:opacity-100' }
+                          `}>
+                            {node.isLeaf ? (
+                              <React.Fragment>
+                                <span className="text-3xl leading-none mb-1 drop-shadow-sm">{node.emoji}</span>
+                                <span className="font-bold text-sm text-slate-800 tracking-tight">{node.bug}</span>
+                              </React.Fragment>
+                            ) : (
+                              <span className={`text-xs font-semibold leading-snug ${isActive ? 'text-indigo-900' : 'text-slate-700'}`}>
+                                {node.text}
+                              </span>
+                            )}
+                          </div>
+                        </foreignObject>
+                      );
+                    })}
+                  </svg>
+                </div>
+              </div>
+            </div>
+          );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<DichotomousKeyApp />);
+    </script>
+</body>
+</html>
