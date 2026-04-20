@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dilution Simulator</title>
+  
+  <!-- Tailwind CSS for styling -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- React & ReactDOM -->
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  
+  <!-- Babel for parsing JSX -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect } = React;
+
+    // --- Inline Icon Components (replacing lucide-react for the single file) ---
+    const Droplet = ({ size = 24, className = "" }) => (<svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z"></path></svg>);
+    const FlaskConical = ({ size = 24, className = "" }) => (<svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M10 2v7.527a2 2 0 0 1-.211.896L4.72 20.55a2 2 0 0 0 1.79 2.95h10.98a2 2 0 0 0 1.79-2.95l-5.07-10.127a2 2 0 0 1-.211-.896V2"></path><path d="M8.5 2h7"></path><path d="M14 9.5l5.5 11.5"></path></svg>);
+    const Beaker = ({ size = 24, className = "" }) => (<svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M4.5 3h15"></path><path d="M6 3v16a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V3"></path><path d="M6 14h12"></path></svg>);
+    const CheckCircle2 = ({ size = 24, className = "" }) => (<svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>);
+    const RotateCcw = ({ size = 24, className = "" }) => (<svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><polyline points="3 3 3 8 8 8"></polyline></svg>);
+    const Target = ({ size = 24, className = "" }) => (<svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle></svg>);
+    const Info = ({ size = 24, className = "" }) => (<svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>);
+
+    // --- Main Application Component ---
+    function App() {
+      const MAX_VOL = 2.0; // Maximum beaker volume in Liters
+
+      // App State
+      const [stockConc, setStockConc] = useState(100); // g/L
+      const [volStockAdded, setVolStockAdded] = useState(0); // L
+      const [volWaterAdded, setVolWaterAdded] = useState(0); // L
+      const [pouringType, setPouringType] = useState(null); // 'stock' | 'water' | null
+      
+      // Goal State now includes the fixed stock amount required
+      const [goal, setGoal] = useState({ conc: 25, givenStock: 0.25, targetVol: 1.0 }); 
+
+      // New features state
+      const [mode, setMode] = useState('sandbox'); // 'sandbox' | 'test'
+      const [testWater, setTestWater] = useState('');
+      const [hasTested, setHasTested] = useState(false);
+      const [testError, setTestError] = useState('');
+
+      // Derived Calculations
+      const totalVol = volStockAdded + volWaterAdded;
+      const currentMass = volStockAdded * stockConc;
+      const currentConc = totalVol > 0 ? currentMass / totalVol : 0;
+      
+      // Goal is met if exact given stock is used and concentration matches
+      const isGoalMet = 
+        totalVol > 0 &&
+        Math.abs(volStockAdded - goal.givenStock) <= 0.005 && 
+        Math.abs(currentConc - goal.conc) <= 0.5;
+
+      // Fluid Color Blending based on concentration ratio
+      const ratio = stockConc > 0 ? currentConc / stockConc : 0;
+      const r = Math.round(191 + (147 - 191) * ratio);
+      const g = Math.round(219 + (51 - 219) * ratio);
+      const b = Math.round(254 + (234 - 254) * ratio);
+      const liquidColor = `rgb(${r}, ${g}, ${b})`;
+
+      // Handlers
+      const handleAdd = (type, amount) => {
+        if (totalVol >= MAX_VOL) return;
+        
+        let actualAmount = amount;
+        if (totalVol + amount > MAX_VOL) {
+          actualAmount = MAX_VOL - totalVol; // Fill only up to max
+        }
+
+        setPouringType(type);
+        
+        setTimeout(() => {
+          if (type === 'stock') setVolStockAdded(v => v + actualAmount);
+          if (type === 'water') setVolWaterAdded(v => v + actualAmount);
+          setPouringType(null);
+        }, 400);
+      };
+
+      const resetBeaker = () => {
+        setVolStockAdded(0);
+        setVolWaterAdded(0);
+        setTestWater('');
+        setHasTested(false);
+        setTestError('');
+      };
+
+      const handleTestSubmit = () => {
+        setTestError('');
+        // Stock is a given, user only inputs water
+        const sVol = goal.givenStock; 
+        const wVol = Number(testWater) || 0;
+        
+        if (wVol <= 0) {
+          setTestError('Please enter a valid volume of water.');
+          return;
+        }
+
+        if (sVol + wVol > MAX_VOL) {
+          if (Math.abs(wVol - goal.targetVol) <= 0.005) {
+            setTestError(`Hint: You entered the final total volume (V₂). Remember to only add the difference in volume (V₂ - V₁).`);
+          } else {
+            setTestError(`Total volume exceeds maximum capacity (${MAX_VOL} L).`);
+          }
+          return;
+        }
+
+        setVolStockAdded(sVol);
+        setVolWaterAdded(wVol);
+        setHasTested(true);
+      };
+
+      const generateNewGoal = () => {
+        let newStockConc, newGivenStock, newTotalVol, newConc;
+        let isValid = false;
+
+        // Loop until we generate clean math that fits inside the beaker
+        while (!isValid) {
+          newStockConc = Math.floor(Math.random() * 26 + 5) * 10; // 50 to 300
+          
+          const possibleV1s = [0.05, 0.1, 0.2, 0.25, 0.5, 0.75, 1.0];
+          newGivenStock = possibleV1s[Math.floor(Math.random() * possibleV1s.length)];
+          
+          // Ensure target volume > stock volume, and fits in max capacity
+          const possibleV2s = [0.2, 0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0];
+          const validV2s = possibleV2s.filter(v => v > newGivenStock);
+          
+          if (validV2s.length === 0) continue;
+          
+          newTotalVol = validV2s[Math.floor(Math.random() * validV2s.length)];
+          newConc = (newStockConc * newGivenStock) / newTotalVol;
+          
+          // Accept if concentration is a clean number (max 1 decimal ending in .5)
+          if (newConc >= 5 && newConc < newStockConc * 0.9 && (newConc * 10) % 5 === 0) {
+            isValid = true;
+          }
+        }
+
+        setStockConc(newStockConc);
+        setGoal({ conc: newConc, givenStock: newGivenStock, targetVol: newTotalVol });
+        resetBeaker();
+      };
+
+      return (
+        <div className="min-h-screen p-4 md:p-8">
+          <div className="max-w-5xl mx-auto space-y-6">
+            
+            {/* Header */}
+            <header className="flex items-center justify-between bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+              <div className="flex items-center gap-4">
+                <div className="bg-purple-100 p-3 rounded-xl text-purple-600">
+                  <FlaskConical size={32} />
+                </div>
+                <div>
+                  <h1 className="text-2xl font-bold text-slate-900">Solution Dilution Simulator</h1>
+                  <p className="text-slate-500 text-sm">Interactive C₁V₁ = C₂V₂ laboratory sandbox</p>
+                </div>
+              </div>
+            </header>
+
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+              
+              {/* Left Panel: Controls */}
+              <div className="lg:col-span-5 space-y-6">
+
+                {/* Mode Switcher */}
+                <div className="bg-slate-200/70 p-1 flex rounded-xl">
+                  <button 
+                    onClick={() => { setMode('sandbox'); resetBeaker(); }} 
+                    className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-colors ${mode === 'sandbox' ? 'bg-white text-purple-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                  >
+                    Sandbox Mode
+                  </button>
+                  <button 
+                    onClick={() => { setMode('test'); resetBeaker(); }} 
+                    className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-colors ${mode === 'test' ? 'bg-white text-purple-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                  >
+                    Test Mode
+                  </button>
+                </div>
+                
+                {/* Target Goal Card */}
+                <div className={`p-5 rounded-2xl border-2 transition-colors ${isGoalMet ? 'bg-green-50 border-green-500' : 'bg-white border-slate-200'}`}>
+                  <div className="flex justify-between items-start mb-4">
+                    <div className="flex items-center gap-2 font-semibold text-slate-700">
+                      <Target size={20} className={isGoalMet ? 'text-green-600' : 'text-blue-500'} />
+                      <h3>Current Challenge</h3>
+                    </div>
+                    {isGoalMet && <span className="flex items-center gap-1 text-xs font-bold text-green-700 bg-green-200 px-2 py-1 rounded-full"><CheckCircle2 size={14}/> Goal Met!</span>}
+                  </div>
+                  
+                  <p className="text-sm text-slate-600 mb-6">
+                    Dilute exactly <strong className="text-purple-700">{goal.givenStock.toFixed(2)} L</strong> of the stock solution with water to achieve a final concentration of <strong className="text-emerald-600">{goal.conc.toFixed(1)} g/L</strong>.
+                  </p>
+
+                  <button 
+                    onClick={generateNewGoal}
+                    className="w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-medium rounded-lg transition-colors"
+                  >
+                    Generate New Challenge
+                  </button>
+                </div>
+
+                {/* Stock Solution Controls */}
+                <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+                  <div className="flex items-center gap-2 mb-4">
+                    <FlaskConical size={20} className="text-purple-600" />
+                    <h3 className="font-semibold text-slate-800">1. Stock Solution</h3>
+                  </div>
+                  
+                  <div className="mb-5">
+                    <label className="block text-sm font-medium text-slate-600 mb-2">
+                      Initial Concentration (C₁)
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <div className="w-24 px-3 py-2 bg-slate-100 border border-slate-200 rounded-lg text-slate-800 font-semibold cursor-not-allowed text-center">
+                        {stockConc}
+                      </div>
+                      <span className="text-slate-500 text-sm">g/L</span>
+                    </div>
+                    <p className="text-xs text-slate-500 mt-2 flex items-center gap-1">
+                      <Info size={12} /> Changes with each new challenge.
+                    </p>
+                  </div>
+
+                  <label className="block text-sm font-medium text-slate-600 mb-2">Add Stock to Beaker</label>
+                  {mode === 'sandbox' ? (
+                    <div className="flex gap-2">
+                      {[0.05, 0.1, 0.5].map(amt => (
+                        <button 
+                          key={`stock-${amt}`}
+                          onClick={() => handleAdd('stock', amt)}
+                          disabled={totalVol >= MAX_VOL}
+                          className="flex-1 py-2 bg-purple-100 hover:bg-purple-200 text-purple-700 text-sm font-semibold rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          +{amt} L
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex items-center gap-2">
+                        <div className="w-full px-3 py-2 bg-purple-50 border border-purple-200 rounded-lg text-purple-700 font-bold cursor-not-allowed">
+                          {goal.givenStock.toFixed(2)}
+                        </div>
+                        <span className="text-slate-500 font-medium">L</span>
+                      </div>
+                      <p className="text-xs text-purple-600 mt-2 flex items-center gap-1">
+                        <Info size={12} /> Fixed amount for this challenge.
+                      </p>
+                    </>
+                  )}
+                </div>
+
+                {/* Solvent Controls */}
+                <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+                  <div className="flex items-center gap-2 mb-4">
+                    <Droplet size={20} className="text-blue-500" />
+                    <h3 className="font-semibold text-slate-800">2. Solvent (Water)</h3>
+                  </div>
+                  
+                  <label className="block text-sm font-medium text-slate-600 mb-2">Add Water to Beaker</label>
+                  {mode === 'sandbox' ? (
+                    <div className="flex gap-2">
+                      {[0.05, 0.1, 0.5].map(amt => (
+                        <button 
+                          key={`water-${amt}`}
+                          onClick={() => handleAdd('water', amt)}
+                          disabled={totalVol >= MAX_VOL}
+                          className="flex-1 py-2 bg-blue-100 hover:bg-blue-200 text-blue-700 text-sm font-semibold rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          +{amt} L
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <input 
+                        type="number" 
+                        value={testWater} 
+                        onChange={e => setTestWater(e.target.value)} 
+                        disabled={hasTested}
+                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-800 focus:ring-2 focus:ring-blue-500 focus:outline-none disabled:opacity-50"
+                        placeholder="Calculate volume in L"
+                        min="0"
+                        step="0.01"
+                      />
+                      <span className="text-slate-500 font-medium">L</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Test Mode Submission Card */}
+                {mode === 'test' && (
+                  <div className="bg-slate-800 p-5 rounded-2xl shadow-sm text-center">
+                    {!hasTested ? (
+                      <>
+                        {testError && <p className="text-red-400 text-sm mb-3 font-medium">{testError}</p>}
+                        <button 
+                          onClick={handleTestSubmit} 
+                          disabled={!testWater}
+                          className="w-full py-3 bg-purple-500 hover:bg-purple-600 text-white font-bold rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          Mix & Test Solution
+                        </button>
+                      </>
+                    ) : (
+                      <div className={`p-4 rounded-xl border-2 ${isGoalMet ? 'bg-green-900/50 border-green-500 text-green-100' : 'bg-red-900/50 border-red-500 text-red-100'}`}>
+                        <div className="flex items-center justify-center gap-2 font-bold mb-2">
+                          {isGoalMet ? <><CheckCircle2 size={20}/> Perfect Mixture!</> : 'Incorrect Mixture'}
+                        </div>
+                        <p className="text-sm mb-4">
+                          {isGoalMet ? 'You successfully calculated the correct volume of water.' : 'Your calculation was off. Check your math and try again.'}
+                        </p>
+                        {!isGoalMet && Math.abs(volWaterAdded - goal.targetVol) <= 0.005 && (
+                          <div className="bg-red-800/50 text-red-200 text-xs p-3 rounded-lg mb-4 text-left border border-red-700/50">
+                            <strong className="block mb-1">💡 Hint:</strong>
+                            It looks like you entered the final total volume (V₂). Remember, the beaker already contains the stock solution (V₁). You only need to add the <em>difference</em> in volume (V₂ - V₁).
+                          </div>
+                        )}
+                        <button onClick={resetBeaker} className="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg text-sm font-semibold transition-colors">
+                          Try Again
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+              </div>
+
+              {/* Right Panel: Visualizer & Output */}
+              <div className="lg:col-span-7 flex flex-col gap-6">
+                
+                <div className="bg-white flex-1 p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col items-center justify-center relative">
+                  
+                  {/* Reset Button */}
+                  <button 
+                    onClick={resetBeaker}
+                    className="absolute top-4 right-4 p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-full transition-colors"
+                    title="Empty Beaker"
+                  >
+                    <RotateCcw size={20} />
+                  </button>
+
+                  {/* The Beaker Visualization */}
+                  <div className="relative mt-8 mb-4 w-56 h-72">
+                    {/* Pouring Animation Stream */}
+                    <div 
+                      className="absolute top-[-50px] left-1/2 w-4 transform -translate-x-1/2 transition-opacity duration-200 z-0"
+                      style={{ 
+                        height: '100%',
+                        backgroundColor: pouringType === 'stock' ? 'rgb(147, 51, 234)' : 'rgb(191, 219, 254)',
+                        opacity: pouringType ? 0.8 : 0,
+                        borderRadius: '999px'
+                      }}
+                    />
+
+                    {/* Beaker Container */}
+                    <div className="absolute inset-0 border-4 border-slate-300 rounded-b-[40px] border-t-0 bg-slate-50 overflow-hidden z-10 flex items-end">
+                      
+                      {/* Volume Ticks */}
+                      <div className="absolute inset-y-0 left-0 w-full pointer-events-none">
+                        {[0.5, 1.0, 1.5, 2.0].map((tick) => (
+                          <div 
+                            key={tick} 
+                            className="absolute w-full border-b border-slate-300 border-dashed"
+                            style={{ bottom: `${(tick / MAX_VOL) * 100}%` }}
+                          >
+                            <span className="absolute left-2 -top-3 text-[10px] text-slate-400 font-medium">{tick} L</span>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Liquid inside beaker */}
+                      <div 
+                        className="w-full transition-all duration-500 ease-in-out relative"
+                        style={{ 
+                          height: `${(totalVol / MAX_VOL) * 100}%`,
+                          backgroundColor: totalVol > 0 ? liquidColor : 'transparent',
+                        }}
+                      >
+                        {/* Surface of liquid line */}
+                        {totalVol > 0 && (
+                          <div className="absolute top-0 w-full h-2 bg-white/20 rounded-t-full"></div>
+                        )}
+                      </div>
+                    </div>
+                    
+                    {/* Beaker Lips */}
+                    <div className="absolute -top-1 -left-2 w-[calc(100%+16px)] h-4 border-4 border-slate-300 rounded-full z-20 pointer-events-none"></div>
+                  </div>
+
+                  {/* Live Measurements */}
+                  <div className="w-full grid grid-cols-3 gap-4 mt-6 text-center">
+                    <div className="bg-slate-50 rounded-xl p-3 border border-slate-100">
+                      <p className="text-xs text-slate-500 uppercase tracking-wider font-semibold mb-1">Total Volume</p>
+                      <p className="text-xl font-bold text-slate-800">{totalVol.toFixed(3)} <span className="text-sm font-normal text-slate-500">L</span></p>
+                    </div>
+                    <div className="bg-slate-50 rounded-xl p-3 border border-slate-100">
+                      <p className="text-xs text-slate-500 uppercase tracking-wider font-semibold mb-1">Solute Mass</p>
+                      <p className="text-xl font-bold text-slate-800">{currentMass.toFixed(2)} <span className="text-sm font-normal text-slate-500">g</span></p>
+                    </div>
+                    <div className={`rounded-xl p-3 border ${isGoalMet ? 'bg-green-50 border-green-200' : 'bg-purple-50 border-purple-100'}`}>
+                      <p className={`text-xs uppercase tracking-wider font-semibold mb-1 ${isGoalMet ? 'text-green-700' : 'text-purple-700'}`}>Final Conc (C₂)</p>
+                      <p className={`text-xl font-bold ${isGoalMet ? 'text-green-800' : 'text-purple-800'}`}>{currentConc.toFixed(2)} <span className={`text-sm font-normal ${isGoalMet ? 'text-green-600' : 'text-purple-600'}`}>g/L</span></p>
+                    </div>
+                  </div>
+
+                </div>
+
+                {/* Mathematical Breakdown Card */}
+                <div className="bg-slate-900 text-slate-100 p-6 rounded-2xl shadow-sm">
+                  <h3 className="font-semibold text-slate-300 mb-4 flex items-center gap-2">
+                    <Beaker size={18} /> Dilution Equation (C₁V₁ = C₂V₂)
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm font-mono bg-slate-800/50 p-4 rounded-xl border border-slate-700">
+                    <div>
+                      <p className="text-slate-400 mb-1">Stock Side (C₁V₁):</p>
+                      <p>
+                        <span className="text-purple-400">{stockConc.toFixed(1)} g/L</span> 
+                        <span className="mx-2">×</span> 
+                        <span className="text-purple-400">{volStockAdded.toFixed(3)} L</span>
+                      </p>
+                      <p className="mt-2 pt-2 border-t border-slate-700 text-slate-300">
+                        Mass = {currentMass.toFixed(2)} g
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-slate-400 mb-1">Final Solution (C₂V₂):</p>
+                      <p>
+                        <span className="text-emerald-400">{currentConc.toFixed(2)} g/L</span> 
+                        <span className="mx-2">×</span> 
+                        <span className="text-blue-400">{totalVol.toFixed(3)} L</span>
+                      </p>
+                      <p className="mt-2 pt-2 border-t border-slate-700 text-slate-300">
+                        Mass = {(currentConc * totalVol || 0).toFixed(2)} g
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // Render the React application to the DOM
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>
