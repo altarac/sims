@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Density Column Simulator</title>
+  
+  <!-- React & ReactDOM -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  
+  <!-- Babel for JSX -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <style>
+    /* Custom Scrollbar for the list */
+    .custom-scrollbar {
+      scrollbar-width: thin;
+      scrollbar-color: #cbd5e1 transparent;
+    }
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 6px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background-color: #cbd5e1;
+      border-radius: 20px;
+    }
+
+    /* Animations */
+    @keyframes pour-stream {
+      0% { transform: scaleY(0); transform-origin: top; opacity: 1; }
+      20% { transform: scaleY(1); transform-origin: top; opacity: 1; height: 100%; }
+      80% { transform: scaleY(1); transform-origin: top; opacity: 1; height: 100%; }
+      100% { transform: scaleY(1); transform-origin: top; opacity: 0; height: 100%; }
+    }
+    @keyframes drop-in {
+      0% { transform: translateX(-50%) translateY(-400px); opacity: 0; }
+      10% { opacity: 1; }
+      100% { transform: translateX(-50%) translateY(0); }
+    }
+    .animate-pour-stream {
+      animation: pour-stream 1.5s ease-in-out forwards;
+    }
+    .animate-drop {
+      animation: drop-in 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect } = React;
+
+    // Common household liquids and their approximate densities (g/cm³)
+    const LIQUIDS = [
+      { id: 'rubbing_alcohol', name: 'Rubbing Alcohol', density: 0.79, color: 'bg-emerald-400/90', streamColor: 'bg-emerald-400', desc: 'Dyed green. Very light, evaporates quickly.' },
+      { id: 'baby_oil', name: 'Baby Oil', density: 0.83, color: 'bg-slate-200/60', streamColor: 'bg-slate-200/80', desc: 'Clear mineral oil. Floats above water and vegetable oil.' },
+      { id: 'vegetable_oil', name: 'Vegetable Oil', density: 0.92, color: 'bg-yellow-300/80', streamColor: 'bg-yellow-300', desc: 'Common cooking oil. Lighter than water.' },
+      { id: 'water', name: 'Water', density: 1.00, color: 'bg-red-500/80', streamColor: 'bg-red-500', desc: 'Dyed red. The standard baseline for density (1.0 g/cm³).' },
+      { id: 'dish_soap', name: 'Dish Soap', density: 1.06, color: 'bg-blue-600/90', streamColor: 'bg-blue-600', desc: 'Thick blue soap. Denser than water.' },
+      { id: 'corn_syrup', name: 'Corn Syrup', density: 1.33, color: 'bg-amber-300/90', streamColor: 'bg-amber-300', desc: 'Sticky and dense sugar syrup.' },
+      { id: 'honey', name: 'Honey', density: 1.42, color: 'bg-amber-700/95', streamColor: 'bg-amber-700', desc: 'The heaviest liquid here! Sinks to the very bottom.' },
+    ];
+
+    const SOLIDS = [
+      { id: 'ping_pong', name: 'Ping Pong Ball', density: 0.08, shape: 'rounded-full bg-white border-2 border-slate-300 w-8 h-8', left: '20%', offset: 16, desc: 'Air-filled, extremely light.' },
+      { id: 'plastic_cap', name: 'Plastic Cap', density: 0.94, shape: 'rounded-t-sm rounded-b-md bg-red-500 border border-red-700 w-8 h-4', left: '35%', offset: 8, desc: 'HDPE plastic. Sinks in oil, floats on water.' },
+      { id: 'cherry_tomato', name: 'Cherry Tomato', density: 1.02, shape: 'rounded-full bg-rose-500 border border-rose-700 w-7 h-7', left: '50%', offset: 14, desc: 'Slightly denser than water.' },
+      { id: 'die', name: 'Resin Die', density: 1.15, shape: 'rounded-md bg-red-600 border-t border-l border-red-400 border-b-2 border-r-2 border-b-red-800 border-r-red-800 w-7 h-7 shadow-inner', left: '65%', offset: 14, desc: 'Sinks past dish soap, floats on syrup.', content: <div className="flex flex-col justify-between w-full h-full p-1"><div className="w-1.5 h-1.5 bg-white rounded-full self-start shadow-sm"></div><div className="w-1.5 h-1.5 bg-white rounded-full self-center shadow-sm"></div><div className="w-1.5 h-1.5 bg-white rounded-full self-end shadow-sm"></div></div> },
+      { id: 'popcorn', name: 'Popcorn Kernel', density: 1.38, shape: 'rounded-[40%] bg-yellow-600 border border-yellow-800 w-4 h-5', left: '80%', offset: 10, desc: 'Dense seed. Floats on honey.' },
+      { id: 'iron_nut', name: 'Iron Nut', density: 7.80, shape: 'rounded-sm bg-slate-400 border-2 border-slate-600 w-5 h-4 flex items-center justify-center after:content-[""] after:w-2 after:h-2 after:bg-slate-100 after:rounded-full', left: '50%', offset: 8, desc: 'Solid metal. Sinks to the very bottom.' },
+    ];
+
+    function App() {
+      const [addedLiquids, setAddedLiquids] = useState([]);
+      const [addedSolids, setAddedSolids] = useState([]);
+      const [pouringId, setPouringId] = useState(null);
+      const [activeTab, setActiveTab] = useState('liquids');
+
+      // Derive the current sorted layers based on density (lightest at top / index 0)
+      const currentLayers = LIQUIDS
+        .filter(liquid => addedLiquids.includes(liquid.id))
+        .sort((a, b) => a.density - b.density); // Ascending density
+
+      const handlePour = (id) => {
+        if (addedLiquids.includes(id) || pouringId) return;
+        
+        setPouringId(id);
+        
+        // Simulate the pouring time
+        setTimeout(() => {
+          setAddedLiquids(prev => [...prev, id]);
+          setPouringId(null);
+        }, 1500); // 1.5s animation
+      };
+
+      const handleDrop = (id) => {
+        if (addedSolids.includes(id)) return;
+        setAddedSolids(prev => [...prev, id]);
+      };
+
+      const resetExperiment = () => {
+        setAddedLiquids([]);
+        setAddedSolids([]);
+        setPouringId(null);
+      };
+
+      const activePourLiquid = LIQUIDS.find(l => l.id === pouringId);
+
+      return (
+        <div className="min-h-screen bg-slate-50 text-slate-800 font-sans p-6 md:p-12 flex flex-col items-center">
+          
+          {/* Header */}
+          <div className="max-w-3xl w-full text-center mb-10">
+            <h1 className="text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-emerald-500 mb-4">
+              7-Layer Density Column
+            </h1>
+            <p className="text-slate-500 text-lg">
+              Pour common household liquids into the glass and watch them automatically sort themselves based on their density. Drop in solids to see where they float!
+            </p>
+          </div>
+
+          <div className="max-w-5xl w-full grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
+            
+            {/* Left Side: The Glass */}
+            <div className="flex flex-col items-center justify-center h-full">
+              
+              {/* Glass Container (Updated for Light Theme) */}
+              <div className="relative w-48 h-[450px] border-x-4 border-b-4 border-slate-300 rounded-b-[2rem] flex flex-col overflow-hidden bg-white/40 shadow-xl shadow-blue-900/5 backdrop-blur-sm">
+                
+                {/* Glass Shine Effects */}
+                <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/40 to-white/60 pointer-events-none z-30"></div>
+                <div className="absolute left-2 top-2 bottom-4 w-3 bg-white/70 rounded-full blur-[2px] pointer-events-none z-30"></div>
+
+                {/* Solids Layer */}
+                <div className="absolute inset-0 z-20 pointer-events-none">
+                  {addedSolids.map(solidId => {
+                    const solid = SOLIDS.find(s => s.id === solidId);
+                    const numDenser = addedLiquids.filter(lId => LIQUIDS.find(l => l.id === lId).density > solid.density).length;
+                    const calculatedBottom = numDenser === 0 ? '4px' : `calc(${numDenser * (100 / 7)}% - ${solid.offset}px)`;
+
+                    return (
+                      <div 
+                        key={solid.id}
+                        className="absolute w-full transition-all duration-1000 ease-in-out"
+                        style={{ bottom: calculatedBottom }}
+                      >
+                        <div 
+                          className={`absolute ${solid.shape} pointer-events-auto animate-drop shadow-[0_4px_12px_rgba(0,0,0,0.8)] ring-1 ring-white/60 flex items-center justify-center`}
+                          style={{ left: solid.left, transform: 'translateX(-50%)' }}
+                          title={`${solid.name} (${solid.density} g/cm³)`}
+                        >
+                          {solid.content}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Pouring Stream Animation */}
+                {activePourLiquid && (
+                  <div 
+                    className={`absolute top-0 left-1/2 -translate-x-1/2 w-3 rounded-b-full origin-top z-10 ${activePourLiquid.streamColor} animate-pour-stream`}
+                  ></div>
+                )}
+
+                {/* Empty Space filler (pushes liquids to bottom) */}
+                <div className="flex-grow"></div>
+
+                {/* Liquid Layers */}
+                {currentLayers.map((liquid) => (
+                  <div 
+                    key={liquid.id}
+                    className={`w-full relative transition-all duration-1000 ease-in-out flex items-center justify-center group hover:z-50 ${liquid.color}`}
+                    style={{ height: `${100 / 7}%` }} 
+                  >
+                    {/* Meniscus / Surface line */}
+                    <div className="absolute top-0 w-full h-[2px] bg-white/40"></div>
+                    
+                    {/* Layer Label - Appears on hover */}
+                    <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-300 absolute inset-0 flex items-center justify-center bg-black/30 backdrop-blur-sm z-40">
+                      <div className="text-center">
+                        <p className="font-bold text-white text-sm">{liquid.name}</p>
+                        <p className="text-white/90 text-xs">{liquid.density.toFixed(2)} g/cm³</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <p className="mt-6 text-sm text-slate-400 font-medium">Hover over the layers to view details</p>
+            </div>
+
+            {/* Right Side: Controls */}
+            <div className="flex flex-col gap-4">
+              <div className="flex justify-between items-end mb-2">
+                <div className="flex gap-4 border-b border-slate-200 pb-1">
+                  <button 
+                    onClick={() => setActiveTab('liquids')}
+                    className={`text-2xl font-bold transition-colors pb-1 border-b-2 ${activeTab === 'liquids' ? 'text-slate-800 border-blue-500' : 'text-slate-400 border-transparent hover:text-slate-600'}`}
+                  >
+                    Liquids
+                  </button>
+                  <button 
+                    onClick={() => setActiveTab('solids')}
+                    className={`text-2xl font-bold transition-colors pb-1 border-b-2 ${activeTab === 'solids' ? 'text-slate-800 border-blue-500' : 'text-slate-400 border-transparent hover:text-slate-600'}`}
+                  >
+                    Solids
+                  </button>
+                </div>
+                <button 
+                  onClick={resetExperiment}
+                  disabled={addedLiquids.length === 0 && addedSolids.length === 0 && !pouringId}
+                  className="text-sm px-4 py-2 bg-slate-200 hover:bg-slate-300 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg text-slate-700 font-medium transition-colors"
+                >
+                  Empty Glass
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 gap-3 h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+                {activeTab === 'liquids' ? (
+                  LIQUIDS.map((liquid) => {
+                    const isAdded = addedLiquids.includes(liquid.id);
+                    const isPouringThis = pouringId === liquid.id;
+                    
+                    return (
+                      <div 
+                        key={liquid.id} 
+                        className={`p-3 rounded-xl border flex items-center justify-between transition-all ${
+                          isAdded 
+                            ? 'bg-slate-50 border-slate-200 opacity-60' 
+                            : 'bg-white border-slate-200 hover:border-slate-300 shadow-sm'
+                        }`}
+                      >
+                        <div className="flex items-center gap-4">
+                          {/* Color Swatch */}
+                          <div className={`w-10 h-10 rounded-full shadow-inner border border-black/5 ${liquid.streamColor}`}></div>
+                          
+                          <div>
+                            <h3 className="font-semibold text-slate-800">{liquid.name}</h3>
+                            <p className="text-xs text-slate-500 hidden sm:block">{liquid.desc}</p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-4">
+                          <div className="text-right hidden sm:block">
+                            <span className="text-xs text-slate-400">Density</span>
+                            <p className="font-mono text-sm text-slate-600 font-semibold">{liquid.density.toFixed(2)}</p>
+                          </div>
+
+                          <button
+                            onClick={() => handlePour(liquid.id)}
+                            disabled={isAdded || pouringId !== null}
+                            className={`w-24 py-2 rounded-lg text-sm font-bold transition-all ${
+                              isAdded 
+                                ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                                : isPouringThis
+                                  ? 'bg-blue-500 text-white animate-pulse'
+                                  : 'bg-emerald-500 hover:bg-emerald-600 text-white shadow-md shadow-emerald-500/20'
+                            }`}
+                          >
+                            {isAdded ? 'Added' : isPouringThis ? 'Pouring...' : 'Add'}
+                          </button>
+                        </div>
+                      </div>
+                    )
+                  })
+                ) : (
+                  SOLIDS.map((solid) => {
+                    const isAdded = addedSolids.includes(solid.id);
+                    
+                    return (
+                      <div 
+                        key={solid.id} 
+                        className={`p-3 rounded-xl border flex items-center justify-between transition-all ${
+                          isAdded 
+                            ? 'bg-slate-50 border-slate-200 opacity-60' 
+                            : 'bg-white border-slate-200 hover:border-slate-300 shadow-sm'
+                        }`}
+                      >
+                        <div className="flex items-center gap-4">
+                          {/* Visual Icon */}
+                          <div className="w-10 h-10 flex items-center justify-center bg-slate-50 rounded-lg border border-slate-200">
+                            <div className={`${solid.shape} scale-[0.6] m-0 origin-center`} style={{ left: 'auto', transform: 'none' }}>{solid.content}</div>
+                          </div>
+                          
+                          <div>
+                            <h3 className="font-semibold text-slate-800">{solid.name}</h3>
+                            <p className="text-xs text-slate-500 hidden sm:block">{solid.desc}</p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-4">
+                          <div className="text-right hidden sm:block">
+                            <span className="text-xs text-slate-400">Density</span>
+                            <p className="font-mono text-sm text-slate-600 font-semibold">{solid.density.toFixed(2)}</p>
+                          </div>
+
+                          <button
+                            onClick={() => handleDrop(solid.id)}
+                            disabled={isAdded}
+                            className={`w-24 py-2 rounded-lg text-sm font-bold transition-all ${
+                              isAdded 
+                                ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                                : 'bg-amber-500 hover:bg-amber-600 text-white shadow-md shadow-amber-500/20'
+                            }`}
+                          >
+                            {isAdded ? 'Dropped' : 'Drop'}
+                          </button>
+                        </div>
+                      </div>
+                    )
+                  })
+                )}
+              </div>
+
+              {/* Status Alert */}
+              {addedLiquids.length === 7 && (
+                <div className="mt-4 p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-center">
+                  <h3 className="font-bold mb-1">Experiment Complete!</h3>
+                  <p className="text-sm opacity-90">You've successfully created a 7-layer density column. Notice how the liquids perfectly sort themselves from heaviest (bottom) to lightest (top).</p>
+                </div>
+              )}
+
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>
