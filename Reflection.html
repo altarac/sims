@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Laser Reflection Simulator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-950 font-sans text-slate-200 overflow-hidden">
+    <div class="flex flex-col md:flex-row h-screen w-full">
+        <!-- Simulation Area -->
+        <div id="container" class="flex-1 relative bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-slate-900 to-slate-950 shadow-inner">
+            <canvas id="canvas" class="absolute inset-0 w-full h-full block"></canvas>
+            
+            <!-- Overlay Title -->
+            <div class="absolute top-6 left-6 flex items-center gap-2 bg-slate-900/50 backdrop-blur px-4 py-2 rounded-full border border-slate-800 pointer-events-none">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-red-500"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+                <h1 class="text-lg font-semibold text-slate-100">Law of Reflection Simulator</h1>
+            </div>
+        </div>
+
+        <!-- Control Panel -->
+        <div class="w-full md:w-80 bg-slate-900 border-l border-slate-800 p-6 flex flex-col gap-8 shadow-xl z-10 overflow-y-auto">
+            
+            <div>
+                <div class="flex items-center gap-2 mb-4 text-slate-300 border-b border-slate-800 pb-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+                    <h2 class="text-xl font-bold">Controls</h2>
+                </div>
+                
+                <!-- Angle Slider -->
+                <div class="mb-6">
+                    <div class="flex justify-between items-center mb-2">
+                        <label for="angleSlider" class="text-sm font-medium text-slate-400">
+                            Angle of Incidence (i)
+                        </label>
+                        <span id="angleValue" class="text-sky-400 font-mono font-bold bg-sky-950/50 px-2 py-1 rounded">
+                            60°
+                        </span>
+                    </div>
+                    <input id="angleSlider" type="range" min="10" max="80" value="60" class="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-sky-500 hover:accent-sky-400" />
+                    <div class="flex justify-between text-xs text-slate-500 mt-1">
+                        <span>10°</span>
+                        <span>45°</span>
+                        <span>80°</span>
+                    </div>
+                </div>
+
+                <!-- Mirror Rotation Slider -->
+                <div class="mb-6">
+                    <div class="flex justify-between items-center mb-2">
+                        <label for="mirrorSlider" class="text-sm font-medium text-slate-400">
+                            Mirror Rotation
+                        </label>
+                        <span id="mirrorValue" class="text-emerald-400 font-mono font-bold bg-emerald-950/50 px-2 py-1 rounded">
+                            0°
+                        </span>
+                    </div>
+                    <input id="mirrorSlider" type="range" min="-45" max="45" value="0" class="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-emerald-500 hover:accent-emerald-400" />
+                    <div class="flex justify-between text-xs text-slate-500 mt-1">
+                        <span>-45°</span>
+                        <span>0°</span>
+                        <span>45°</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Display Toggles -->
+            <div class="flex flex-col gap-4">
+                <h3 class="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-1">Display Options</h3>
+                
+                <!-- Normal Line Toggle -->
+                <label class="flex items-center justify-between cursor-pointer group">
+                    <div class="flex items-center gap-3">
+                        <svg id="iconNormal" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-slate-300 transition-colors"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"></path><line x1="12" y1="2" x2="12" y2="12"></line></svg>
+                        <span class="text-sm select-none group-hover:text-white transition-colors">Show Normal Line</span>
+                    </div>
+                    <div id="bgNormal" class="w-10 h-6 rounded-full transition-colors relative bg-sky-500">
+                        <div id="knobNormal" class="absolute top-1 w-4 h-4 rounded-full bg-white transition-transform left-5"></div>
+                    </div>
+                    <input id="checkNormal" type="checkbox" class="hidden" checked />
+                </label>
+
+                <!-- Total Angle Toggle -->
+                <label class="flex items-center justify-between cursor-pointer group">
+                    <div class="flex items-center gap-3">
+                        <svg id="iconTotal" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-yellow-400 transition-colors"><polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>
+                        <span class="text-sm select-none group-hover:text-white transition-colors">Show Total Angle</span>
+                    </div>
+                    <div id="bgTotal" class="w-10 h-6 rounded-full transition-colors relative bg-yellow-500">
+                        <div id="knobTotal" class="absolute top-1 w-4 h-4 rounded-full bg-white transition-transform left-5"></div>
+                    </div>
+                    <input id="checkTotal" type="checkbox" class="hidden" checked />
+                </label>
+
+                <!-- Individual Angles Toggle -->
+                <label class="flex items-center justify-between cursor-pointer group">
+                    <div class="flex items-center gap-3">
+                        <svg id="iconIndividual" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-slate-600 transition-colors"><circle cx="18" cy="18" r="3"></circle><circle cx="6" cy="6" r="3"></circle><path d="M6 21V9a9 9 0 0 0 9 9"></path></svg>
+                        <span class="text-sm select-none group-hover:text-white transition-colors">Show i & r Angles</span>
+                    </div>
+                    <div id="bgIndividual" class="w-10 h-6 rounded-full transition-colors relative bg-slate-700">
+                        <div id="knobIndividual" class="absolute top-1 w-4 h-4 rounded-full bg-white transition-transform left-1"></div>
+                    </div>
+                    <input id="checkIndividual" type="checkbox" class="hidden" />
+                </label>
+            </div>
+
+            <!-- Physics Note box -->
+            <div class="mt-auto bg-slate-800/50 rounded-lg p-4 border border-slate-700/50">
+                <p class="text-xs text-slate-400 leading-relaxed">
+                    <strong class="text-slate-300">Law of Reflection:</strong> The angle of incidence equals the angle of reflection (i = r). Both angles are measured from the normal line, which is perpendicular to the mirror surface.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const container = document.getElementById('container');
+        const ctx = canvas.getContext('2d');
+
+        // UI Elements
+        const angleSlider = document.getElementById('angleSlider');
+        const angleValue = document.getElementById('angleValue');
+        const mirrorSlider = document.getElementById('mirrorSlider');
+        const mirrorValue = document.getElementById('mirrorValue');
+        
+        const checkNormal = document.getElementById('checkNormal');
+        const checkTotal = document.getElementById('checkTotal');
+        const checkIndividual = document.getElementById('checkIndividual');
+
+        function updateToggleUI(checkbox, bgId, knobId, iconId, activeBgColor, activeIconColor) {
+            const bg = document.getElementById(bgId);
+            const knob = document.getElementById(knobId);
+            const icon = document.getElementById(iconId);
+            
+            if (checkbox.checked) {
+                bg.className = `w-10 h-6 rounded-full transition-colors relative ${activeBgColor}`;
+                knob.className = 'absolute top-1 w-4 h-4 rounded-full bg-white transition-transform left-5';
+                icon.className = `${activeIconColor} transition-colors`;
+            } else {
+                bg.className = 'w-10 h-6 rounded-full transition-colors relative bg-slate-700';
+                knob.className = 'absolute top-1 w-4 h-4 rounded-full bg-white transition-transform left-1';
+                icon.className = 'text-slate-600 transition-colors';
+            }
+        }
+
+        function draw() {
+            // Update values and UI
+            const angle = Number(angleSlider.value);
+            const mirrorAngle = Number(mirrorSlider.value);
+            const showNormal = checkNormal.checked;
+            const showTotal = checkTotal.checked;
+            const showIndividual = checkIndividual.checked;
+
+            angleValue.textContent = `${angle}°`;
+            mirrorValue.textContent = `${mirrorAngle}°`;
+
+            updateToggleUI(checkNormal, 'bgNormal', 'knobNormal', 'iconNormal', 'bg-sky-500', 'text-slate-300');
+            updateToggleUI(checkTotal, 'bgTotal', 'knobTotal', 'iconTotal', 'bg-yellow-500', 'text-yellow-400');
+            updateToggleUI(checkIndividual, 'bgIndividual', 'knobIndividual', 'iconIndividual', 'bg-sky-500', 'text-sky-400');
+
+            // Canvas Rendering
+            const rect = container.getBoundingClientRect();
+            if (rect.width === 0 || rect.height === 0) return;
+
+            const dpr = window.devicePixelRatio || 1;
+            canvas.width = rect.width * dpr;
+            canvas.height = rect.height * dpr;
+            ctx.scale(dpr, dpr);
+
+            const width = rect.width;
+            const height = rect.height;
+
+            ctx.clearRect(0, 0, width, height);
+
+            const cx = width / 2;
+            const cy = height - 80;
+
+            const m_rad = (mirrorAngle * Math.PI) / 180;
+            const i_rad = (angle * Math.PI) / 180;
+            const normalAngle = -Math.PI / 2 + m_rad;
+
+            // --- 1. Draw Mirror ---
+            const mirrorWidth = Math.min(width * 0.8, 600);
+            const mHalf = mirrorWidth / 2;
+            
+            ctx.save();
+            ctx.translate(cx, cy);
+            ctx.rotate(m_rad);
+            
+            ctx.beginPath();
+            ctx.moveTo(-mHalf, 0);
+            ctx.lineTo(mHalf, 0);
+            ctx.strokeStyle = '#94a3b8';
+            ctx.lineWidth = 4;
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.lineWidth = 2;
+            ctx.strokeStyle = '#64748b';
+            for (let x = -mHalf + 20; x < mHalf; x += 20) {
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x - 12, 15);
+            }
+            ctx.stroke();
+            
+            ctx.fillStyle = '#94a3b8';
+            ctx.font = '16px system-ui, sans-serif';
+            ctx.fillText('Mirror', mHalf + 10, 15);
+            ctx.restore();
+
+            // --- Variables for Rays ---
+            const L = Math.max(10, Math.min(width / 2.5, height - 150));
+
+            const startX = cx + L * Math.cos(normalAngle - i_rad);
+            const startY = cy + L * Math.sin(normalAngle - i_rad);
+            const endX = cx + L * Math.cos(normalAngle + i_rad);
+            const endY = cy + L * Math.sin(normalAngle + i_rad);
+
+            // --- 2. Draw Normal Line ---
+            if (showNormal) {
+                const nL = L + 40;
+                const nx = cx + nL * Math.cos(normalAngle);
+                const ny = cy + nL * Math.sin(normalAngle);
+
+                ctx.beginPath();
+                ctx.setLineDash([8, 8]);
+                ctx.moveTo(cx, cy);
+                ctx.lineTo(nx, ny);
+                ctx.strokeStyle = '#cbd5e1';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                ctx.setLineDash([]); 
+
+                ctx.fillStyle = '#cbd5e1';
+                ctx.font = '14px system-ui, sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText('Normal', cx + (nL + 15) * Math.cos(normalAngle), cy + (nL + 15) * Math.sin(normalAngle));
+                ctx.textAlign = 'left';
+            }
+
+            // Helper: Draw ray with arrowhead
+            const drawRay = (sx, sy, ex, ey, color) => {
+                ctx.beginPath();
+                ctx.moveTo(sx, sy);
+                ctx.lineTo(ex, ey);
+                ctx.strokeStyle = color;
+                ctx.lineWidth = 3;
+                
+                ctx.shadowColor = color;
+                ctx.shadowBlur = 10;
+                ctx.stroke();
+                ctx.shadowBlur = 0;
+
+                const midX = (sx + ex) / 2;
+                const midY = (sy + ey) / 2;
+                const rayAngle = Math.atan2(ey - sy, ex - sx);
+                const headlen = 12;
+
+                ctx.beginPath();
+                ctx.moveTo(midX + headlen * Math.cos(rayAngle), midY + headlen * Math.sin(rayAngle));
+                ctx.lineTo(midX - headlen * Math.cos(rayAngle - Math.PI / 6), midY - headlen * Math.sin(rayAngle - Math.PI / 6));
+                ctx.lineTo(midX - headlen * Math.cos(rayAngle + Math.PI / 6), midY - headlen * Math.sin(rayAngle + Math.PI / 6));
+                ctx.fillStyle = color;
+                ctx.fill();
+            };
+
+            // --- 3. Draw Rays ---
+            drawRay(startX, startY, cx, cy, '#ef4444');
+            drawRay(cx, cy, endX, endY, '#ef4444');
+
+            // --- 4. Draw Laser Device ---
+            const laserAngle = normalAngle - i_rad + Math.PI; 
+            ctx.save();
+            ctx.translate(startX, startY);
+            ctx.rotate(laserAngle);
+
+            ctx.shadowColor = '#ef4444';
+            ctx.shadowBlur = 15;
+            ctx.fillStyle = '#ef4444';
+            ctx.beginPath();
+            ctx.arc(0, 0, 4, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.shadowBlur = 0;
+
+            ctx.fillStyle = '#e2e8f0';
+            ctx.fillRect(-80, -12, 75, 24); 
+            ctx.fillStyle = '#94a3b8';
+            ctx.fillRect(-15, -9, 15, 18);
+            ctx.fillStyle = '#ef4444';
+            ctx.fillRect(-60, -15, 12, 4);
+            ctx.fillStyle = '#0f172a';
+            ctx.font = 'bold 12px system-ui, sans-serif';
+            ctx.fillText('Laser', -70, 4);
+            ctx.restore();
+
+            // Helper: Draw arrows on arcs
+            const drawArcArrowhead = (x, y, r, a, isStart) => {
+                const tipX = x + r * Math.cos(a);
+                const tipY = y + r * Math.sin(a);
+                const tangentAngle = isStart ? a - Math.PI / 2 : a + Math.PI / 2;
+                const headlen = 10;
+                
+                ctx.beginPath();
+                ctx.moveTo(tipX, tipY);
+                ctx.lineTo(tipX - headlen * Math.cos(tangentAngle - Math.PI / 6), tipY - headlen * Math.sin(tangentAngle - Math.PI / 6));
+                ctx.lineTo(tipX - headlen * Math.cos(tangentAngle + Math.PI / 6), tipY - headlen * Math.sin(tangentAngle + Math.PI / 6));
+                ctx.fillStyle = ctx.strokeStyle;
+                ctx.fill();
+            };
+
+            // --- 5. Draw Angles ---
+            if (showTotal) {
+                const arcRadius = L * 0.45;
+                const sAngle = normalAngle - i_rad;
+                const eAngle = normalAngle + i_rad;
+                
+                ctx.strokeStyle = '#facc15';
+                ctx.lineWidth = 2;
+                
+                ctx.beginPath();
+                ctx.arc(cx, cy, arcRadius, sAngle, eAngle);
+                ctx.stroke();
+
+                drawArcArrowhead(cx, cy, arcRadius, sAngle, true);
+                drawArcArrowhead(cx, cy, arcRadius, eAngle, false);
+
+                ctx.fillStyle = '#facc15';
+                ctx.font = 'bold 18px system-ui, sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText(`${angle * 2}°`, cx + (arcRadius + 20) * Math.cos(normalAngle), cy + (arcRadius + 20) * Math.sin(normalAngle));
+            }
+
+            if (showIndividual) {
+                const innerRadius = L * 0.25;
+                ctx.strokeStyle = '#38bdf8';
+                ctx.lineWidth = 2;
+
+                ctx.beginPath();
+                ctx.arc(cx, cy, innerRadius, normalAngle - i_rad, normalAngle);
+                ctx.stroke();
+                drawArcArrowhead(cx, cy, innerRadius, normalAngle - i_rad, true);
+                drawArcArrowhead(cx, cy, innerRadius, normalAngle, false);
+
+                ctx.beginPath();
+                ctx.arc(cx, cy, innerRadius, normalAngle, normalAngle + i_rad);
+                ctx.stroke();
+                drawArcArrowhead(cx, cy, innerRadius, normalAngle, true);
+                drawArcArrowhead(cx, cy, innerRadius, normalAngle + i_rad, false);
+
+                ctx.fillStyle = '#38bdf8';
+                ctx.font = '15px system-ui, sans-serif';
+                ctx.textAlign = 'center';
+                
+                const t1Angle = normalAngle - i_rad / 2;
+                const t2Angle = normalAngle + i_rad / 2;
+                const textOffset = innerRadius + 22;
+                
+                ctx.fillText(`i = ${angle}°`, cx + textOffset * Math.cos(t1Angle), cy + textOffset * Math.sin(t1Angle));
+                ctx.fillText(`r = ${angle}°`, cx + textOffset * Math.cos(t2Angle), cy + textOffset * Math.sin(t2Angle));
+            }
+        }
+
+        // Event Listeners
+        window.addEventListener('resize', () => requestAnimationFrame(draw));
+        angleSlider.addEventListener('input', () => requestAnimationFrame(draw));
+        mirrorSlider.addEventListener('input', () => requestAnimationFrame(draw));
+        checkNormal.addEventListener('change', () => requestAnimationFrame(draw));
+        checkTotal.addEventListener('change', () => requestAnimationFrame(draw));
+        checkIndividual.addEventListener('change', () => requestAnimationFrame(draw));
+
+        // Initial Draw
+        draw();
+    </script>
+</body>
+</html>
