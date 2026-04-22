@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Isometric Projection Builder</title>
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- React & ReactDOM -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  
+  <!-- Babel for in-browser JSX compilation -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useMemo } = React;
+
+    // --- Inline SVG Icons (Replacing lucide-react imports) ---
+    const Box = ({ className }) => (
+      <svg className={className} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+    );
+    const MousePointerClick = ({ className }) => (
+      <svg className={className} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 4.1 12 6"/><path d="m5.1 8-2.9-.8"/><path d="m6 12-1.9 2"/><path d="M7.2 2.2 8 5.1"/><path d="M9.037 9.69a.498.498 0 0 1 .653-.653l11 4.5a.5.5 0 0 1-.074.949l-4.349 1.041a1 1 0 0 0-.74.739l-1.04 4.35a.5.5 0 0 1-.95.074z"/></svg>
+    );
+    const Eraser = ({ className }) => (
+      <svg className={className} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21"/><path d="M22 21H7"/><path d="m5 11 9 9"/></svg>
+    );
+    const Trash2 = ({ className }) => (
+      <svg className={className} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+    );
+    const BookOpen = ({ className }) => (
+      <svg className={className} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+    );
+    const ChevronRight = ({ className }) => (
+      <svg className={className} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+    );
+    const Eye = ({ className }) => (
+      <svg className={className} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+    );
+    const EyeOff = ({ className }) => (
+      <svg className={className} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" y1="2" x2="22" y2="22"/></svg>
+    );
+
+
+    // --- Application Logic ---
+    const MAX_GRID = 5;
+    const CELL_SIZE_2D = 24;
+
+    // Isometric math constants
+    const S_ISO = 32;
+    const W_ISO = S_ISO * Math.cos(Math.PI / 6);
+    const H_ISO = S_ISO * Math.sin(Math.PI / 6);
+    const CX_ISO = 250;
+    const CY_ISO = 350;
+
+    // Helper to project 3D grid coords to 2D SVG isometric coords
+    const toIso = (x, y, z) => ({
+      x: CX_ISO + (x - z) * W_ISO,
+      y: CY_ISO + (x + z) * H_ISO - y * S_ISO,
+    });
+
+    const PRESETS = {
+      "Empty": [],
+      "L-Step (Shape A style)": [
+        "0,0,0", "1,0,0", "2,0,0",
+        "0,0,1", "1,0,1",
+        "0,0,2",
+        "0,1,0", "1,1,0",
+        "0,1,1",
+        "0,2,0"
+      ],
+      "Corner Tower (Shape B style)": [
+        "0,0,0", "1,0,0", "2,0,0",
+        "0,0,1", "1,0,1", "2,0,1",
+        "0,0,2", "1,0,2", "2,0,2",
+        "0,1,0",
+        "0,2,0",
+        "0,3,0"
+      ],
+      "U-Cutout (Shape C style)": [
+        "0,0,0", "1,0,0", "2,0,0",
+        "0,0,1",          "2,0,1",
+        "0,0,2",          "2,0,2",
+        "0,1,0", "1,1,0", "2,1,0",
+        "0,2,0", "1,2,0", "2,2,0"
+      ]
+    };
+
+    function App() {
+      const [blocks, setBlocks] = useState(new Set(PRESETS["L-Step (Shape A style)"]));
+      const [mode, setMode] = useState('add'); // 'add' | 'remove'
+      const [testMode, setTestMode] = useState(false);
+
+      const hasBlock = (x, y, z) => blocks.has(`${x},${y},${z}`);
+
+      const addBlock = (x, y, z) => {
+        if (x < 0 || x >= MAX_GRID || y < 0 || y >= MAX_GRID || z < 0 || z >= MAX_GRID) return;
+        setBlocks((prev) => {
+          const next = new Set(prev);
+          next.add(`${x},${y},${z}`);
+          return next;
+        });
+      };
+
+      const removeBlock = (x, y, z) => {
+        setBlocks((prev) => {
+          const next = new Set(prev);
+          next.delete(`${x},${y},${z}`);
+          return next;
+        });
+      };
+
+      const clearBlocks = () => setBlocks(new Set());
+
+      const loadPreset = (e) => {
+        const key = e.target.value;
+        if (PRESETS[key]) {
+          setBlocks(new Set(PRESETS[key]));
+        }
+      };
+
+      // 1. ISOMETRIC VIEW RENDERER
+      const isometricElements = useMemo(() => {
+        const elements = [];
+
+        // Draw base grid for adding initial blocks
+        for (let x = 0; x < MAX_GRID; x++) {
+          for (let z = MAX_GRID - 1; z >= 0; z--) { // draw back to front
+            const p0 = toIso(x, 0, z);
+            const p1 = toIso(x + 1, 0, z);
+            const p2 = toIso(x + 1, 0, z + 1);
+            const p3 = toIso(x, 0, z + 1);
+            
+            elements.push(
+              <polygon
+                key={`base-${x}-${z}`}
+                points={`${p0.x},${p0.y} ${p1.x},${p1.y} ${p2.x},${p2.y} ${p3.x},${p3.y}`}
+                className={`fill-transparent stroke-gray-300 stroke-1 ${mode === 'add' ? 'hover:fill-blue-100/50 cursor-pointer' : ''} transition-colors`}
+                onClick={() => mode === 'add' && addBlock(x, 0, z)}
+              />
+            );
+          }
+        }
+
+        // Sort blocks by depth for Painter's Algorithm
+        const blockArray = Array.from(blocks).map(str => {
+          const [x, y, z] = str.split(',').map(Number);
+          return { x, y, z, depth: x + y + z };
+        }).sort((a, b) => a.depth - b.depth);
+
+        // Draw blocks
+        blockArray.forEach(({ x, y, z }) => {
+          // Top face (faces +Y)
+          const t0 = toIso(x, y + 1, z);
+          const t1 = toIso(x + 1, y + 1, z);
+          const t2 = toIso(x + 1, y + 1, z + 1);
+          const t3 = toIso(x, y + 1, z + 1);
+          
+          // Right face (faces +X)
+          const r0 = toIso(x + 1, y, z);
+          const r1 = toIso(x + 1, y, z + 1);
+          const r2 = toIso(x + 1, y + 1, z + 1);
+          const r3 = toIso(x + 1, y + 1, z);
+
+          // Left face (faces +Z)
+          const l0 = toIso(x, y, z + 1);
+          const l1 = toIso(x + 1, y, z + 1);
+          const l2 = toIso(x + 1, y + 1, z + 1);
+          const l3 = toIso(x, y + 1, z + 1);
+
+          const handleFaceClick = (nx, ny, nz, tx, ty, tz) => (e) => {
+            e.stopPropagation();
+            if (mode === 'remove') removeBlock(tx, ty, tz);
+            else if (mode === 'add') addBlock(nx, ny, nz);
+          };
+
+          const baseClass = "stroke-slate-800 stroke-[1.5px] transition-opacity duration-150 " + 
+                            (mode === 'add' ? 'hover:opacity-80 cursor-crosshair' : 'hover:opacity-50 hover:fill-red-400 cursor-pointer');
+
+          // Draw Top Face
+          elements.push(
+            <polygon
+              key={`t-${x}-${y}-${z}`}
+              points={`${t0.x},${t0.y} ${t1.x},${t1.y} ${t2.x},${t2.y} ${t3.x},${t3.y}`}
+              className={`fill-blue-200 ${baseClass}`}
+              onClick={handleFaceClick(x, y + 1, z, x, y, z)}
+            />
+          );
+
+          // Draw Left Face
+          elements.push(
+            <polygon
+              key={`l-${x}-${y}-${z}`}
+              points={`${l0.x},${l0.y} ${l1.x},${l1.y} ${l2.x},${l2.y} ${l3.x},${l3.y}`}
+              className={`fill-blue-400 ${baseClass}`}
+              onClick={handleFaceClick(x, y, z + 1, x, y, z)}
+            />
+          );
+
+          // Draw Right Face
+          elements.push(
+            <polygon
+              key={`r-${x}-${y}-${z}`}
+              points={`${r0.x},${r0.y} ${r1.x},${r1.y} ${r2.x},${r2.y} ${r3.x},${r3.y}`}
+              className={`fill-blue-600 ${baseClass}`}
+              onClick={handleFaceClick(x + 1, y, z, x, y, z)}
+            />
+          );
+        });
+
+        return elements;
+      }, [blocks, mode]);
+
+
+      // 2. ORTHOGRAPHIC PROJECTION ENGINE
+      const OrthoView = ({ type, title }) => {
+        // Coordinate mapping based on drafting standard
+        const mapping = {
+          front: {
+            getDepthMax: (u, v) => { let max = -1; for(let w=0; w<MAX_GRID; w++) if(hasBlock(u, v, w)) max = w; return max; },
+            has: (u, v, w) => hasBlock(u, v, w), // U=X, V=Y, Depth=Z
+            getY: (v) => (MAX_GRID - v) * CELL_SIZE_2D // Y goes up, SVG Y goes down
+          },
+          top: {
+            getDepthMax: (u, v) => { let max = -1; for(let w=0; w<MAX_GRID; w++) if(hasBlock(u, w, v)) max = w; return max; },
+            has: (u, v, w) => hasBlock(u, w, v), // U=X, V=Z, Depth=Y
+            getY: (v) => v * CELL_SIZE_2D // Z goes back to front (top to bottom on screen)
+          },
+          right: {
+            getDepthMax: (u, v) => { let max = -1; for(let w=0; w<MAX_GRID; w++) if(hasBlock(w, v, u)) max = w; return max; },
+            has: (u, v, w) => hasBlock(w, v, u), // U=Z, V=Y, Depth=X
+            getY: (v) => (MAX_GRID - v) * CELL_SIZE_2D // Y goes up
+          }
+        }[type];
+
+        const lines = [];
+        const rects = [];
+
+        // Render faces (Silhouettes)
+        for(let u=0; u<MAX_GRID; u++) {
+          for(let v=0; v<MAX_GRID; v++) {
+            if (mapping.getDepthMax(u, v) > -1) {
+              rects.push({ u, v });
+            }
+          }
+        }
+
+        // Edge finding algorithm (visible solid outlines + hidden dashed lines)
+        
+        // Vertical Edges
+        for(let u=0; u<=MAX_GRID; u++) {
+          for(let v=0; v<MAX_GRID; v++) {
+            const leftDepth = u > 0 ? mapping.getDepthMax(u-1, v) : -1;
+            const rightDepth = u < MAX_GRID ? mapping.getDepthMax(u, v) : -1;
+
+            if (leftDepth !== rightDepth) {
+              lines.push({ x1: u*CELL_SIZE_2D, y1: mapping.getY(v), x2: u*CELL_SIZE_2D, y2: mapping.getY(v+1), dashed: false });
+            } else if (leftDepth > -1) {
+              // Coplanar surface: check for hidden edges behind it
+              for(let w=0; w<leftDepth; w++) {
+                if (mapping.has(u-1, v, w) !== mapping.has(u, v, w)) {
+                  lines.push({ x1: u*CELL_SIZE_2D, y1: mapping.getY(v), x2: u*CELL_SIZE_2D, y2: mapping.getY(v+1), dashed: true });
+                  break;
+                }
+              }
+            }
+          }
+        }
+
+        // Horizontal Edges
+        for(let v=0; v<=MAX_GRID; v++) {
+          for(let u=0; u<MAX_GRID; u++) {
+            const bottomDepth = v > 0 ? mapping.getDepthMax(u, v-1) : -1;
+            const topDepth = v < MAX_GRID ? mapping.getDepthMax(u, v) : -1;
+
+            if (bottomDepth !== topDepth) {
+              lines.push({ x1: u*CELL_SIZE_2D, y1: mapping.getY(v), x2: (u+1)*CELL_SIZE_2D, y2: mapping.getY(v), dashed: false });
+            } else if (bottomDepth > -1) {
+              for(let w=0; w<bottomDepth; w++) {
+                if (mapping.has(u, v-1, w) !== mapping.has(u, v, w)) {
+                  lines.push({ x1: u*CELL_SIZE_2D, y1: mapping.getY(v), x2: (u+1)*CELL_SIZE_2D, y2: mapping.getY(v), dashed: true });
+                  break;
+                }
+              }
+            }
+          }
+        }
+
+        const svgSize = MAX_GRID * CELL_SIZE_2D;
+
+        return (
+          <div className="flex flex-col items-center">
+            <h3 className="text-sm font-semibold text-slate-500 mb-2">{title}</h3>
+            <div className="bg-white border border-slate-200 rounded p-4 shadow-sm flex items-center justify-center min-w-[160px] min-h-[160px]">
+              <svg width={svgSize} height={svgSize} viewBox={`0 0 ${svgSize} ${svgSize}`} className="overflow-visible">
+                {/* Draw Silhouettes first */}
+                {rects.map((r, i) => (
+                  <rect 
+                    key={`rect-${i}`} 
+                    x={r.u * CELL_SIZE_2D} 
+                    y={Math.min(mapping.getY(r.v), mapping.getY(r.v+1))} 
+                    width={CELL_SIZE_2D} 
+                    height={CELL_SIZE_2D} 
+                    className="fill-slate-100" 
+                  />
+                ))}
+                
+                {/* Draw Lines over the silhouettes */}
+                {lines.map((l, i) => (
+                  <line 
+                    key={`line-${i}`}
+                    x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2}
+                    className={l.dashed ? "stroke-slate-400" : "stroke-slate-800"}
+                    strokeWidth={l.dashed ? 1.5 : 2}
+                    strokeLinecap="round"
+                    strokeDasharray={l.dashed ? "4 4" : "none"}
+                  />
+                ))}
+              </svg>
+            </div>
+          </div>
+        );
+      };
+
+
+      // Main Layout
+      return (
+        <div className="min-h-screen bg-slate-50 text-slate-800 font-sans p-4 md:p-8">
+          
+          <header className="max-w-6xl mx-auto mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
+                <Box className="w-7 h-7 text-blue-600" />
+                Projection Builder
+              </h1>
+              <p className="text-slate-500 text-sm mt-1">
+                Build 3D objects and instantly see their Orthographic Multi-view projections.
+              </p>
+            </div>
+            
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                onClick={() => setTestMode(!testMode)}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors shadow-sm ${testMode ? 'bg-indigo-50 border-indigo-200 text-indigo-700' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+              >
+                {testMode ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                {testMode ? 'Test Mode: ON' : 'Test Mode: OFF'}
+              </button>
+
+              <div className="flex items-center gap-2 bg-white p-2 rounded-lg shadow-sm border border-slate-200">
+                <BookOpen className="w-5 h-5 text-slate-400 ml-1" />
+                <select 
+                  onChange={loadPreset}
+                  className="bg-transparent text-sm font-medium focus:outline-none py-1 pr-4 cursor-pointer text-slate-700"
+                  defaultValue="L-Step (Shape A style)"
+                >
+                  {Object.keys(PRESETS).map(key => (
+                    <option key={key} value={key}>{key}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </header>
+
+          <div className="max-w-6xl mx-auto flex flex-col lg:flex-row gap-8">
+            
+            {/* Left: 3D Workspace */}
+            <div className="flex-1 bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
+              
+              <div className="bg-slate-100 border-b border-slate-200 p-3 flex justify-between items-center">
+                <div className="flex bg-white rounded-md shadow-sm border border-slate-200 overflow-hidden">
+                  <button
+                    onClick={() => setMode('add')}
+                    className={`px-4 py-2 text-sm font-medium flex items-center gap-2 transition-colors ${mode === 'add' ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:bg-slate-50'}`}
+                  >
+                    <MousePointerClick className="w-4 h-4" /> Add Blocks
+                  </button>
+                  <div className="w-px bg-slate-200"></div>
+                  <button
+                    onClick={() => setMode('remove')}
+                    className={`px-4 py-2 text-sm font-medium flex items-center gap-2 transition-colors ${mode === 'remove' ? 'bg-red-50 text-red-700' : 'text-slate-600 hover:bg-slate-50'}`}
+                  >
+                    <Eraser className="w-4 h-4" /> Erase Blocks
+                  </button>
+                </div>
+                
+                <button 
+                  onClick={clearBlocks}
+                  className="px-3 py-2 text-sm font-medium text-slate-500 hover:text-red-600 flex items-center gap-1 transition-colors"
+                >
+                  <Trash2 className="w-4 h-4" /> Clear
+                </button>
+              </div>
+
+              <div className="relative flex-1 min-h-[400px] flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 select-none">
+                <svg width="500" height="500" className="max-w-full overflow-visible">
+                  <defs>
+                    <marker id="arrow" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                      <path d="M 0 0 L 10 5 L 0 10 z" fill="#94a3b8" />
+                    </marker>
+                  </defs>
+
+                  {/* Axes Guides */}
+                  <g className="opacity-60">
+                    {/* Z-Axis (Front) */}
+                    <line x1={CX_ISO} y1={CY_ISO + S_ISO} x2={CX_ISO - W_ISO*3} y2={CY_ISO + S_ISO + H_ISO*3} stroke="#94a3b8" strokeWidth="2" strokeDasharray="4 4" markerEnd="url(#arrow)" />
+                    <text x={CX_ISO - W_ISO*3 - 20} y={CY_ISO + S_ISO + H_ISO*3 + 15} fill="#64748b" fontSize="12" fontWeight="bold">FRONT (+Z)</text>
+
+                    {/* X-Axis (Right) */}
+                    <line x1={CX_ISO} y1={CY_ISO + S_ISO} x2={CX_ISO + W_ISO*3} y2={CY_ISO + S_ISO + H_ISO*3} stroke="#94a3b8" strokeWidth="2" strokeDasharray="4 4" markerEnd="url(#arrow)" />
+                    <text x={CX_ISO + W_ISO*3 + 5} y={CY_ISO + S_ISO + H_ISO*3 + 15} fill="#64748b" fontSize="12" fontWeight="bold">RIGHT (+X)</text>
+                  </g>
+
+                  {isometricElements}
+                </svg>
+
+                {blocks.size === 0 && (
+                  <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-slate-400 font-medium text-sm text-center pointer-events-none mt-32">
+                    Grid is empty.<br/>Click the dashed base grid to add blocks!
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Right: Multi-view Projections */}
+            <div className="w-full lg:w-[400px] flex flex-col gap-6">
+              
+              {testMode ? (
+                <div className="flex-1 border-2 border-dashed border-indigo-200 bg-indigo-50/50 rounded-xl flex flex-col items-center justify-center p-8 text-center min-h-[300px]">
+                  <EyeOff className="w-12 h-12 text-indigo-300 mb-4" />
+                  <h3 className="text-lg font-bold text-indigo-900 mb-2">Test Mode Active</h3>
+                  <p className="text-indigo-700 text-sm">Projections are hidden. Try to sketch the Top, Front, and Right side views yourself, then turn off test mode to check your answers!</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-4">
+                  <OrthoView type="top" title="Top View" />
+                  <div className="flex items-center justify-center opacity-30">
+                     <svg width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" className="text-slate-400">
+                        <path d="M4 4h16v16H4z" strokeDasharray="4 4"/>
+                        <path d="M4 4l16 16M20 4L4 20" strokeDasharray="4 4"/>
+                     </svg>
+                  </div>
+                  <OrthoView type="front" title="Front View" />
+                  <OrthoView type="right" title="Right Side View" />
+                </div>
+              )}
+
+              <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 mt-auto">
+                <h4 className="font-semibold text-blue-800 text-sm flex items-center gap-1 mb-2">
+                  <BookOpen className="w-4 h-4" /> Drafting Rules Applied
+                </h4>
+                <ul className="text-xs text-blue-700 space-y-2">
+                  <li className="flex items-start gap-2">
+                    <ChevronRight className="w-4 h-4 shrink-0 mt-0.5" />
+                    <span><strong>Solid lines</strong> indicate visible edges and changes in depth.</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <ChevronRight className="w-4 h-4 shrink-0 mt-0.5" />
+                    <span><strong>Dashed lines</strong> indicate hidden edges behind flat faces (e.g., cutouts behind walls).</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <ChevronRight className="w-4 h-4 shrink-0 mt-0.5" />
+                    <span>Views follow the standard <strong>Third-Angle Projection</strong> layout.</span>
+                  </li>
+                </ul>
+              </div>
+
+            </div>
+
+          </div>
+        </div>
+      );
+    }
+
+    // Initialize React
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>
