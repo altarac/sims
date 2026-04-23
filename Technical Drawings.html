@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Technical Drawing Trainer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .grid-bg {
+            background-image: radial-gradient(#e5e7eb 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+        /* Simple animation class */
+        .fade-in { animation: fadeIn 0.3s ease-in-out; }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body class="min-h-screen bg-slate-50 text-slate-800 p-4 md:p-8 font-sans">
+
+    <div id="root" class="max-w-6xl mx-auto space-y-6">
+        <!-- App will be rendered here -->
+    </div>
+
+    <script>
+        // --- Icons (Inline SVG to remain self-contained) ---
+        const Icons = {
+            PenTool: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-blue-600 w-6 h-6"><path d="m12 19 7-7 3 3-7 7-3-3z"/><path d="m18 13-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="m2 2 7.586 7.586"/><circle cx="11" cy="11" r="2"/></svg>`,
+            RefreshCw: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>`,
+            BookOpen: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>`,
+            CheckCircle2: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>`,
+            CheckCircle2Lg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-green-500 w-5 h-5"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>`,
+            XCircle: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-red-500 w-5 h-5"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/></svg>`,
+            ArrowRight: `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>`,
+            Check: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-blue-600 w-10 h-10"><path d="M20 6 9 17l-5-5"/></svg>`
+        };
+
+        // --- Procedural Generation Logic ---
+        const generateDimensions = () => {
+            const TW = Math.floor(Math.random() * 20 + 40); // Top Width: 40-60
+            const TD = Math.floor(Math.random() * 20 + 35); // Top Depth (Step): 35-55
+            const W = TW + Math.floor(Math.random() * 20 + 30); // Total Width: 70-110
+            const H = TD + Math.floor(Math.random() * 20 + 30); // Total Height: 65-105
+            const numHoles = Math.floor(Math.random() * 3) + 1; // 1, 2, or 3 holes
+
+            // Define the 3 possible safe zones for holes
+            const availableZones = [
+                { id: 'TL', cx: TW / 2, cy: TD / 2, angle: 315 },                             // Top-left
+                { id: 'BL', cx: TW / 2, cy: TD + (H - TD) / 2, angle: 135 },                  // Bottom-left
+                { id: 'BR', cx: TW + (W - TW) / 2, cy: TD + (H - TD) / 2, angle: 315 }        // Bottom-right
+            ];
+
+            const shuffledZones = availableZones.sort(() => Math.random() - 0.5);
+
+            // Populated visible holes
+            const holes = shuffledZones.slice(0, numHoles).map(center => ({
+                ...center,
+                D: Math.floor(Math.random() * 4 + 5) * 2 // Independent Diameter: 10, 12, 14, 16, or 18
+            }));
+
+            // Generate Tunnels (Hidden Lines) in empty zones
+            const unusedZones = shuffledZones.slice(numHoles);
+            const tunnels = [];
+
+            // 60% chance to add a tunnel if we have unused space
+            if (unusedZones.length > 0 && Math.random() > 0.4) {
+                // Ensure tunnels are only placed in TL (horizontal) or BR (vertical) 
+                // to avoid confusing intersection lines across the shape body
+                const validTunnelZones = unusedZones.filter(z => z.id === 'TL' || z.id === 'BR');
+                
+                if (validTunnelZones.length > 0) {
+                    const tz = validTunnelZones[0];
+                    const tunnelD = Math.floor(Math.random() * 4 + 4) * 2; // Diameter: 8, 10, 12, 14
+                    
+                    if (tz.id === 'TL') {
+                        tunnels.push({ orient: 'horizontal', start: 0, end: TW, fixed: tz.cy, D: tunnelD });
+                    } else if (tz.id === 'BR') {
+                        tunnels.push({ orient: 'vertical', start: TD, end: H, fixed: tz.cx, D: tunnelD });
+                    }
+                }
+            }
+
+            return { H, W, TW, TD, numHoles, holes, tunnels };
+        };
+
+        const generateQuestions = (dims) => {
+            const targetHoleIndex = Math.floor(Math.random() * dims.holes.length);
+            const targetHole = dims.holes[targetHoleIndex];
+            const radius = targetHole.D / 2;
+            
+            const radiusOptions = Array.from(new Set([
+                radius.toString(), 
+                targetHole.D.toString(), 
+                (targetHole.D * 2).toString(), 
+                (radius + 2).toString(),
+                (radius + 4).toString()
+            ])).slice(0, 4).sort(() => Math.random() - 0.5);
+
+            const questionsList = [
+                {
+                    text: "What type of line is highlighted in red?",
+                    highlight: "visible-outline",
+                    options: ["Visible Line", "Hidden Line", "Centre Line", "Dimension Line", "Extension Line"],
+                    answer: "Visible Line"
+                },
+                {
+                    text: "What type of line is highlighted in red?",
+                    highlight: "dimension-line",
+                    options: ["Visible Line", "Hidden Line", "Centre Line", "Dimension Line", "Extension Line"],
+                    answer: "Dimension Line"
+                },
+                {
+                    text: "What type of line is highlighted in red?",
+                    highlight: "extension-line",
+                    options: ["Visible Line", "Hidden Line", "Centre Line", "Dimension Line", "Extension Line"],
+                    answer: "Extension Line"
+                },
+                {
+                    text: "What type of line is highlighted in red?",
+                    highlight: "centre-line",
+                    options: ["Visible Line", "Hidden Line", "Centre Line", "Dimension Line", "Extension Line"],
+                    answer: "Centre Line"
+                },
+                {
+                    text: "Based on the drawing's dimensions, what is the RADIUS of the highlighted circular hole?",
+                    highlight: `hole-${targetHoleIndex}`,
+                    options: radiusOptions,
+                    answer: radius.toString()
+                },
+                {
+                    text: "Based on the drawing's dimensions, what is the total overall width of the object?",
+                    highlight: "none",
+                    options: [dims.W.toString(), dims.TW.toString(), (dims.W + dims.TW).toString(), dims.H.toString()].sort(() => Math.random() - 0.5),
+                    answer: dims.W.toString()
+                }
+            ];
+
+            // If tunnels exist, there's a chance they'll get tested on Hidden Lines
+            if (dims.tunnels && dims.tunnels.length > 0) {
+                questionsList.push({
+                    text: "What type of line is highlighted in red?",
+                    highlight: "hidden-line",
+                    options: ["Visible Line", "Hidden Line", "Centre Line", "Dimension Line", "Extension Line"],
+                    answer: "Hidden Line"
+                });
+            }
+
+            return questionsList.sort(() => Math.random() - 0.5);
+        };
+
+        // --- Application State ---
+        let state = {
+            mode: 'study', // 'study' | 'test'
+            dims: generateDimensions(),
+            questions: [],
+            currentQIndex: 0,
+            score: 0,
+            selectedAnswer: null,
+            testComplete: false,
+            studyHighlight: null
+        };
+
+        // --- State Mutations ---
+        window.setMode = (newMode) => {
+            state.mode = newMode;
+            if (newMode === 'test') {
+                window.startNewTest(true); 
+            } else {
+                state.studyHighlight = null; // Clear highlight when entering study mode
+                render();
+            }
+        };
+
+        window.handleRegenerate = () => {
+            state.dims = generateDimensions();
+            if (state.mode === 'test') {
+                window.startNewTest(true);
+            } else {
+                render();
+            }
+        };
+
+        window.startNewTest = (shouldRender = true) => {
+            state.questions = generateQuestions(state.dims);
+            state.currentQIndex = 0;
+            state.score = 0;
+            state.selectedAnswer = null;
+            state.testComplete = false;
+            if (shouldRender) render();
+        };
+
+        window.handleAnswerClick = (option) => {
+            if (state.selectedAnswer !== null) return;
+            state.selectedAnswer = option;
+            if (option === state.questions[state.currentQIndex].answer) {
+                state.score += 1;
+            }
+            render();
+        };
+
+        window.nextQuestion = () => {
+            if (state.currentQIndex < state.questions.length - 1) {
+                state.currentQIndex += 1;
+                state.selectedAnswer = null;
+            } else {
+                state.testComplete = true;
+            }
+            render();
+        };
+
+        window.setStudyHighlight = (type) => {
+            // Toggle highlight off if clicking the same row again
+            if (state.studyHighlight === type) {
+                state.studyHighlight = null;
+            } else {
+                state.studyHighlight = type;
+            }
+            render();
+        };
+
+        // --- Rendering Helpers ---
+        const getStrokeAttr = (highlight, type, defaultWidth, defaultColor = "black") => {
+            if (highlight === type) return `stroke="#ef4444" stroke-width="${Math.max(1.5, defaultWidth * 2)}"`;
+            return `stroke="${defaultColor}" stroke-width="${defaultWidth}"`;
+        };
+
+        const renderCanvas = () => {
+            const { H, W, TW, TD, holes, tunnels } = state.dims;
+            
+            // Determine what needs to be highlighted based on current mode
+            let highlight = 'none';
+            if (state.mode === 'test' && !state.testComplete && state.questions.length > 0) {
+                highlight = state.questions[state.currentQIndex].highlight;
+            } else if (state.mode === 'study' && state.studyHighlight) {
+                highlight = state.studyHighlight;
+            }
+
+            const isDimHighlight = highlight === 'dimension-line';
+            const dimColor = isDimHighlight ? "#ef4444" : "black";
+
+            let visibleHolesXML = '';
+            let centerLinesXML = '';
+            let leaderLinesXML = '';
+            let hiddenLinesXML = '';
+
+            // Generate Tunnels (Hidden Lines)
+            hiddenLinesXML += `<g ${getStrokeAttr(highlight, 'hidden-line', 0.8)} stroke-dasharray="4,2">`;
+            (tunnels || []).forEach((tunnel) => {
+                if (tunnel.orient === 'horizontal') {
+                    hiddenLinesXML += `
+                        <line x1="${tunnel.start}" y1="${tunnel.fixed - tunnel.D/2}" x2="${tunnel.end}" y2="${tunnel.fixed - tunnel.D/2}" />
+                        <line x1="${tunnel.start}" y1="${tunnel.fixed + tunnel.D/2}" x2="${tunnel.end}" y2="${tunnel.fixed + tunnel.D/2}" />
+                    `;
+                    centerLinesXML += `<line x1="${tunnel.start - 8}" y1="${tunnel.fixed}" x2="${tunnel.end + 8}" y2="${tunnel.fixed}" />`;
+                } else {
+                    hiddenLinesXML += `
+                        <line x1="${tunnel.fixed - tunnel.D/2}" y1="${tunnel.start}" x2="${tunnel.fixed - tunnel.D/2}" y2="${tunnel.end}" />
+                        <line x1="${tunnel.fixed + tunnel.D/2}" y1="${tunnel.start}" x2="${tunnel.fixed + tunnel.D/2}" y2="${tunnel.end}" />
+                    `;
+                    centerLinesXML += `<line x1="${tunnel.fixed}" y1="${tunnel.start - 8}" x2="${tunnel.fixed}" y2="${tunnel.end + 8}" />`;
+                }
+            });
+            hiddenLinesXML += `</g>`;
+
+            // Generate Holes
+            holes.forEach((hole, i) => {
+                // Visibility Highlight
+                const strokeType = highlight === `hole-${i}` ? `hole-${i}` : 'visible-outline';
+                visibleHolesXML += `<circle cx="${hole.cx}" cy="${hole.cy}" r="${hole.D/2}" ${getStrokeAttr(highlight, strokeType, 1.2)} fill="white" />`;
+
+                // Center Lines
+                centerLinesXML += `
+                    <line x1="${hole.cx - hole.D/2 - 8}" y1="${hole.cy}" x2="${hole.cx + hole.D/2 + 8}" y2="${hole.cy}" />
+                    <line x1="${hole.cx}" y1="${hole.cy - hole.D/2 - 8}" x2="${hole.cx}" y2="${hole.cy + hole.D/2 + 8}" />
+                `;
+
+                // Leader Lines Setup
+                const rad = hole.angle * (Math.PI / 180);
+                let startX = hole.cx + (hole.D/2) * Math.cos(rad);
+                let startY = hole.cy + (hole.D/2) * Math.sin(rad);
+                
+                let L = 14; 
+                // Dynamically extend Top-Left hole leader line to clear the corner and text overlaps
+                if (hole.cx === TW/2 && hole.cy === TD/2 && hole.angle === 315) {
+                    const targetMidX = TW + 12; // Push it well past the vertical shape edge
+                    L = Math.max(14, (targetMidX - startX) / Math.cos(rad));
+                }
+
+                let midX = startX + L * Math.cos(rad);
+                let midY = startY + L * Math.sin(rad);
+                
+                const dir = Math.cos(rad) > 0 ? 1 : -1;
+                const endX = midX + 20 * dir;
+                const endY = midY;
+
+                leaderLinesXML += `
+                    <g>
+                        <polyline points="${startX},${startY} ${midX},${midY} ${endX},${endY}" fill="none" 
+                            stroke="${dimColor}" stroke-width="${isDimHighlight ? 0.8 : 0.4}" stroke-linejoin="round" 
+                            marker-start="url(#arrow-${isDimHighlight ? 'red' : 'black'})" />
+                        <text x="${midX + 2 * dir}" y="${endY - 2}" font-size="7" text-anchor="${dir === 1 ? 'start' : 'end'}" 
+                            stroke="white" stroke-width="2" paint-order="stroke" stroke-linejoin="round" fill="${dimColor}">
+                            Ø${hole.D}
+                        </text>
+                    </g>
+                `;
+            });
+
+            return `
+                <div class="w-full h-full min-h-[400px] bg-white rounded-xl shadow-inner border border-gray-200 flex items-center justify-center p-6 relative overflow-hidden">
+                    <div class="absolute inset-0 grid-bg"></div>
+                    <svg viewBox="-60 -50 250 210" class="w-full h-full drop-shadow-sm relative z-10">
+                        <defs>
+                            <marker id="arrow-black" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+                                <path d="M 0 2 L 10 5 L 0 8 z" fill="black" />
+                            </marker>
+                            <marker id="arrow-red" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+                                <path d="M 0 2 L 10 5 L 0 8 z" fill="#ef4444" />
+                            </marker>
+                        </defs>
+
+                        <!-- VISIBLE LINES (Main shape) -->
+                        <polygon points="0,0 ${TW},0 ${TW},${TD} ${W},${TD} ${W},${H} 0,${H}" 
+                            ${getStrokeAttr(highlight, 'visible-outline', 1.2)} fill="#f3f4f6" stroke-linejoin="round" />
+
+                        <!-- VISIBLE LINES (Holes) -->
+                        ${visibleHolesXML}
+
+                        <!-- HIDDEN LINES (Tunnels) -->
+                        ${hiddenLinesXML}
+
+                        <!-- CENTRE LINES -->
+                        <g ${getStrokeAttr(highlight, 'centre-line', 0.4)} stroke-dasharray="6,2,1.5,2">
+                            ${centerLinesXML}
+                        </g>
+
+                        <!-- EXTENSION LINES -->
+                        <g ${getStrokeAttr(highlight, 'extension-line', 0.4)}>
+                            <!-- Top Width Extensions -->
+                            <line x1="0" y1="0" x2="0" y2="-30" />
+                            <line x1="${TW}" y1="0" x2="${TW}" y2="-30" />
+                            <!-- Left Side Extensions -->
+                            <line x1="0" y1="0" x2="-35" y2="0" />
+                            <line x1="${holes.length > 0 ? holes[0].cx : 0}" y1="${holes.length > 0 ? holes[0].cy : TD/2}" x2="-20" y2="${holes.length > 0 ? holes[0].cy : TD/2}" />
+                            <line x1="0" y1="${TD}" x2="-35" y2="${TD}" />
+                            <!-- Total Width Extensions -->
+                            <line x1="0" y1="${H}" x2="0" y2="${H+20}" />
+                            <line x1="${W}" y1="${H}" x2="${W}" y2="${H+20}" />
+                            <!-- Total Height Extensions -->
+                            <line x1="${TW}" y1="0" x2="${W+25}" y2="0" />
+                            <line x1="${W}" y1="${H}" x2="${W+25}" y2="${H}" />
+                        </g>
+
+                        <!-- DIMENSION LINES & TEXT -->
+                        <g ${getStrokeAttr(highlight, 'dimension-line', 0.4)} class="fill-${isDimHighlight ? 'red-500' : 'black'}">
+                            <!-- Top Width (TW) -->
+                            <line x1="0" y1="-25" x2="${TW}" y2="-25" marker-start="url(#arrow-${isDimHighlight ? 'red' : 'black'})" marker-end="url(#arrow-${isDimHighlight ? 'red' : 'black'})" />
+                            <text x="${TW/2}" y="-28" font-size="7" text-anchor="middle" stroke="white" stroke-width="2" paint-order="stroke" stroke-linejoin="round">${TW}</text>
+
+                            <!-- Top Depth (TD) -->
+                            <line x1="-30" y1="0" x2="-30" y2="${TD}" marker-start="url(#arrow-${isDimHighlight ? 'red' : 'black'})" marker-end="url(#arrow-${isDimHighlight ? 'red' : 'black'})" />
+                            <text x="-33" y="${TD/2}" font-size="7" text-anchor="middle" transform="rotate(-90 -33 ${TD/2})" stroke="white" stroke-width="2" paint-order="stroke" stroke-linejoin="round">${TD}</text>
+
+                            <!-- Hole Y (First hole only, if exists) -->
+                            ${holes.length > 0 ? `
+                                <line x1="-15" y1="0" x2="-15" y2="${holes[0].cy}" marker-start="url(#arrow-${isDimHighlight ? 'red' : 'black'})" marker-end="url(#arrow-${isDimHighlight ? 'red' : 'black'})" />
+                                <text x="-18" y="${holes[0].cy/2}" font-size="7" text-anchor="middle" transform="rotate(-90 -18 ${holes[0].cy/2})" stroke="white" stroke-width="2" paint-order="stroke" stroke-linejoin="round">${Math.round(holes[0].cy)}</text>
+                            ` : ''}
+
+                            <!-- Total Width (W) -->
+                            <line x1="0" y1="${H+15}" x2="${W}" y2="${H+15}" marker-start="url(#arrow-${isDimHighlight ? 'red' : 'black'})" marker-end="url(#arrow-${isDimHighlight ? 'red' : 'black'})" />
+                            <text x="${W/2}" y="${H+12}" font-size="7" text-anchor="middle" stroke="white" stroke-width="2" paint-order="stroke" stroke-linejoin="round">${W}</text>
+
+                            <!-- Total Height (H) -->
+                            <line x1="${W+20}" y1="0" x2="${W+20}" y2="${H}" marker-start="url(#arrow-${isDimHighlight ? 'red' : 'black'})" marker-end="url(#arrow-${isDimHighlight ? 'red' : 'black'})" />
+                            <text x="${W+23}" y="${H/2}" font-size="7" text-anchor="middle" transform="rotate(-90 ${W+23} ${H/2})" stroke="white" stroke-width="2" paint-order="stroke" stroke-linejoin="round">${H}</text>
+
+                            <!-- Leader Lines for Hole Diameters -->
+                            ${leaderLinesXML}
+                        </g>
+                    </svg>
+                </div>
+            `;
+        };
+
+        const renderStudyPanel = () => `
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex-1">
+                <div class="bg-slate-800 text-white p-4">
+                    <h2 class="text-lg font-semibold">Line Types Reference Guide</h2>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-slate-100 border-b border-slate-200">
+                                <th class="p-4 font-semibold text-slate-700">Name</th>
+                                <th class="p-4 font-semibold text-slate-700">Use</th>
+                                <th class="p-4 font-semibold text-slate-700 text-center">Example</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100">
+                            <tr class="cursor-pointer transition-colors ${state.studyHighlight === 'visible-outline' ? 'bg-red-50 border-l-4 border-red-500' : 'hover:bg-slate-50 border-l-4 border-transparent'}" onclick="setStudyHighlight('visible-outline')">
+                                <td class="p-4 font-medium text-slate-800">Visible Line</td>
+                                <td class="p-4 text-slate-600 text-sm">Shows the outlines that can be seen</td>
+                                <td class="p-4 text-center"><div class="w-16 h-1 ${state.studyHighlight === 'visible-outline' ? 'bg-red-500' : 'bg-black'} mx-auto"></div></td>
+                            </tr>
+                            <tr class="cursor-pointer transition-colors ${state.studyHighlight === 'hidden-line' ? 'bg-red-50 border-l-4 border-red-500' : 'hover:bg-slate-50 border-l-4 border-transparent'}" onclick="setStudyHighlight('hidden-line')">
+                                <td class="p-4 font-medium text-slate-800">Hidden Line</td>
+                                <td class="p-4 text-slate-600 text-sm">Shows outlines that cannot be seen in the current view</td>
+                                <td class="p-4 text-center"><div class="w-16 h-0 border-t-2 border-dashed ${state.studyHighlight === 'hidden-line' ? 'border-red-500' : 'border-black'} mx-auto"></div></td>
+                            </tr>
+                            <tr class="cursor-pointer transition-colors ${state.studyHighlight === 'centre-line' ? 'bg-red-50 border-l-4 border-red-500' : 'hover:bg-slate-50 border-l-4 border-transparent'}" onclick="setStudyHighlight('centre-line')">
+                                <td class="p-4 font-medium text-slate-800">Centre Line</td>
+                                <td class="p-4 text-slate-600 text-sm">Shows the center of a circle or other symmetrical feature</td>
+                                <td class="p-4 text-center">
+                                    <svg width="60" height="4" class="mx-auto"><line x1="0" y1="2" x2="60" y2="2" stroke="${state.studyHighlight === 'centre-line' ? '#ef4444' : 'black'}" stroke-width="1" stroke-dasharray="25,5,5,5" /></svg>
+                                </td>
+                            </tr>
+                            <tr class="cursor-pointer transition-colors ${state.studyHighlight === 'dimension-line' ? 'bg-red-50 border-l-4 border-red-500' : 'hover:bg-slate-50 border-l-4 border-transparent'}" onclick="setStudyHighlight('dimension-line')">
+                                <td class="p-4 font-medium text-slate-800">Dimension Line</td>
+                                <td class="p-4 text-slate-600 text-sm">Shows the measurements of an object or part of an object</td>
+                                <td class="p-4 text-center relative">
+                                    <svg width="80" height="20" class="mx-auto">
+                                        <defs>
+                                            <marker id="ex-arrow-study" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="4" markerHeight="4" orient="auto-start-reverse"><path d="M 0 2 L 10 5 L 0 8 z" fill="${state.studyHighlight === 'dimension-line' ? '#ef4444' : 'black'}" /></marker>
+                                        </defs>
+                                        <line x1="5" y1="10" x2="75" y2="10" stroke="${state.studyHighlight === 'dimension-line' ? '#ef4444' : 'black'}" stroke-width="0.5" marker-start="url(#ex-arrow-study)" marker-end="url(#ex-arrow-study)" />
+                                        <text x="40" y="8" font-size="8" text-anchor="middle" stroke="white" stroke-width="2" paint-order="stroke" stroke-linejoin="round" fill="${state.studyHighlight === 'dimension-line' ? '#ef4444' : 'black'}">6.25</text>
+                                    </svg>
+                                </td>
+                            </tr>
+                            <tr class="cursor-pointer transition-colors ${state.studyHighlight === 'extension-line' ? 'bg-red-50 border-l-4 border-red-500' : 'hover:bg-slate-50 border-l-4 border-transparent'}" onclick="setStudyHighlight('extension-line')">
+                                <td class="p-4 font-medium text-slate-800">Extension Line</td>
+                                <td class="p-4 text-slate-600 text-sm">Used with dimension lines, these show the start and end of a measurement</td>
+                                <td class="p-4 text-center">
+                                    <svg width="80" height="30" class="mx-auto">
+                                        <line x1="20" y1="5" x2="20" y2="25" stroke="${state.studyHighlight === 'extension-line' ? '#ef4444' : 'black'}" stroke-width="0.5" />
+                                        <line x1="60" y1="5" x2="60" y2="25" stroke="${state.studyHighlight === 'extension-line' ? '#ef4444' : 'black'}" stroke-width="0.5" />
+                                        <line x1="20" y1="15" x2="60" y2="15" stroke="${state.studyHighlight === 'extension-line' ? '#ef4444' : '#94a3b8'}" stroke-width="0.5" marker-start="url(#ex-arrow-study)" marker-end="url(#ex-arrow-study)" />
+                                    </svg>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        `;
+
+        const renderTestPanel = () => {
+            if (state.testComplete) {
+                return `
+                    <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex-1 flex flex-col fade-in">
+                        <div class="bg-blue-600 text-white p-4 flex justify-between items-center">
+                            <h2 class="text-lg font-semibold">Test Knowledge</h2>
+                        </div>
+                        <div class="p-6 flex-1 flex flex-col justify-center text-center space-y-6 py-8">
+                            <div class="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mx-auto">
+                                ${Icons.Check}
+                            </div>
+                            <h3 class="text-2xl font-bold text-slate-800">Quiz Complete!</h3>
+                            <p class="text-lg text-slate-600">You scored <span class="font-bold text-blue-600">${state.score}</span> out of ${state.questions.length}</p>
+                            <div class="flex justify-center gap-4 pt-4">
+                                <button onclick="startNewTest(true)" class="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors">
+                                    Retry Test
+                                </button>
+                                <button onclick="setMode('study')" class="px-6 py-3 bg-slate-100 hover:bg-slate-200 text-slate-800 font-medium rounded-lg transition-colors">
+                                    Back to Study
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            if (state.questions.length === 0) return `<div class="text-center text-slate-500 py-10">Loading...</div>`;
+
+            const currentQ = state.questions[state.currentQIndex];
+            const optionsHTML = currentQ.options.map((option, idx) => {
+                const isSelected = state.selectedAnswer === option;
+                const isCorrect = option === currentQ.answer;
+                
+                let btnClass = "border-slate-200 hover:border-blue-400 hover:bg-blue-50 text-slate-700";
+                if (state.selectedAnswer) {
+                    if (isCorrect) btnClass = "border-green-500 bg-green-50 text-green-800";
+                    else if (isSelected) btnClass = "border-red-500 bg-red-50 text-red-800";
+                    else btnClass = "border-slate-200 opacity-50";
+                }
+
+                // Safely escape option for inline JS
+                const safeOption = option.replace(/'/g, "\\'");
+
+                return `
+                    <button onclick="handleAnswerClick('${safeOption}')" ${state.selectedAnswer !== null ? 'disabled' : ''} 
+                        class="p-4 rounded-xl border-2 text-left font-medium transition-all flex justify-between items-center ${btnClass}">
+                        <span>${option}</span>
+                        ${state.selectedAnswer && isCorrect ? Icons.CheckCircle2Lg : ''}
+                        ${state.selectedAnswer && isSelected && !isCorrect ? Icons.XCircle : ''}
+                    </button>
+                `;
+            }).join('');
+
+            let feedbackHTML = '';
+            if (state.selectedAnswer) {
+                const isCorrect = state.selectedAnswer === currentQ.answer;
+                feedbackHTML = `
+                    <div class="pt-6 mt-4 border-t border-slate-100 flex justify-between items-center fade-in">
+                        <p class="font-medium ${isCorrect ? 'text-green-600' : 'text-red-500'}">
+                            ${isCorrect ? 'Correct!' : `Incorrect. The correct answer is ${currentQ.answer}.`}
+                        </p>
+                        <button onclick="nextQuestion()" class="flex items-center gap-2 px-6 py-2.5 bg-slate-800 hover:bg-slate-900 text-white rounded-lg font-medium transition-colors">
+                            ${state.currentQIndex < state.questions.length - 1 ? 'Next Question' : 'View Results'} ${Icons.ArrowRight}
+                        </button>
+                    </div>
+                `;
+            }
+
+            return `
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex-1 flex flex-col">
+                    <div class="bg-blue-600 text-white p-4 flex justify-between items-center">
+                        <h2 class="text-lg font-semibold">Test Knowledge</h2>
+                        <span class="bg-blue-700 px-3 py-1 rounded-full text-sm font-medium">Question ${state.currentQIndex + 1} of ${state.questions.length}</span>
+                    </div>
+                    <div class="p-6 flex-1 flex flex-col justify-center">
+                        <div class="space-y-6">
+                            <div class="text-xl font-medium text-slate-800">${currentQ.text}</div>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                ${optionsHTML}
+                            </div>
+                            ${feedbackHTML}
+                        </div>
+                    </div>
+                </div>
+            `;
+        };
+
+        const render = () => {
+            const root = document.getElementById('root');
+            root.innerHTML = `
+                <!-- Header -->
+                <div class="flex flex-col md:flex-row justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-slate-200 gap-4">
+                    <div>
+                        <h1 class="text-2xl font-bold flex items-center gap-2 text-slate-800">
+                            ${Icons.PenTool} Technical Drawing Trainer
+                        </h1>
+                        <p class="text-sm text-slate-500">Learn to read engineering blueprints.</p>
+                    </div>
+                    
+                    <div class="flex items-center gap-3">
+                        <button onclick="handleRegenerate()" class="flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-lg transition-colors text-sm">
+                            ${Icons.RefreshCw} New Drawing
+                        </button>
+                        <div class="flex bg-slate-100 p-1 rounded-lg">
+                            <button onclick="setMode('study')" class="flex items-center gap-2 px-4 py-2 rounded-md font-medium text-sm transition-all ${state.mode === 'study' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-500 hover:text-slate-700'}">
+                                ${Icons.BookOpen} Study
+                            </button>
+                            <button onclick="setMode('test')" class="flex items-center gap-2 px-4 py-2 rounded-md font-medium text-sm transition-all ${state.mode === 'test' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-500 hover:text-slate-700'}">
+                                ${Icons.CheckCircle2} Test Mode
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Main Content Area -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 h-full">
+                    <div class="flex flex-col space-y-4">
+                        <div class="bg-white p-2 rounded-xl shadow-sm border border-slate-200 h-full">
+                            ${renderCanvas()}
+                        </div>
+                    </div>
+                    <div class="flex flex-col h-full min-h-[500px]">
+                        ${state.mode === 'study' ? renderStudyPanel() : renderTestPanel()}
+                    </div>
+                </div>
+            `;
+        };
+
+        // Initialize App
+        if (state.mode === 'test') {
+            window.startNewTest();
+        } else {
+            render();
+        }
+
+    </script>
+</body>
+</html>
