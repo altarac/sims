@@ -46,7 +46,9 @@
     const EyeOff = ({ className }) => (
       <svg className={className} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" y1="2" x2="22" y2="22"/></svg>
     );
-
+    const CylinderIcon = ({ className }) => (
+      <svg className={className} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0 0 18 0V5"/></svg>
+    );
 
     // --- Application Logic ---
     const MAX_GRID = 5;
@@ -65,63 +67,74 @@
       y: CY_ISO + (x + z) * H_ISO - y * S_ISO,
     });
 
+    const parsePreset = (arr) => {
+      const obj = {};
+      arr.forEach(pos => obj[pos] = 'cube');
+      return obj;
+    };
+
     const PRESETS = {
-      "Empty": [],
-      "L-Step (Shape A style)": [
+      "Empty": {},
+      "L-Step (Shape A style)": parsePreset([
         "0,0,0", "1,0,0", "2,0,0",
         "0,0,1", "1,0,1",
         "0,0,2",
         "0,1,0", "1,1,0",
         "0,1,1",
         "0,2,0"
-      ],
-      "Corner Tower (Shape B style)": [
+      ]),
+      "Corner Tower (Shape B style)": parsePreset([
         "0,0,0", "1,0,0", "2,0,0",
         "0,0,1", "1,0,1", "2,0,1",
         "0,0,2", "1,0,2", "2,0,2",
         "0,1,0",
         "0,2,0",
         "0,3,0"
-      ],
-      "U-Cutout (Shape C style)": [
+      ]),
+      "U-Cutout (Shape C style)": parsePreset([
         "0,0,0", "1,0,0", "2,0,0",
         "0,0,1",          "2,0,1",
         "0,0,2",          "2,0,2",
         "0,1,0", "1,1,0", "2,1,0",
         "0,2,0", "1,2,0", "2,2,0"
-      ]
+      ]),
+      "Cylinder Stack": {
+        "1,0,1": "cube", "2,0,1": "cube", "3,0,1": "cube",
+        "2,1,1": "cylinder",
+        "2,2,1": "cylinder"
+      }
     };
 
     function App() {
-      const [blocks, setBlocks] = useState(new Set(PRESETS["L-Step (Shape A style)"]));
+      const [blocks, setBlocks] = useState({ ...PRESETS["L-Step (Shape A style)"] });
       const [mode, setMode] = useState('add'); // 'add' | 'remove'
       const [testMode, setTestMode] = useState(false);
+      const [activeBlockType, setActiveBlockType] = useState('cube');
 
-      const hasBlock = (x, y, z) => blocks.has(`${x},${y},${z}`);
+      const hasBlock = (x, y, z) => blocks[`${x},${y},${z}`] || null;
 
       const addBlock = (x, y, z) => {
         if (x < 0 || x >= MAX_GRID || y < 0 || y >= MAX_GRID || z < 0 || z >= MAX_GRID) return;
-        setBlocks((prev) => {
-          const next = new Set(prev);
-          next.add(`${x},${y},${z}`);
-          return next;
-        });
+        setBlocks((prev) => ({
+          ...prev,
+          [`${x},${y},${z}`]: activeBlockType
+        }));
       };
 
       const removeBlock = (x, y, z) => {
         setBlocks((prev) => {
-          const next = new Set(prev);
-          next.delete(`${x},${y},${z}`);
+          const next = { ...prev };
+          delete next[`${x},${y},${z}`];
           return next;
         });
       };
 
-      const clearBlocks = () => setBlocks(new Set());
+      const clearBlocks = () => setBlocks({});
 
       const loadPreset = (e) => {
         const key = e.target.value;
         if (PRESETS[key]) {
-          setBlocks(new Set(PRESETS[key]));
+          setBlocks({ ...PRESETS[key] });
         }
       };
 
@@ -149,31 +162,13 @@
         }
 
         // Sort blocks by depth for Painter's Algorithm
-        const blockArray = Array.from(blocks).map(str => {
+        const blockArray = Object.entries(blocks).map(([str, type]) => {
           const [x, y, z] = str.split(',').map(Number);
-          return { x, y, z, depth: x + y + z };
+          return { x, y, z, type, depth: x + y + z };
         }).sort((a, b) => a.depth - b.depth);
 
         // Draw blocks
-        blockArray.forEach(({ x, y, z }) => {
-          // Top face (faces +Y)
-          const t0 = toIso(x, y + 1, z);
-          const t1 = toIso(x + 1, y + 1, z);
-          const t2 = toIso(x + 1, y + 1, z + 1);
-          const t3 = toIso(x, y + 1, z + 1);
-          
-          // Right face (faces +X)
-          const r0 = toIso(x + 1, y, z);
-          const r1 = toIso(x + 1, y, z + 1);
-          const r2 = toIso(x + 1, y + 1, z + 1);
-          const r3 = toIso(x + 1, y + 1, z);
-
-          // Left face (faces +Z)
-          const l0 = toIso(x, y, z + 1);
-          const l1 = toIso(x + 1, y, z + 1);
-          const l2 = toIso(x + 1, y + 1, z + 1);
-          const l3 = toIso(x, y + 1, z + 1);
-
+        blockArray.forEach(({ x, y, z, type }) => {
           const handleFaceClick = (nx, ny, nz, tx, ty, tz) => (e) => {
             e.stopPropagation();
             if (mode === 'remove') removeBlock(tx, ty, tz);
@@ -183,92 +178,204 @@
           const baseClass = "stroke-slate-800 stroke-[1.5px] transition-opacity duration-150 " + 
                             (mode === 'add' ? 'hover:opacity-80 cursor-crosshair' : 'hover:opacity-50 hover:fill-red-400 cursor-pointer');
 
-          // Draw Top Face
-          elements.push(
-            <polygon
-              key={`t-${x}-${y}-${z}`}
-              points={`${t0.x},${t0.y} ${t1.x},${t1.y} ${t2.x},${t2.y} ${t3.x},${t3.y}`}
-              className={`fill-blue-200 ${baseClass}`}
-              onClick={handleFaceClick(x, y + 1, z, x, y, z)}
-            />
-          );
+          if (type === 'cube') {
+            // Top face (faces +Y)
+            const t0 = toIso(x, y + 1, z);
+            const t1 = toIso(x + 1, y + 1, z);
+            const t2 = toIso(x + 1, y + 1, z + 1);
+            const t3 = toIso(x, y + 1, z + 1);
+            
+            // Right face (faces +X)
+            const r0 = toIso(x + 1, y, z);
+            const r1 = toIso(x + 1, y, z + 1);
+            const r2 = toIso(x + 1, y + 1, z + 1);
+            const r3 = toIso(x + 1, y + 1, z);
 
-          // Draw Left Face
-          elements.push(
-            <polygon
-              key={`l-${x}-${y}-${z}`}
-              points={`${l0.x},${l0.y} ${l1.x},${l1.y} ${l2.x},${l2.y} ${l3.x},${l3.y}`}
-              className={`fill-blue-400 ${baseClass}`}
-              onClick={handleFaceClick(x, y, z + 1, x, y, z)}
-            />
-          );
+            // Left face (faces +Z)
+            const l0 = toIso(x, y, z + 1);
+            const l1 = toIso(x + 1, y, z + 1);
+            const l2 = toIso(x + 1, y + 1, z + 1);
+            const l3 = toIso(x, y + 1, z + 1);
 
-          // Draw Right Face
-          elements.push(
-            <polygon
-              key={`r-${x}-${y}-${z}`}
-              points={`${r0.x},${r0.y} ${r1.x},${r1.y} ${r2.x},${r2.y} ${r3.x},${r3.y}`}
-              className={`fill-blue-600 ${baseClass}`}
-              onClick={handleFaceClick(x + 1, y, z, x, y, z)}
-            />
-          );
+            // Draw Top Face
+            elements.push(
+              <polygon
+                key={`t-${x}-${y}-${z}`}
+                points={`${t0.x},${t0.y} ${t1.x},${t1.y} ${t2.x},${t2.y} ${t3.x},${t3.y}`}
+                className={`fill-blue-200 ${baseClass}`}
+                onClick={handleFaceClick(x, y + 1, z, x, y, z)}
+              />
+            );
+
+            // Draw Left Face
+            elements.push(
+              <polygon
+                key={`l-${x}-${y}-${z}`}
+                points={`${l0.x},${l0.y} ${l1.x},${l1.y} ${l2.x},${l2.y} ${l3.x},${l3.y}`}
+                className={`fill-blue-400 ${baseClass}`}
+                onClick={handleFaceClick(x, y, z + 1, x, y, z)}
+              />
+            );
+
+            // Draw Right Face
+            elements.push(
+              <polygon
+                key={`r-${x}-${y}-${z}`}
+                points={`${r0.x},${r0.y} ${r1.x},${r1.y} ${r2.x},${r2.y} ${r3.x},${r3.y}`}
+                className={`fill-blue-600 ${baseClass}`}
+                onClick={handleFaceClick(x + 1, y, z, x, y, z)}
+              />
+            );
+          } else if (type === 'cylinder') {
+            const cx = CX_ISO + (x - z) * W_ISO;
+            const cyTop = CY_ISO + (x + z + 1) * H_ISO - (y + 1) * S_ISO;
+
+            // Draw Left Body
+            elements.push(
+              <path
+                key={`cyl-l-${x}-${y}-${z}`}
+                d={`M ${cx - W_ISO} ${cyTop} L ${cx - W_ISO} ${cyTop + S_ISO} A ${W_ISO} ${H_ISO} 0 0 0 ${cx} ${cyTop + S_ISO + H_ISO} L ${cx} ${cyTop + H_ISO} A ${W_ISO} ${H_ISO} 0 0 1 ${cx - W_ISO} ${cyTop} Z`}
+                className={`fill-blue-400 ${baseClass}`}
+                onClick={handleFaceClick(x, y, z + 1, x, y, z)}
+              />
+            );
+
+            // Draw Right Body
+            elements.push(
+              <path
+                key={`cyl-r-${x}-${y}-${z}`}
+                d={`M ${cx} ${cyTop + H_ISO} L ${cx} ${cyTop + S_ISO + H_ISO} A ${W_ISO} ${H_ISO} 0 0 0 ${cx + W_ISO} ${cyTop + S_ISO} L ${cx + W_ISO} ${cyTop} A ${W_ISO} ${H_ISO} 0 0 1 ${cx} ${cyTop + H_ISO} Z`}
+                className={`fill-blue-500 ${baseClass}`}
+                onClick={handleFaceClick(x + 1, y, z, x, y, z)}
+              />
+            );
+
+            // Draw Top Ellipse
+            elements.push(
+              <ellipse
+                key={`cyl-t-${x}-${y}-${z}`}
+                cx={cx} cy={cyTop} rx={W_ISO} ry={H_ISO}
+                className={`fill-blue-200 ${baseClass}`}
+                onClick={handleFaceClick(x, y + 1, z, x, y, z)}
+              />
+            );
+          }
         });
 
         return elements;
-      }, [blocks, mode]);
-
+      }, [blocks, mode, activeBlockType]);
 
       // 2. ORTHOGRAPHIC PROJECTION ENGINE
       const OrthoView = ({ type, title }) => {
-        // Coordinate mapping based on drafting standard
+        const getCellData = (viewType, hasFn) => (u, v) => {
+            let max = { depth: -1, type: null };
+            let maxSolid = { depth: -1, type: null };
+            for (let w = 0; w < MAX_GRID; w++) {
+                let t = hasFn(u, v, w);
+                if (t) {
+                    max = { depth: w, type: t };
+                    if (t === 'cube' || viewType !== 'top') {
+                        maxSolid = { depth: w, type: t };
+                    }
+                }
+            }
+            return { ...max, solidDepth: maxSolid.depth, solidType: maxSolid.type };
+        };
+
         const mapping = {
           front: {
-            getDepthMax: (u, v) => { let max = -1; for(let w=0; w<MAX_GRID; w++) if(hasBlock(u, v, w)) max = w; return max; },
-            has: (u, v, w) => hasBlock(u, v, w), // U=X, V=Y, Depth=Z
-            getY: (v) => (MAX_GRID - v) * CELL_SIZE_2D // Y goes up, SVG Y goes down
+            getHighest: getCellData('front', (u,v,w) => hasBlock(u,v,w)),
+            has: (u,v,w) => hasBlock(u,v,w),
+            getY: (v) => (MAX_GRID - v) * CELL_SIZE_2D
           },
           top: {
-            getDepthMax: (u, v) => { let max = -1; for(let w=0; w<MAX_GRID; w++) if(hasBlock(u, w, v)) max = w; return max; },
-            has: (u, v, w) => hasBlock(u, w, v), // U=X, V=Z, Depth=Y
-            getY: (v) => v * CELL_SIZE_2D // Z goes back to front (top to bottom on screen)
+            getHighest: getCellData('top', (u,v,w) => hasBlock(u,w,v)),
+            has: (u,v,w) => hasBlock(u,w,v),
+            getY: (v) => v * CELL_SIZE_2D
           },
           right: {
-            getDepthMax: (u, v) => { let max = -1; for(let w=0; w<MAX_GRID; w++) if(hasBlock(w, v, u)) max = w; return max; },
-            has: (u, v, w) => hasBlock(w, v, u), // U=Z, V=Y, Depth=X
-            getY: (v) => (MAX_GRID - v) * CELL_SIZE_2D // Y goes up
+            getHighest: getCellData('right', (u,v,w) => hasBlock(w,v,u)),
+            has: (u,v,w) => hasBlock(w,v,u),
+            getY: (v) => (MAX_GRID - v) * CELL_SIZE_2D
           }
         }[type];
 
+        const shapes = [];
         const lines = [];
-        const rects = [];
+        const CELL = CELL_SIZE_2D;
 
-        // Render faces (Silhouettes)
+        // Render Silhouettes & Fill
         for(let u=0; u<MAX_GRID; u++) {
           for(let v=0; v<MAX_GRID; v++) {
-            if (mapping.getDepthMax(u, v) > -1) {
-              rects.push({ u, v });
+            const highest = mapping.getHighest(u, v);
+            if (highest.depth > -1) {
+              const yTop = Math.min(mapping.getY(v), mapping.getY(v+1));
+              
+              let hasCube = false;
+              for (let w = 0; w <= highest.depth; w++) {
+                  if (mapping.has(u, v, w) === 'cube') hasCube = true;
+              }
+              
+              // Draw solid background block if anything needs a straight border (or it's a side view)
+              if (hasCube || type !== 'top') {
+                  shapes.push(<rect key={`r-${u}-${v}`} x={u*CELL} y={yTop} width={CELL} height={CELL} className="fill-slate-100" />);
+              } else if (highest.type === 'cylinder' && type === 'top') {
+                  shapes.push(<circle key={`cb-${u}-${v}`} cx={u*CELL + CELL/2} cy={yTop + CELL/2} r={CELL/2} className="fill-slate-100" />);
+              }
+
+              // Cylinders in top view draw their own boundary
+              if (highest.type === 'cylinder' && type === 'top') {
+                  shapes.push(<circle key={`cs-${u}-${v}`} cx={u*CELL + CELL/2} cy={yTop + CELL/2} r={CELL/2} className="fill-transparent stroke-slate-800 stroke-[2px]" />);
+              }
+
+              // Cylinders in side views get proper drafting centerlines
+              if (highest.type === 'cylinder' && (type === 'front' || type === 'right')) {
+                  shapes.push(<line key={`cl-${u}-${v}`} x1={u*CELL + CELL/2} y1={yTop} x2={u*CELL + CELL/2} y2={yTop + CELL} className="stroke-slate-500 stroke-[1.5px]" strokeDasharray="10 3 2 3" />);
+              }
             }
           }
         }
+
+        const checkBoundary = (typeL, typeR, viewType) => {
+            if (typeL === typeR) return false;
+            const lSq = typeL === 'cube' || (typeL && viewType !== 'top');
+            const rSq = typeR === 'cube' || (typeR && viewType !== 'top');
+            return !!(lSq || rSq);
+        };
 
         // Edge finding algorithm (visible solid outlines + hidden dashed lines)
         
         // Vertical Edges
         for(let u=0; u<=MAX_GRID; u++) {
           for(let v=0; v<MAX_GRID; v++) {
-            const leftDepth = u > 0 ? mapping.getDepthMax(u-1, v) : -1;
-            const rightDepth = u < MAX_GRID ? mapping.getDepthMax(u, v) : -1;
+            const lObj = u > 0 ? mapping.getHighest(u-1, v) : {solidDepth:-1, solidType:null, depth:-1};
+            const rObj = u < MAX_GRID ? mapping.getHighest(u, v) : {solidDepth:-1, solidType:null, depth:-1};
+            
+            const lDepth = lObj.solidDepth; const lType = lObj.solidType;
+            const rDepth = rObj.solidDepth; const rType = rObj.solidType;
+            
+            let solid = false;
+            let dashed = false;
 
-            if (leftDepth !== rightDepth) {
-              lines.push({ x1: u*CELL_SIZE_2D, y1: mapping.getY(v), x2: u*CELL_SIZE_2D, y2: mapping.getY(v+1), dashed: false });
-            } else if (leftDepth > -1) {
-              // Coplanar surface: check for hidden edges behind it
-              for(let w=0; w<leftDepth; w++) {
-                if (mapping.has(u-1, v, w) !== mapping.has(u, v, w)) {
-                  lines.push({ x1: u*CELL_SIZE_2D, y1: mapping.getY(v), x2: u*CELL_SIZE_2D, y2: mapping.getY(v+1), dashed: true });
-                  break;
+            if (lDepth !== rDepth) {
+                if (lDepth > rDepth) solid = checkBoundary(lType, null, type);
+                else solid = checkBoundary(null, rType, type);
+            } else if (lDepth > -1) {
+                solid = checkBoundary(lType, rType, type);
+            }
+
+            if (!solid && Math.max(lDepth, rDepth) > -1) {
+                const maxD = Math.max(lDepth, rDepth);
+                for (let w = 0; w < maxD; w++) {
+                    const tL = u > 0 ? mapping.has(u-1, v, w) : null;
+                    const tR = u < MAX_GRID ? mapping.has(u, v, w) : null;
+                    if (checkBoundary(tL, tR, type)) { dashed = true; break; }
                 }
-              }
+            }
+
+            if (solid || dashed) {
+                const yTop = Math.min(mapping.getY(v), mapping.getY(v+1));
+                lines.push(<line key={`v-${u}-${v}`} x1={u*CELL} y1={yTop} x2={u*CELL} y2={yTop+CELL} className={dashed ? "stroke-slate-400" : "stroke-slate-800"} strokeWidth={dashed ? 1.5 : 2} strokeLinecap="round" strokeDasharray={dashed ? "4 4" : "none"} />);
             }
           }
         }
@@ -276,58 +383,52 @@
         // Horizontal Edges
         for(let v=0; v<=MAX_GRID; v++) {
           for(let u=0; u<MAX_GRID; u++) {
-            const bottomDepth = v > 0 ? mapping.getDepthMax(u, v-1) : -1;
-            const topDepth = v < MAX_GRID ? mapping.getDepthMax(u, v) : -1;
+            const yCurrent = mapping.getY(v);
+            const bObj = v > 0 ? mapping.getHighest(u, v-1) : {solidDepth:-1, solidType:null, depth:-1};
+            const aObj = v < MAX_GRID ? mapping.getHighest(u, v) : {solidDepth:-1, solidType:null, depth:-1};
+            
+            const bDepth = bObj.solidDepth; const bType = bObj.solidType;
+            const aDepth = aObj.solidDepth; const aType = aObj.solidType;
 
-            if (bottomDepth !== topDepth) {
-              lines.push({ x1: u*CELL_SIZE_2D, y1: mapping.getY(v), x2: (u+1)*CELL_SIZE_2D, y2: mapping.getY(v), dashed: false });
-            } else if (bottomDepth > -1) {
-              for(let w=0; w<bottomDepth; w++) {
-                if (mapping.has(u, v-1, w) !== mapping.has(u, v, w)) {
-                  lines.push({ x1: u*CELL_SIZE_2D, y1: mapping.getY(v), x2: (u+1)*CELL_SIZE_2D, y2: mapping.getY(v), dashed: true });
-                  break;
+            let solid = false;
+            let dashed = false;
+
+            if (bDepth !== aDepth) {
+                if (bDepth > aDepth) solid = checkBoundary(bType, null, type);
+                else solid = checkBoundary(null, aType, type);
+            } else if (bDepth > -1) {
+                solid = checkBoundary(bType, aType, type);
+            }
+
+            if (!solid && Math.max(bDepth, aDepth) > -1) {
+                const maxD = Math.max(bDepth, aDepth);
+                for (let w = 0; w < maxD; w++) {
+                    const tB = v > 0 ? mapping.has(u, v-1, w) : null;
+                    const tA = v < MAX_GRID ? mapping.has(u, v, w) : null;
+                    if (checkBoundary(tB, tA, type)) { dashed = true; break; }
                 }
-              }
+            }
+
+            if (solid || dashed) {
+                lines.push(<line key={`h-${u}-${v}`} x1={u*CELL} y1={yCurrent} x2={(u+1)*CELL} y2={yCurrent} className={dashed ? "stroke-slate-400" : "stroke-slate-800"} strokeWidth={dashed ? 1.5 : 2} strokeLinecap="round" strokeDasharray={dashed ? "4 4" : "none"} />);
             }
           }
         }
 
-        const svgSize = MAX_GRID * CELL_SIZE_2D;
+        const svgSize = MAX_GRID * CELL;
 
         return (
           <div className="flex flex-col items-center">
             <h3 className="text-sm font-semibold text-slate-500 mb-2">{title}</h3>
             <div className="bg-white border border-slate-200 rounded p-4 shadow-sm flex items-center justify-center min-w-[160px] min-h-[160px]">
               <svg width={svgSize} height={svgSize} viewBox={`0 0 ${svgSize} ${svgSize}`} className="overflow-visible">
-                {/* Draw Silhouettes first */}
-                {rects.map((r, i) => (
-                  <rect 
-                    key={`rect-${i}`} 
-                    x={r.u * CELL_SIZE_2D} 
-                    y={Math.min(mapping.getY(r.v), mapping.getY(r.v+1))} 
-                    width={CELL_SIZE_2D} 
-                    height={CELL_SIZE_2D} 
-                    className="fill-slate-100" 
-                  />
-                ))}
-                
-                {/* Draw Lines over the silhouettes */}
-                {lines.map((l, i) => (
-                  <line 
-                    key={`line-${i}`}
-                    x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2}
-                    className={l.dashed ? "stroke-slate-400" : "stroke-slate-800"}
-                    strokeWidth={l.dashed ? 1.5 : 2}
-                    strokeLinecap="round"
-                    strokeDasharray={l.dashed ? "4 4" : "none"}
-                  />
-                ))}
+                {shapes}
+                {lines}
               </svg>
             </div>
           </div>
         );
       };
-
 
       // Main Layout
       return (
@@ -373,26 +474,46 @@
             {/* Left: 3D Workspace */}
             <div className="flex-1 bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
               
-              <div className="bg-slate-100 border-b border-slate-200 p-3 flex justify-between items-center">
-                <div className="flex bg-white rounded-md shadow-sm border border-slate-200 overflow-hidden">
-                  <button
-                    onClick={() => setMode('add')}
-                    className={`px-4 py-2 text-sm font-medium flex items-center gap-2 transition-colors ${mode === 'add' ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:bg-slate-50'}`}
-                  >
-                    <MousePointerClick className="w-4 h-4" /> Add Blocks
-                  </button>
-                  <div className="w-px bg-slate-200"></div>
-                  <button
-                    onClick={() => setMode('remove')}
-                    className={`px-4 py-2 text-sm font-medium flex items-center gap-2 transition-colors ${mode === 'remove' ? 'bg-red-50 text-red-700' : 'text-slate-600 hover:bg-slate-50'}`}
-                  >
-                    <Eraser className="w-4 h-4" /> Erase Blocks
-                  </button>
+              <div className="bg-slate-100 border-b border-slate-200 p-3 flex justify-between items-center overflow-x-auto">
+                <div className="flex gap-4 items-center min-w-max">
+                  <div className="flex bg-white rounded-md shadow-sm border border-slate-200 overflow-hidden">
+                    <button
+                      onClick={() => setMode('add')}
+                      className={`px-4 py-2 text-sm font-medium flex items-center gap-2 transition-colors ${mode === 'add' ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:bg-slate-50'}`}
+                    >
+                      <MousePointerClick className="w-4 h-4" /> Add Blocks
+                    </button>
+                    <div className="w-px bg-slate-200"></div>
+                    <button
+                      onClick={() => setMode('remove')}
+                      className={`px-4 py-2 text-sm font-medium flex items-center gap-2 transition-colors ${mode === 'remove' ? 'bg-red-50 text-red-700' : 'text-slate-600 hover:bg-slate-50'}`}
+                    >
+                      <Eraser className="w-4 h-4" /> Erase Blocks
+                    </button>
+                  </div>
+
+                  {mode === 'add' && (
+                    <div className="flex bg-white rounded-md shadow-sm border border-slate-200 overflow-hidden">
+                      <button
+                        onClick={() => setActiveBlockType('cube')}
+                        className={`px-3 py-2 flex items-center gap-1 text-sm font-medium transition-colors ${activeBlockType === 'cube' ? 'bg-indigo-50 text-indigo-700' : 'text-slate-500 hover:bg-slate-50'}`}
+                      >
+                        <Box className="w-4 h-4" /> Cube
+                      </button>
+                      <div className="w-px bg-slate-200"></div>
+                      <button
+                        onClick={() => setActiveBlockType('cylinder')}
+                        className={`px-3 py-2 flex items-center gap-1 text-sm font-medium transition-colors ${activeBlockType === 'cylinder' ? 'bg-indigo-50 text-indigo-700' : 'text-slate-500 hover:bg-slate-50'}`}
+                      >
+                        <CylinderIcon className="w-4 h-4" /> Cylinder
+                      </button>
+                    </div>
+                  )}
                 </div>
                 
                 <button 
                   onClick={clearBlocks}
-                  className="px-3 py-2 text-sm font-medium text-slate-500 hover:text-red-600 flex items-center gap-1 transition-colors"
+                  className="px-3 py-2 text-sm font-medium text-slate-500 hover:text-red-600 flex items-center gap-1 transition-colors shrink-0 ml-4"
                 >
                   <Trash2 className="w-4 h-4" /> Clear
                 </button>
@@ -420,7 +541,7 @@
                   {isometricElements}
                 </svg>
 
-                {blocks.size === 0 && (
+                {Object.keys(blocks).length === 0 && (
                   <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-slate-400 font-medium text-sm text-center pointer-events-none mt-32">
                     Grid is empty.<br/>Click the dashed base grid to add blocks!
                   </div>
@@ -463,6 +584,10 @@
                   <li className="flex items-start gap-2">
                     <ChevronRight className="w-4 h-4 shrink-0 mt-0.5" />
                     <span><strong>Dashed lines</strong> indicate hidden edges behind flat faces (e.g., cutouts behind walls).</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <ChevronRight className="w-4 h-4 shrink-0 mt-0.5" />
+                    <span><strong>Centerlines</strong> (long-dash short-dash) indicate cylindrical shapes in side views.</span>
                   </li>
                   <li className="flex items-start gap-2">
                     <ChevronRight className="w-4 h-4 shrink-0 mt-0.5" />
