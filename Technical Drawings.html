@@ -54,9 +54,9 @@
 
             // Define the 3 possible safe zones for holes
             const availableZones = [
-                { id: 'TL', cx: TW / 2, cy: TD / 2, angle: 315 },                             // Top-left
-                { id: 'BL', cx: TW / 2, cy: TD + (H - TD) / 2, angle: 135 },                  // Bottom-left
-                { id: 'BR', cx: TW + (W - TW) / 2, cy: TD + (H - TD) / 2, angle: 315 }        // Bottom-right
+                { id: 'TL', cx: TW / 2, cy: TD / 2, angle: 225 },                             // Top-left (points up-left to avoid corner overlap)
+                { id: 'BL', cx: TW / 2, cy: TD + (H - TD) / 2, angle: 135 },                  // Bottom-left (points down-left)
+                { id: 'BR', cx: TW + (W - TW) / 2, cy: TD + (H - TD) / 2, angle: 45 }         // Bottom-right (points down-right)
             ];
 
             const shuffledZones = availableZones.sort(() => Math.random() - 0.5);
@@ -313,10 +313,6 @@
                 let startY = hole.cy + (hole.D/2) * Math.sin(rad);
                 
                 let L = 14; 
-                if (hole.cx === TW/2 && hole.cy === TD/2 && hole.angle === 315) {
-                    const targetMidX = TW + 12;
-                    L = Math.max(14, (targetMidX - startX) / Math.cos(rad));
-                }
 
                 let midX = startX + L * Math.cos(rad);
                 let midY = startY + L * Math.sin(rad);
@@ -494,10 +490,10 @@
                 <div class="bg-slate-800 text-white p-4">
                     <h2 class="text-lg font-semibold">Line Types Reference Guide</h2>
                 </div>
-                <div class="overflow-x-auto h-[450px] overflow-y-auto">
+                <div class="overflow-x-auto">
                     <table class="w-full text-left border-collapse">
                         <thead>
-                            <tr class="bg-slate-100 border-b border-slate-200 sticky top-0 z-10">
+                            <tr class="bg-slate-100 border-b border-slate-200">
                                 <th class="p-4 font-semibold text-slate-700">Name</th>
                                 <th class="p-4 font-semibold text-slate-700">Use</th>
                                 <th class="p-4 font-semibold text-slate-700 text-center">Example</th>
@@ -668,7 +664,7 @@
                         <h2 class="text-lg font-semibold">Test Knowledge</h2>
                         <span class="bg-blue-700 px-3 py-1 rounded-full text-sm font-medium">Question ${state.currentQIndex + 1} of ${state.questions.length}</span>
                     </div>
-                    <div class="p-6 flex-1 flex flex-col justify-center">
+                    <div class="p-6 flex-1 flex flex-col">
                         <div class="space-y-6">
                             <div class="text-xl font-medium text-slate-800">${currentQ.text}</div>
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
