@@ -138,6 +138,18 @@
                     highlight: "radius-dimension",
                     options: ["Radius of a circle or curve", "Roughness of the surface", "Reference dimension", "Required thickness"].sort(() => Math.random() - 0.5),
                     answer: "Radius of a circle or curve"
+                },
+                {
+                    text: "What does the 'Ø' symbol on a leader line indicate on a technical drawing?",
+                    highlight: "diameter-dimension",
+                    options: ["Diameter of a circle or hole", "Radius of a circle or curve", "Degrees of an angle", "Surface finish"].sort(() => Math.random() - 0.5),
+                    answer: "Diameter of a circle or hole"
+                },
+                {
+                    text: "What does a curved line with arrows on both ends typically indicate?",
+                    highlight: "angle-dimension",
+                    options: ["Degrees of an angle", "Radius of a circle or curve", "Length of a curved surface", "Tolerance range"].sort(() => Math.random() - 0.5),
+                    answer: "Degrees of an angle"
                 }
             ];
 
@@ -313,13 +325,16 @@
                 const endX = midX + 20 * dir;
                 const endY = midY;
 
+                const isLeaderHighlight = isDimHighlight || highlight === 'diameter-dimension';
+                const leaderColor = isLeaderHighlight ? "#ef4444" : "black";
+
                 leaderLinesXML += `
                     <g>
                         <polyline points="${startX},${startY} ${midX},${midY} ${endX},${endY}" fill="none" 
-                            stroke="${dimColor}" stroke-width="${isDimHighlight ? 0.8 : 0.4}" stroke-linejoin="round" 
-                            marker-start="url(#arrow-${isDimHighlight ? 'red' : 'black'})" />
+                            stroke="${leaderColor}" stroke-width="${isLeaderHighlight ? 0.8 : 0.4}" stroke-linejoin="round" 
+                            marker-start="url(#arrow-${isLeaderHighlight ? 'red' : 'black'})" />
                         <text x="${midX + 2 * dir}" y="${endY - 2}" font-size="7" text-anchor="${dir === 1 ? 'start' : 'end'}" 
-                            stroke="white" stroke-width="2" paint-order="stroke" stroke-linejoin="round" fill="${dimColor}">
+                            stroke="white" stroke-width="2" paint-order="stroke" stroke-linejoin="round" fill="${leaderColor}">
                             Ø${hole.D}
                         </text>
                     </g>
@@ -541,6 +556,35 @@
                                         <path d="M 20,25 A 15 15 0 0 1 50,25" fill="none" stroke="${state.studyHighlight === 'radius-dimension' ? '#ef4444' : 'black'}" stroke-width="1.2" />
                                         <polyline points="65,5 55,5 45.6,14.4" fill="none" stroke="${state.studyHighlight === 'radius-dimension' ? '#ef4444' : 'black'}" stroke-width="0.5" marker-end="url(#r-arrow-study)" />
                                         <text x="67" y="7" font-size="7" text-anchor="start" fill="${state.studyHighlight === 'radius-dimension' ? '#ef4444' : 'black'}">R15</text>
+                                    </svg>
+                                </td>
+                            </tr>
+                            <tr class="cursor-pointer transition-colors ${state.studyHighlight === 'diameter-dimension' ? 'bg-red-50 border-l-4 border-red-500' : 'hover:bg-slate-50 border-l-4 border-transparent'}" onclick="setStudyHighlight('diameter-dimension')">
+                                <td class="p-4 font-medium text-slate-800">Diameter (Ø)</td>
+                                <td class="p-4 text-slate-600 text-sm">Shows the diameter of a circle or hole</td>
+                                <td class="p-4 text-center relative">
+                                    <svg width="80" height="30" class="mx-auto">
+                                        <defs>
+                                            <marker id="d-arrow-study" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="4" markerHeight="4" orient="auto-start-reverse"><path d="M 0 2 L 10 5 L 0 8 z" fill="${state.studyHighlight === 'diameter-dimension' ? '#ef4444' : 'black'}" /></marker>
+                                        </defs>
+                                        <circle cx="25" cy="15" r="8" fill="none" stroke="black" stroke-width="1.2" />
+                                        <polyline points="15,25 35,5 55,5" fill="none" stroke="${state.studyHighlight === 'diameter-dimension' ? '#ef4444' : 'black'}" stroke-width="0.5" marker-start="url(#d-arrow-study)" />
+                                        <text x="58" y="8" font-size="7" text-anchor="start" fill="${state.studyHighlight === 'diameter-dimension' ? '#ef4444' : 'black'}">Ø16</text>
+                                    </svg>
+                                </td>
+                            </tr>
+                            <tr class="cursor-pointer transition-colors ${state.studyHighlight === 'angle-dimension' ? 'bg-red-50 border-l-4 border-red-500' : 'hover:bg-slate-50 border-l-4 border-transparent'}" onclick="setStudyHighlight('angle-dimension')">
+                                <td class="p-4 font-medium text-slate-800">Angle</td>
+                                <td class="p-4 text-slate-600 text-sm">Degrees of an angle</td>
+                                <td class="p-4 text-center relative">
+                                    <svg width="80" height="30" class="mx-auto">
+                                        <defs>
+                                            <marker id="a-arrow-study" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="4" markerHeight="4" orient="auto-start-reverse"><path d="M 0 2 L 10 5 L 0 8 z" fill="${state.studyHighlight === 'angle-dimension' ? '#ef4444' : 'black'}" /></marker>
+                                        </defs>
+                                        <line x1="15" y1="25" x2="60" y2="25" stroke="black" stroke-width="0.5" />
+                                        <line x1="15" y1="25" x2="40" y2="5" stroke="black" stroke-width="0.5" />
+                                        <path d="M 45,25 A 30 30 0 0 0 35,9" fill="none" stroke="${state.studyHighlight === 'angle-dimension' ? '#ef4444' : 'black'}" stroke-width="0.5" marker-start="url(#a-arrow-study)" marker-end="url(#a-arrow-study)" />
+                                        <text x="45" y="17" font-size="7" text-anchor="start" fill="${state.studyHighlight === 'angle-dimension' ? '#ef4444' : 'black'}">38°</text>
                                     </svg>
                                 </td>
                             </tr>
