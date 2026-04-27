@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mass vs Weight Explorer</title>
+  
+  <!-- Tailwind CSS via CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Lucide Icons via CDN -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <!-- Custom Styles (for animations) -->
+  <style>
+    @keyframes bounce-slow {
+      0%, 100% { transform: translateY(0px); }
+      50% { transform: translateY(-15px); }
+    }
+    .animate-bounce-slow {
+      animation: bounce-slow 4s ease-in-out infinite;
+    }
+  </style>
+</head>
+<body class="min-h-screen bg-slate-950 text-slate-100 font-sans selection:bg-indigo-500/30 overflow-x-hidden flex flex-col">
+
+  <!-- Starfield Container -->
+  <div id="starfield" class="absolute inset-0 overflow-hidden pointer-events-none z-0"></div>
+
+  <!-- Header -->
+  <header class="relative z-10 w-full p-6 text-center border-b border-white/10 bg-slate-950/50 backdrop-blur-md">
+    <div class="max-w-4xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+      <div class="flex items-center gap-3">
+        <i data-lucide="globe" class="w-8 h-8 text-indigo-400"></i>
+        <h1 class="text-2xl md:text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-cyan-300">
+          Mass vs. Weight Explorer
+        </h1>
+      </div>
+      <p class="text-slate-400 max-w-md text-sm md:text-base text-left">
+        Discover the cosmic difference! Move the astronaut to different worlds to see how gravity changes their <span class="text-amber-400 font-semibold">weight</span>, while their <span class="text-emerald-400 font-semibold">mass</span> stays exactly the same.
+      </p>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="relative z-10 flex-grow flex flex-col lg:flex-row w-full max-w-6xl mx-auto p-4 md:p-6 gap-6 md:gap-8">
+    
+    <!-- Left Column: Interactive Stage -->
+    <div class="w-full lg:w-1/2 flex flex-col gap-6">
+      
+      <!-- Viewport -->
+      <div class="relative w-full h-[400px] md:h-[500px] rounded-3xl overflow-hidden border-2 border-white/10 shadow-2xl transition-colors duration-1000 bg-gradient-to-b from-slate-900 to-slate-800 flex flex-col items-center justify-end pt-10">
+        
+        <!-- Background planet sphere hint -->
+        <div id="planet-bg-hint" class="absolute top-[-20%] left-[-20%] w-[140%] h-[140%] rounded-full opacity-20 blur-3xl transition-all duration-1000 bg-gradient-to-br from-blue-400 to-blue-800"></div>
+
+        <!-- Top Indicator -->
+        <div class="absolute top-6 left-0 right-0 flex justify-center z-30">
+          <div class="bg-slate-900/80 backdrop-blur px-6 py-2 rounded-full border border-white/10 flex items-center gap-2">
+            <span class="text-slate-400 uppercase tracking-widest text-xs font-bold">Location:</span>
+            <span id="indicator-location-name" class="text-white font-bold tracking-wide">Earth</span>
+          </div>
+        </div>
+
+        <!-- Astronaut -->
+        <div class="z-20 mb-2">
+          <div id="astronaut-wrapper" class="relative transition-all duration-700 ease-in-out">
+            <svg width="120" height="160" viewBox="0 0 120 160" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <ellipse cx="60" cy="155" rx="40" ry="5" fill="black" fill-opacity="0.3" />
+              <rect x="25" y="40" width="70" height="70" rx="10" fill="#cbd5e1" stroke="#475569" stroke-width="4" />
+              <rect x="35" y="45" width="50" height="20" rx="5" fill="#94a3b8" />
+              <rect x="40" y="110" width="15" height="40" rx="7" fill="#f1f5f9" stroke="#475569" stroke-width="3" />
+              <rect x="65" y="110" width="15" height="40" rx="7" fill="#f1f5f9" stroke="#475569" stroke-width="3" />
+              <path d="M35 145 H55 V155 H35 Z" fill="#64748b" />
+              <path d="M65 145 H85 V155 H65 Z" fill="#64748b" />
+              <path d="M35 60 Q20 80 30 100" fill="none" stroke="#f1f5f9" stroke-width="12" stroke-linecap="round" />
+              <path d="M35 60 Q20 80 30 100" fill="none" stroke="#475569" stroke-width="12" stroke-linecap="round" stroke-dasharray="4 4" />
+              <path d="M85 60 Q100 80 90 100" fill="none" stroke="#f1f5f9" stroke-width="12" stroke-linecap="round" />
+              <path d="M85 60 Q100 80 90 100" fill="none" stroke="#475569" stroke-width="12" stroke-linecap="round" stroke-dasharray="4 4" />
+              <rect x="35" y="55" width="50" height="60" rx="20" fill="#f8fafc" stroke="#475569" stroke-width="4" />
+              <circle cx="60" cy="40" r="30" fill="#f8fafc" stroke="#475569" stroke-width="4" />
+              <path d="M40 35 Q60 20 80 35 Q85 50 60 55 Q35 50 40 35 Z" fill="#38bdf8" />
+              <path d="M45 35 Q60 25 75 35" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" opacity="0.6" />
+              <rect x="45" y="70" width="30" height="20" rx="4" fill="#e2e8f0" stroke="#94a3b8" stroke-width="2" />
+              <circle cx="52" cy="80" r="3" fill="#ef4444" />
+              <circle cx="60" cy="80" r="3" fill="#3b82f6" />
+              <circle cx="68" cy="80" r="3" fill="#22c55e" />
+            </svg>
+          </div>
+        </div>
+
+        <!-- The Scale -->
+        <div class="z-10 w-48 flex flex-col items-center pb-8">
+          <!-- Scale Platform -->
+          <div class="w-full h-4 bg-slate-300 rounded-t-lg border-b-2 border-slate-400 shadow-[0_-5px_15px_rgba(0,0,0,0.3)] relative z-20">
+            <!-- Scale Readout -->
+            <div id="scale-readout" class="absolute left-1/2 -translate-x-1/2 top-1/2 -translate-y-1/2 bg-slate-900 px-3 py-0.5 rounded text-xs font-mono text-red-500 border border-slate-700 shadow-inner whitespace-nowrap">
+              687 N
+            </div>
+          </div>
+          
+          <!-- Spring Container -->
+          <div class="w-32 bg-slate-800 border-x-2 border-b-2 border-slate-600 rounded-b-xl flex flex-col items-center justify-start overflow-hidden transition-all duration-500" style="height: 80px;">
+             <!-- Visual Spring -->
+             <div id="spring-coils" class="w-16 flex flex-col justify-between transition-all duration-700 ease-out" style="height: 80%; min-height: 20px; margin-top: 5px;">
+                <div class="w-full h-2 rounded-full bg-slate-500"></div>
+                <div class="w-full h-2 rounded-full bg-slate-500"></div>
+                <div class="w-full h-2 rounded-full bg-slate-500"></div>
+                <div class="w-full h-2 rounded-full bg-slate-500"></div>
+                <div class="w-full h-2 rounded-full bg-slate-500"></div>
+             </div>
+          </div>
+        </div>
+
+        <!-- Planet Surface Floor -->
+        <div id="planet-surface" class="absolute bottom-0 left-0 right-0 h-24 bg-emerald-700 transition-colors duration-1000 rounded-t-[50%] scale-150 translate-y-12 shadow-[inset_0_10px_30px_rgba(0,0,0,0.5)]"></div>
+      </div>
+
+      <!-- Location Selector -->
+      <div class="bg-slate-900/50 backdrop-blur-md border border-white/10 rounded-2xl p-4 md:p-6 shadow-xl">
+        <h3 class="text-lg font-semibold mb-4 text-slate-300 flex items-center gap-2">
+          <i data-lucide="rocket" class="w-5 h-5 text-indigo-400"></i>
+          Travel to a new world
+        </h3>
+        
+        <div id="planet-buttons-container" class="grid grid-cols-3 sm:grid-cols-6 gap-2">
+          <!-- Buttons generated by JS -->
+        </div>
+
+        <div class="mt-4 p-4 bg-slate-800/50 rounded-xl border border-slate-700 text-sm text-slate-300 leading-relaxed">
+          <strong id="desc-name" class="text-white block mb-1">Earth (Planet)</strong>
+          <span id="desc-text">Home sweet home! This is the gravity your body is perfectly adapted to.</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right Column: Dashboard & Readings -->
+    <div class="w-full lg:w-1/2 flex flex-col gap-6">
+      
+      <!-- Data Cards -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        
+        <!-- MASS CARD -->
+        <div class="bg-slate-900/80 backdrop-blur-md border border-emerald-500/30 rounded-2xl p-6 shadow-lg shadow-emerald-900/20 relative overflow-hidden">
+          <div class="absolute top-0 right-0 w-24 h-24 bg-emerald-500/10 rounded-bl-full pointer-events-none"></div>
+          <div class="flex items-start justify-between mb-2">
+            <h2 class="text-xl font-bold text-emerald-400 flex items-center gap-2">
+              <i data-lucide="activity" class="w-5 h-5"></i>
+              Mass (m)
+            </h2>
+            <div class="group relative">
+              <i data-lucide="info" class="w-5 h-5 text-slate-500 cursor-help"></i>
+              <div class="absolute right-0 top-6 w-48 p-3 bg-slate-800 text-xs text-slate-200 rounded-lg shadow-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
+                The amount of matter in an object. It never changes, no matter where you are in the universe!
+              </div>
+            </div>
+          </div>
+          <div class="flex items-baseline gap-2 mb-6">
+            <span id="mass-display" class="text-5xl md:text-6xl font-black text-white">70</span>
+            <span class="text-xl text-emerald-500 font-bold">kg</span>
+          </div>
+          
+          <!-- Mass Slider -->
+          <div class="mt-4">
+            <div class="flex justify-between text-xs text-slate-400 mb-2">
+              <span>10 kg</span>
+              <span>Set Astronaut Mass</span>
+              <span>200 kg</span>
+            </div>
+            <input 
+              type="range" 
+              id="mass-slider"
+              min="10" 
+              max="200" 
+              value="70" 
+              class="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+            />
+          </div>
+          <div class="mt-4 text-sm text-slate-400 bg-slate-800/50 p-3 rounded-lg border border-slate-700">
+            Notice how the mass stays at <span class="text-white font-bold"><span id="mass-note">70</span> kg</span> even when you switch planets!
+          </div>
+        </div>
+
+        <!-- WEIGHT CARD -->
+        <div class="bg-slate-900/80 backdrop-blur-md border border-amber-500/30 rounded-2xl p-6 shadow-lg shadow-amber-900/20 relative overflow-hidden">
+          <div class="absolute top-0 right-0 w-24 h-24 bg-amber-500/10 rounded-bl-full pointer-events-none"></div>
+          <div class="flex items-start justify-between mb-2">
+            <div class="flex items-center gap-2 z-10">
+              <h2 class="text-xl font-bold text-amber-400 flex items-center gap-2">
+                <i data-lucide="weight" class="w-5 h-5"></i>
+                Weight
+              </h2>
+              <div class="ml-2 flex bg-slate-800 rounded-lg p-0.5 border border-slate-700">
+                <button id="btn-unit-n" class="px-2 py-0.5 text-xs rounded-md transition-colors bg-amber-500 text-slate-900 font-bold">N</button>
+                <button id="btn-unit-lbs" class="px-2 py-0.5 text-xs rounded-md transition-colors text-slate-400 hover:text-slate-200">lbs</button>
+              </div>
+            </div>
+            <div class="group relative z-10">
+              <i data-lucide="info" class="w-5 h-5 text-slate-500 cursor-help"></i>
+              <div class="absolute right-0 top-6 w-48 p-3 bg-slate-800 text-xs text-slate-200 rounded-lg shadow-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
+                The force of gravity pulling on mass. It changes depending on the planet's gravity!
+              </div>
+            </div>
+          </div>
+          <div class="flex items-baseline gap-2 mb-2">
+            <span id="weight-display" class="text-5xl md:text-6xl font-black text-white transition-all duration-300">
+              687
+            </span>
+            <span id="weight-unit-display" class="text-xl text-amber-500 font-bold">Newtons</span>
+          </div>
+          
+          <!-- Formula visualization -->
+          <div class="mt-6 flex flex-col gap-2">
+            <div class="text-xs uppercase tracking-wider text-slate-500 font-semibold mb-1">The Physics Formula</div>
+            <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 font-mono flex items-center justify-center gap-3 text-sm md:text-base overflow-x-auto">
+              <div class="flex flex-col items-center shrink-0">
+                <span id="formula-mass" class="text-emerald-400 font-bold">70</span>
+                <span class="text-[10px] text-slate-500">kg (m)</span>
+              </div>
+              <span class="text-slate-600 shrink-0">×</span>
+              <div class="flex flex-col items-center shrink-0">
+                <span id="formula-gravity" class="text-indigo-400 font-bold">9.81</span>
+                <span class="text-[10px] text-slate-500">m/s² (g)</span>
+              </div>
+              <span class="text-slate-600 shrink-0">=</span>
+              <div class="flex flex-col items-center shrink-0">
+                <span id="formula-weight-n" class="text-amber-400 font-bold">686.7</span>
+                <span class="text-[10px] text-slate-500">N (W)</span>
+              </div>
+              
+              <div id="formula-lbs-container" class="hidden flex items-center gap-3">
+                <span class="text-slate-600 shrink-0">≈</span>
+                <div class="flex flex-col items-center shrink-0">
+                  <span id="formula-weight-lbs" class="text-orange-400 font-bold">154.4</span>
+                  <span class="text-[10px] text-slate-500">lbs</span>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Educational Explanation Box -->
+      <div class="bg-indigo-950/30 border border-indigo-500/20 rounded-2xl p-6 shadow-inner">
+        <h3 class="text-lg font-bold text-indigo-300 mb-3 flex items-center gap-2">
+          <i data-lucide="help-circle" class="w-5 h-5"></i>
+          What's the difference?
+        </h3>
+        
+        <div class="space-y-4 text-slate-300 text-sm md:text-base leading-relaxed">
+          <p>
+            In everyday language, we often use the words "mass" and "weight" to mean the same thing, but in science, they are very different!
+          </p>
+          
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+            <div class="bg-slate-900/50 p-4 rounded-xl border border-emerald-900/50 border-l-4 border-l-emerald-500">
+              <h4 class="font-bold text-emerald-400 mb-1">Mass</h4>
+              <p class="text-xs md:text-sm">Is a measurement of how much <strong>matter</strong> is in an object. It's an intrinsic property. If you go to the moon, you don't lose any of your atoms, so your mass stays the same!</p>
+            </div>
+            
+            <div class="bg-slate-900/50 p-4 rounded-xl border border-amber-900/50 border-l-4 border-l-amber-500">
+              <h4 class="font-bold text-amber-400 mb-1">Weight</h4>
+              <p class="text-xs md:text-sm">Is a measurement of <strong>force</strong>. It's how hard gravity is pulling down on that mass. Less gravity means less pull, which means less weight.</p>
+            </div>
+          </div>
+
+          <div class="flex items-start gap-3 mt-4 p-4 bg-blue-900/20 rounded-xl">
+            <i data-lucide="move-down" class="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5"></i>
+            <p class="text-sm">
+              Right now, gravity on <strong id="expl-planet-name">Earth</strong> is pulling on the astronaut with an acceleration of <strong id="expl-gravity" class="text-indigo-300">9.81 m/s²</strong>. This creates a downward force (weight) of <strong id="expl-weight-n" class="text-amber-400">686.7 Newtons</strong><span id="expl-weight-lbs-container" class="hidden"> (or <strong id="expl-weight-lbs" class="text-orange-400">154.4 lbs</strong>)</span>.
+            </p>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <script>
+    // --- Data ---
+    const CELESTIAL_BODIES = [
+      { id: 'moon', name: 'Moon', type: 'Moon', gravity: 1.62, color: 'from-slate-400 to-slate-600', surface: 'bg-slate-500', description: 'The Moon has about 1/6th of Earth\'s gravity. You would feel very light here and could jump high!' },
+      { id: 'mars', name: 'Mars', type: 'Planet', gravity: 3.71, color: 'from-orange-500 to-red-800', surface: 'bg-orange-800', description: 'Mars is smaller than Earth. Its gravity is about 38% of what we experience at home.' },
+      { id: 'venus', name: 'Venus', type: 'Planet', gravity: 8.87, color: 'from-amber-200 to-orange-400', surface: 'bg-amber-600', description: 'Venus is very close to Earth in size and mass, so its gravity is very similar to ours.' },
+      { id: 'earth', name: 'Earth', type: 'Planet', gravity: 9.81, color: 'from-blue-400 to-blue-800', surface: 'bg-emerald-700', description: 'Home sweet home! This is the gravity your body is perfectly adapted to.' },
+      { id: 'saturn', name: 'Saturn', type: 'Gas Giant', gravity: 10.44, color: 'from-yellow-200 to-yellow-600', surface: 'bg-yellow-700', description: 'Despite being massive, Saturn is mostly gas and very low density. Its surface gravity is surprisingly close to Earth\'s!' },
+      { id: 'jupiter', name: 'Jupiter', type: 'Gas Giant', gravity: 24.79, color: 'from-orange-300 via-amber-700 to-orange-900', surface: 'bg-amber-900', description: 'The largest planet in our solar system! Its massive gravity would make you feel incredibly heavy.' }
+    ];
+
+    const LBS_PER_NEWTON = 0.224808943;
+
+    // --- State ---
+    let state = {
+      mass: 70,
+      selectedBodyId: 'earth',
+      weightUnit: 'N' // 'N' or 'lbs'
+    };
+
+    // --- DOM Elements ---
+    const elements = {
+      massSlider: document.getElementById('mass-slider'),
+      massDisplay: document.getElementById('mass-display'),
+      massNote: document.getElementById('mass-note'),
+      formulaMass: document.getElementById('formula-mass'),
+      
+      btnUnitN: document.getElementById('btn-unit-n'),
+      btnUnitLbs: document.getElementById('btn-unit-lbs'),
+      
+      planetButtonsContainer: document.getElementById('planet-buttons-container'),
+      
+      indicatorLocationName: document.getElementById('indicator-location-name'),
+      descName: document.getElementById('desc-name'),
+      descText: document.getElementById('desc-text'),
+      planetBgHint: document.getElementById('planet-bg-hint'),
+      planetSurface: document.getElementById('planet-surface'),
+      
+      astronautWrapper: document.getElementById('astronaut-wrapper'),
+      
+      scaleReadout: document.getElementById('scale-readout'),
+      springCoils: document.getElementById('spring-coils'),
+      
+      weightDisplay: document.getElementById('weight-display'),
+      weightUnitDisplay: document.getElementById('weight-unit-display'),
+      formulaGravity: document.getElementById('formula-gravity'),
+      formulaWeightN: document.getElementById('formula-weight-n'),
+      
+      formulaLbsContainer: document.getElementById('formula-lbs-container'),
+      formulaWeightLbs: document.getElementById('formula-weight-lbs'),
+      
+      explPlanetName: document.getElementById('expl-planet-name'),
+      explGravity: document.getElementById('expl-gravity'),
+      explWeightN: document.getElementById('expl-weight-n'),
+      explWeightLbsContainer: document.getElementById('expl-weight-lbs-container'),
+      explWeightLbs: document.getElementById('expl-weight-lbs'),
+      
+      starfield: document.getElementById('starfield')
+    };
+
+    // --- Initialization ---
+    function init() {
+      // Initialize Icons
+      lucide.createIcons();
+
+      // Generate Stars
+      for (let i = 0; i < 100; i++) {
+        const star = document.createElement('div');
+        star.className = 'absolute rounded-full bg-white animate-pulse';
+        star.style.left = `${Math.random() * 100}%`;
+        star.style.top = `${Math.random() * 100}%`;
+        const size = Math.random() * 2 + 1;
+        star.style.width = `${size}px`;
+        star.style.height = `${size}px`;
+        star.style.opacity = Math.random() * 0.8 + 0.2;
+        star.style.animationDelay = `${Math.random() * 3}s`;
+        star.style.animationDuration = `3s`;
+        elements.starfield.appendChild(star);
+      }
+
+      // Generate Planet Buttons
+      CELESTIAL_BODIES.forEach(body => {
+        const btn = document.createElement('button');
+        btn.id = `btn-planet-${body.id}`;
+        btn.className = 'flex flex-col items-center gap-2 p-2 rounded-xl transition-all border';
+        btn.innerHTML = `
+          <div class="w-10 h-10 rounded-full bg-gradient-to-br ${body.color} shadow-inner"></div>
+          <span class="text-xs font-medium">${body.name}</span>
+        `;
+        btn.addEventListener('click', () => {
+          state.selectedBodyId = body.id;
+          updateUI();
+        });
+        elements.planetButtonsContainer.appendChild(btn);
+      });
+
+      // Bind Event Listeners
+      elements.massSlider.addEventListener('input', (e) => {
+        state.mass = Number(e.target.value);
+        updateUI();
+      });
+
+      elements.btnUnitN.addEventListener('click', () => {
+        state.weightUnit = 'N';
+        updateUI();
+      });
+
+      elements.btnUnitLbs.addEventListener('click', () => {
+        state.weightUnit = 'lbs';
+        updateUI();
+      });
+
+      // Initial Render
+      updateUI();
+    }
+
+    // --- Update Logic ---
+    function updateUI() {
+      const selectedBody = CELESTIAL_BODIES.find(b => b.id === state.selectedBodyId);
+      
+      // Calculations
+      const weightNewtons = state.mass * selectedBody.gravity;
+      const displayWeight = state.weightUnit === 'N' ? weightNewtons : weightNewtons * LBS_PER_NEWTON;
+      const unitName = state.weightUnit === 'N' ? 'Newtons' : 'Pounds';
+      const unitSymbol = state.weightUnit === 'N' ? 'N' : 'lbs';
+      
+      const compressionPercent = Math.min(100, (weightNewtons / 2500) * 100);
+
+      // Mass Updates
+      elements.massDisplay.textContent = state.mass;
+      elements.massNote.textContent = state.mass;
+      elements.formulaMass.textContent = state.mass;
+
+      // Location & Descriptions Updates
+      elements.indicatorLocationName.textContent = selectedBody.name;
+      elements.descName.textContent = `${selectedBody.name} (${selectedBody.type})`;
+      elements.descText.textContent = selectedBody.description;
+      
+      // Environment Visuals
+      elements.planetBgHint.className = `absolute top-[-20%] left-[-20%] w-[140%] h-[140%] rounded-full opacity-20 blur-3xl transition-all duration-1000 bg-gradient-to-br ${selectedBody.color}`;
+      elements.planetSurface.className = `absolute bottom-0 left-0 right-0 h-24 transition-colors duration-1000 rounded-t-[50%] scale-150 translate-y-12 shadow-[inset_0_10px_30px_rgba(0,0,0,0.5)] ${selectedBody.surface}`;
+
+      // Planet Buttons Active State
+      CELESTIAL_BODIES.forEach(body => {
+        const btn = document.getElementById(`btn-planet-${body.id}`);
+        const span = btn.querySelector('span');
+        if (body.id === state.selectedBodyId) {
+          btn.className = 'flex flex-col items-center gap-2 p-2 rounded-xl transition-all border bg-indigo-500/20 border-indigo-500 shadow-[0_0_15px_rgba(99,102,241,0.3)]';
+          span.className = 'text-xs font-medium text-indigo-300';
+        } else {
+          btn.className = 'flex flex-col items-center gap-2 p-2 rounded-xl transition-all border hover:bg-white/5 border-transparent';
+          span.className = 'text-xs font-medium text-slate-400';
+        }
+      });
+
+      // Unit Toggles Active State
+      if (state.weightUnit === 'N') {
+        elements.btnUnitN.className = 'px-2 py-0.5 text-xs rounded-md transition-colors bg-amber-500 text-slate-900 font-bold';
+        elements.btnUnitLbs.className = 'px-2 py-0.5 text-xs rounded-md transition-colors text-slate-400 hover:text-slate-200';
+        elements.formulaLbsContainer.classList.add('hidden');
+        elements.explWeightLbsContainer.classList.add('hidden');
+      } else {
+        elements.btnUnitN.className = 'px-2 py-0.5 text-xs rounded-md transition-colors text-slate-400 hover:text-slate-200';
+        elements.btnUnitLbs.className = 'px-2 py-0.5 text-xs rounded-md transition-colors bg-amber-500 text-slate-900 font-bold';
+        elements.formulaLbsContainer.classList.remove('hidden');
+        elements.formulaLbsContainer.classList.add('flex');
+        elements.explWeightLbsContainer.classList.remove('hidden');
+      }
+
+      // Weight & Formula Display Updates
+      elements.weightDisplay.textContent = Math.round(displayWeight);
+      elements.weightUnitDisplay.textContent = unitName;
+      elements.scaleReadout.textContent = `${displayWeight.toFixed(0)} ${unitSymbol}`;
+      elements.formulaGravity.textContent = selectedBody.gravity;
+      elements.formulaWeightN.textContent = weightNewtons.toFixed(1);
+      elements.formulaWeightLbs.textContent = (weightNewtons * LBS_PER_NEWTON).toFixed(1);
+
+      // Explanation Box Updates
+      elements.explPlanetName.textContent = selectedBody.name;
+      elements.explGravity.textContent = `${selectedBody.gravity} m/s²`;
+      elements.explWeightN.textContent = `${weightNewtons.toFixed(1)} Newtons`;
+      elements.explWeightLbs.textContent = `${(weightNewtons * LBS_PER_NEWTON).toFixed(1)} lbs`;
+
+      // Spring Visuals
+      elements.springCoils.style.height = `${100 - compressionPercent * 0.8}%`;
+
+      // Astronaut Visuals
+      let transform = 'scaleY(1) translateY(0)';
+      let animationClasses = 'relative transition-all duration-700 ease-in-out';
+      
+      if (selectedBody.gravity > 20) {
+        transform = 'scaleY(0.9) scaleX(1.05) translateY(10px)';
+      } else if (selectedBody.gravity < 4) {
+        animationClasses += ' animate-bounce-slow';
+      }
+
+      const sizeScale = 0.8 + (state.mass - 10) * (0.4 / 190);
+      
+      elements.astronautWrapper.className = animationClasses;
+      elements.astronautWrapper.style.transform = transform;
+      elements.astronautWrapper.style.scale = sizeScale;
+    }
+
+    // Start App
+    document.addEventListener('DOMContentLoaded', init);
+  </script>
+</body>
+</html>
