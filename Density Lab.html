@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Density Laboratory Simulation</title>
+    
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- React & ReactDOM -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    
+    <!-- Babel for in-browser JSX transpilation -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body class="bg-gray-100">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useRef, useEffect } = React;
+
+        // Predefined irregular materials for the lab
+        const MATERIALS = [
+          { id: 1, name: "Gold", mass: 38.6, volume: 2.0, density: 19.3 },
+          { id: 2, name: "Lead", mass: 45.4, volume: 4.0, density: 11.35 },
+          { id: 3, name: "Silver", mass: 42.0, volume: 4.0, density: 10.5 },
+          { id: 4, name: "Copper", mass: 44.8, volume: 5.0, density: 8.96 },
+          { id: 5, name: "Iron", mass: 39.3, volume: 5.0, density: 7.86 },
+          { id: 6, name: "Zinc", mass: 35.7, volume: 5.0, density: 7.14 },
+          { id: 7, name: "Aluminum", mass: 27.0, volume: 10.0, density: 2.7 },
+          { id: 8, name: "Magnesium", mass: 17.4, volume: 10.0, density: 1.74 },
+        ];
+
+        const INITIAL_WATER_VOL = 50.0; // mL
+        const PIXELS_PER_ML = 2.5; // Scaling factor for the new, larger beaker
+
+        // Helper to generate a varied size/mass version of a material
+        // Ensures total water level (50 + volume) never exceeds 100mL (max volume ~45mL)
+        const generateRandomInstance = (index) => {
+          const material = MATERIALS[index];
+          const rawVol = Math.random() * 40 + 5; // 5.0 to 45.0 mL
+          const volume = Math.round(rawVol * 10) / 10;
+          const mass = Math.round((volume * material.density) * 100) / 100;
+          const size = 40 + ((volume - 5) / 40) * 50; // Visual size 40px to 90px
+          const displayColor = `hsl(0, 0%, ${Math.floor(Math.random() * 40 + 30)}%)`; // Random non-revealing grey shade
+          return { material, volume, mass, size, displayColor };
+        };
+
+        // SVG Component for the Irregular Object
+        const RockSvg = ({ color }) => (
+          <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-lg pointer-events-none">
+            <path
+              d="M 25 20 C 50 5, 75 15, 85 35 C 95 60, 80 85, 50 90 C 20 95, 5 75, 10 45 C 12 25, 20 25, 25 20 Z"
+              fill={color}
+              stroke="rgba(0,0,0,0.6)"
+              strokeWidth="2"
+            />
+            <path d="M 30 30 C 45 20, 65 30, 70 45" stroke="rgba(255,255,255,0.4)" strokeWidth="3" fill="none" strokeLinecap="round"/>
+            <path d="M 20 60 C 25 75, 40 80, 50 80" stroke="rgba(0,0,0,0.2)" strokeWidth="3" fill="none" strokeLinecap="round"/>
+          </svg>
+        );
+
+        function DensityLab() {
+          const [instance, setInstance] = useState(() => generateRandomInstance(0));
+
+          // Object State
+          const [position, setPosition] = useState({ 
+            x: 110 - instance.size / 2, 
+            y: 350 - instance.size 
+          });
+          const [isDragging, setIsDragging] = useState(false);
+          const [zone, setZone] = useState('bench'); // 'bench', 'scale', 'beaker', 'dragging'
+
+          // User Input State
+          const [feedback, setFeedback] = useState(null);
+          const [isCorrect, setIsCorrect] = useState(false);
+          const [selectedMetal, setSelectedMetal] = useState(null);
+
+          // Responsiveness State
+          const [scaleFactor, setScaleFactor] = useState(1);
+          const containerRef = useRef(null);
+          const dragRef = useRef({ offsetX: 0, offsetY: 0 });
+
+          // Handle responsive scaling
+          useEffect(() => {
+            const handleResize = () => {
+              const width = window.innerWidth;
+              if (width < 850) {
+                setScaleFactor(width / 850);
+              } else {
+                setScaleFactor(1);
+              }
+            };
+            window.addEventListener('resize', handleResize);
+            handleResize();
+            return () => window.removeEventListener('resize', handleResize);
+          }, []);
+
+          // --- Drag and Drop Handlers ---
+          const handlePointerDown = (e) => {
+            e.target.setPointerCapture(e.pointerId);
+            const rect = containerRef.current.getBoundingClientRect();
+            
+            dragRef.current = {
+              offsetX: (e.clientX - rect.left) / scaleFactor - position.x,
+              offsetY: (e.clientY - rect.top) / scaleFactor - position.y,
+            };
+            setIsDragging(true);
+            setZone('dragging');
+            setFeedback(null);
+          };
+
+          const handlePointerMove = (e) => {
+            if (!isDragging) return;
+            const rect = containerRef.current.getBoundingClientRect();
+            const x = (e.clientX - rect.left) / scaleFactor - dragRef.current.offsetX;
+            const y = (e.clientY - rect.top) / scaleFactor - dragRef.current.offsetY;
+            setPosition({ x, y });
+          };
+
+          const handlePointerUp = (e) => {
+            setIsDragging(false);
+            e.target.releasePointerCapture(e.pointerId);
+
+            const size = instance.size;
+            // Center of the dynamically sized object
+            const cx = position.x + size / 2;
+            const cy = position.y + size / 2;
+
+            let newZone = 'bench';
+            let newX = 110 - size / 2;
+            let newY = 350 - size; // Default bench position
+
+            // Drop Logic & Hitboxes (updated for wider beaker and dynamic sizes)
+            if (cx > 150 && cx < 450 && cy > 180 && cy < 350) {
+              newZone = 'scale';
+              newX = 310 - size / 2; // Centered on the scale pan
+              newY = 302 - size; 
+            } else if (cx > 480 && cx < 720 && cy > 60 && cy < 350) {
+              newZone = 'beaker';
+              newX = 610 - size / 2; // Centered horizontally inside the wider beaker
+              newY = 346 - size; // Resting exactly on the inner floor of the glass
+            }
+
+            setZone(newZone);
+            setPosition({ x: newX, y: newY });
+          };
+
+          // --- Logic Handlers ---
+          const handleGuess = (metalName) => {
+            if (isCorrect) return;
+            setSelectedMetal(metalName);
+
+            if (metalName === instance.material.name) {
+              setFeedback("✅ Correct! You identified the mystery material.");
+              setIsCorrect(true);
+            } else {
+              setFeedback(`❌ Incorrect. The mystery material is not ${metalName}. Check your density calculation!`);
+              setIsCorrect(false);
+            }
+          };
+
+          const handleNewMaterial = () => {
+            let newIndex;
+            do {
+              newIndex = Math.floor(Math.random() * MATERIALS.length);
+            } while (MATERIALS[newIndex].id === instance.material.id);
+            
+            const newInstance = generateRandomInstance(newIndex);
+            setInstance(newInstance);
+            
+            setZone('bench');
+            setPosition({ x: 110 - newInstance.size / 2, y: 350 - newInstance.size });
+            setSelectedMetal(null);
+            setFeedback(null);
+            setIsCorrect(false);
+          };
+
+          // Calculate dynamic properties
+          const scaleReading = zone === 'scale' ? instance.mass.toFixed(2) : "0.00";
+          const waterVolume = INITIAL_WATER_VOL + (zone === 'beaker' ? instance.volume : 0);
+          const waterHeightPx = waterVolume * PIXELS_PER_ML; 
+
+          return (
+            <div className="min-h-screen bg-gray-100 p-4 md:p-8 font-sans selection:bg-blue-200">
+              
+              {/* --- Dashboard UI --- */}
+              <div className="max-w-5xl mx-auto bg-white p-6 rounded-2xl shadow-lg border border-gray-200 mb-8 flex flex-col md:flex-row gap-8">
+                <div className="flex-1">
+                  <h1 className="text-3xl font-extrabold text-gray-800 mb-2">Density Laboratory</h1>
+                  <p className="text-gray-600 mb-6 text-sm">
+                    <strong>Instructions:</strong> Drag the mystery object to the scale to find its mass. 
+                    Then, drop it into the graduated beaker to find its volume via water displacement. 
+                    Calculate its density (<code className="bg-gray-100 px-1 rounded">D = M / V</code>) and click the matching metal in the table to identify it!
+                  </p>
+
+                  <button
+                    onClick={handleNewMaterial}
+                    className="mb-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-6 rounded-lg transition-colors shadow-md active:scale-95"
+                  >
+                    🔄 New Mystery Material
+                  </button>
+
+                  {feedback && (
+                    <div className={`font-bold text-sm px-4 py-3 rounded-lg shadow-sm ${isCorrect ? 'bg-green-100 text-green-800 border border-green-300' : 'bg-red-100 text-red-800 border border-red-300'}`}>
+                       {feedback}
+                    </div>
+                  )}
+                </div>
+
+                {/* Reference Table */}
+                <div className="flex-1 bg-gray-50 border border-gray-200 rounded-xl overflow-hidden shadow-inner">
+                  <table className="w-full text-left text-sm border-collapse">
+                    <thead className="bg-gray-200 text-gray-700">
+                      <tr>
+                        <th className="px-4 py-2 border-b border-gray-300">Metal</th>
+                        <th className="px-4 py-2 border-b border-gray-300">Density (g/mL)</th>
+                        <th className="px-4 py-2 border-b border-gray-300 text-center">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {[...MATERIALS].sort((a,b) => a.name.localeCompare(b.name)).map((metal) => (
+                        <tr key={metal.name} className={`hover:bg-blue-50 transition-colors ${selectedMetal === metal.name ? (isCorrect ? 'bg-green-100' : 'bg-red-50') : 'bg-white'}`}>
+                          <td className="px-4 py-2 border-b border-gray-100 font-medium">{metal.name}</td>
+                          <td className="px-4 py-2 border-b border-gray-100 font-mono">{metal.density.toFixed(2)}</td>
+                          <td className="px-4 py-2 border-b border-gray-100 text-center">
+                            <button 
+                              onClick={() => handleGuess(metal.name)}
+                              disabled={isCorrect}
+                              className="text-xs bg-blue-100 hover:bg-blue-200 text-blue-800 font-semibold py-1 px-3 rounded disabled:opacity-50"
+                            >
+                              Select
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* --- Interactive Lab Canvas --- */}
+              <div className="w-full flex justify-center overflow-hidden pb-10">
+                <div 
+                  ref={containerRef}
+                  className="relative bg-[#f5f8fa] border-4 border-gray-300 rounded-xl shadow-2xl shrink-0 select-none overflow-hidden"
+                  style={{ 
+                    width: 800, 
+                    height: 500, 
+                    transform: `scale(${scaleFactor})`, 
+                    transformOrigin: 'top center' 
+                  }}
+                >
+                  {/* Wall Background details (subtle grid) */}
+                  <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: 'linear-gradient(#000 1px, transparent 1px), linear-gradient(90deg, #000 1px, transparent 1px)', backgroundSize: '40px 40px' }}></div>
+
+                  {/* 1. The Bench */}
+                  <div className="absolute top-[350px] left-[5%] w-[90%] h-[40px] bg-[#9e6e44] border-[3px] border-[#2d2d2d] rounded-md shadow-[inset_0_-5px_10px_rgba(0,0,0,0.2),_0_10px_20px_rgba(0,0,0,0.1)] z-10"></div>
+                  <div className="absolute top-[390px] left-[15%] w-[40px] h-[80px] bg-[#805531] border-[3px] border-t-0 border-[#2d2d2d] rounded-b-sm shadow-[inset_-5px_0_10px_rgba(0,0,0,0.2)] z-0"></div>
+                  <div className="absolute top-[390px] right-[15%] w-[40px] h-[80px] bg-[#805531] border-[3px] border-t-0 border-[#2d2d2d] rounded-b-sm shadow-[inset_-5px_0_10px_rgba(0,0,0,0.2)] z-0"></div>
+
+                  {/* 2. The Digital Scale */}
+                  <div className="absolute z-20" style={{ left: 200, top: 310, width: 220, height: 40 }}>
+                    {/* Scale Pan (Grey Top) */}
+                    <div className="absolute left-[30px] top-[-8px] w-[160px] h-[8px] bg-[#a0a0a0] border-2 border-gray-600 rounded-t-sm"></div>
+                    
+                    {/* Scale Base (White Body) */}
+                    <div className="absolute top-0 w-full h-full bg-[#fcfcfc] border-2 border-gray-400 rounded-full flex items-center px-4 shadow-[0_4px_6px_rgba(0,0,0,0.1)]">
+                      {/* Buttons */}
+                      <div className="flex gap-[6px] mr-4 pt-1">
+                        <div className="w-5 h-[14px] bg-[#fdd835] border-[1.5px] border-[#fbc02d] rounded-[3px] shadow-sm"></div>
+                        <div className="w-5 h-[14px] bg-[#fdd835] border-[1.5px] border-[#fbc02d] rounded-[3px] shadow-sm"></div>
+                      </div>
+                      
+                      {/* Digital Screen */}
+                      <div className="flex-grow h-[22px] bg-[#b3e5fc] border-[1.5px] border-[#4fc3f7] rounded-[3px] flex items-center justify-end px-2 shadow-inner">
+                        <span className="font-mono text-[15px] font-semibold text-[#37474f] tracking-widest drop-shadow-sm">
+                          {scaleReading} <span className="text-[12px]">g</span>
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Labels beneath buttons */}
+                    <div className="absolute left-[16px] top-[28px] flex gap-[6px] text-[8px] font-bold text-gray-500 tracking-tighter">
+                      <span>O/I</span>
+                      <span>TARE</span>
+                    </div>
+                  </div>
+
+                  {/* 3. The Larger, Wider Graduated Beaker */}
+                  <div className="absolute z-20" style={{ left: 520, top: 70, width: 180, height: 280 }}>
+                     {/* Back interior of glass */}
+                     <div className="absolute inset-0 bg-white/20 rounded-b-[20px]"></div>
+
+                     {/* Water Layer - carefully aligned to the exact interior floor (bottom: 4px) */}
+                     <div 
+                       className="absolute bottom-[4px] left-[4px] right-[4px] bg-[#64b5f6]/80 rounded-b-[16px] transition-all duration-700 ease-in-out border-t-4 border-[#42a5f5]/90 flex justify-center shadow-[inset_0_-10px_20px_rgba(0,0,0,0.1)]"
+                       style={{ height: waterHeightPx }}
+                     >
+                        {/* Visual displacement indicator / bubbles */}
+                        {zone === 'beaker' && (
+                           <div className="absolute top-2 w-full flex justify-around animate-pulse opacity-50">
+                              <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
+                              <div className="w-2 h-2 bg-white rounded-full mt-2"></div>
+                              <div className="w-1.5 h-1.5 bg-white rounded-full mt-1"></div>
+                              <div className="w-2 h-2 bg-white rounded-full mt-3"></div>
+                           </div>
+                        )}
+                     </div>
+
+                     {/* Front Glass layer & Borders */}
+                     <div className="absolute inset-0 border-[4px] border-t-0 border-[#cfd8dc]/90 rounded-b-[20px] shadow-sm pointer-events-none"></div>
+                     {/* Lip of beaker */}
+                     <div className="absolute top-0 left-[-6px] right-[-6px] h-[6px] border-[4px] border-b-0 border-[#cfd8dc]/90 rounded-t-[10px] pointer-events-none"></div>
+
+                     {/* Crisp Graduated Markings (Every 1 mL) - Drawn firmly onto the glass */}
+                     {[...Array(101)].map((_, i) => {
+                       const mark = i;
+                       if (mark === 0) return null; // Skip 0
+                       const isMajor = mark % 10 === 0;
+                       const isMedium = mark % 5 === 0 && !isMajor;
+                       
+                       return (
+                         <div 
+                           key={mark} 
+                           className="absolute flex items-center pointer-events-none left-[6px]" 
+                           style={{ bottom: mark * PIXELS_PER_ML + 4, height: 0 }}
+                         >
+                           <div className={`${isMajor ? 'w-10 border-t-[2px] border-gray-900' : isMedium ? 'w-6 border-t-[1.5px] border-gray-800' : 'w-3 border-t-[1px] border-gray-700'} mix-blend-multiply opacity-80`}></div>
+                           {isMajor && <span className="text-gray-900 text-[14px] ml-1.5 font-bold tracking-tighter opacity-90 drop-shadow-sm">{mark}</span>}
+                         </div>
+                       );
+                     })}
+                  </div>
+
+                  {/* 4. The Draggable Object */}
+                  <div
+                    onPointerDown={handlePointerDown}
+                    onPointerMove={handlePointerMove}
+                    onPointerUp={handlePointerUp}
+                    className={`absolute flex items-center justify-center cursor-grab active:cursor-grabbing z-50 
+                      ${!isDragging ? 'transition-all duration-300 ease-out' : ''} 
+                      ${zone === 'beaker' && !isDragging ? 'mix-blend-multiply opacity-90' : ''}`}
+                    style={{ 
+                      left: position.x, 
+                      top: position.y, 
+                      width: instance.size,
+                      height: instance.size,
+                      touchAction: 'none'
+                    }}
+                  >
+                    <RockSvg color={instance.displayColor} />
+                    
+                    {/* Show Object label only when dragging or on bench to help students focus */}
+                    {(zone === 'bench' || isDragging) && (
+                      <div className="absolute -top-6 whitespace-nowrap bg-gray-800 text-white text-[10px] px-2 py-0.5 rounded opacity-80 pointer-events-none transition-opacity shadow-sm">
+                        Mystery Material
+                      </div>
+                    )}
+                  </div>
+
+                </div>
+              </div>
+            </div>
+          );
+        }
+
+        // Render the app
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<DensityLab />);
+    </script>
+</body>
+</html>
