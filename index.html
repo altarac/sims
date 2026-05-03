@@ -16,8 +16,8 @@
                     colors: {
                         primary: '#3b82f6',
                         secondary: '#10b981',
-                        dark: '#0f172a',
-                        card: '#1e293b'
+                        background: '#f8fafc',
+                        card: '#ffffff'
                     }
                 }
             }
@@ -29,39 +29,33 @@
             width: 8px;
         }
         ::-webkit-scrollbar-track {
-            background: #0f172a; 
+            background: #f1f5f9; 
         }
         ::-webkit-scrollbar-thumb {
-            background: #334155; 
+            background: #cbd5e1; 
             border-radius: 4px;
         }
         ::-webkit-scrollbar-thumb:hover {
-            background: #475569; 
+            background: #94a3b8; 
         }
         .card-hover {
             transition: all 0.3s ease;
         }
         .card-hover:hover {
             transform: translateY(-5px);
-            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
         }
     </style>
 </head>
-<body class="bg-dark text-slate-300 min-h-screen font-sans selection:bg-primary selection:text-white flex flex-col">
+<body class="bg-background text-slate-700 min-h-screen font-sans selection:bg-primary selection:text-white flex flex-col">
 
     <!-- Navigation -->
-    <nav class="sticky top-0 z-50 bg-dark/80 backdrop-blur-md border-b border-slate-800 shadow-sm">
+    <nav class="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-slate-200 shadow-sm">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex items-center justify-between h-16">
                 <div class="flex items-center gap-3">
                     <i data-lucide="atom" class="text-primary h-8 w-8"></i>
-                    <span class="font-bold text-xl text-white tracking-tight">OmniLabs</span>
-                </div>
-                <div class="flex items-center gap-4">
-                    <a href="https://github.com/yourusername" target="_blank" class="text-slate-400 hover:text-white transition flex items-center gap-2">
-                        <i data-lucide="github" class="h-5 w-5"></i>
-                        <span class="hidden sm:inline">GitHub</span>
-                    </a>
+                    <span class="font-bold text-xl text-slate-900 tracking-tight">OmniLabs</span>
                 </div>
             </div>
         </div>
@@ -70,25 +64,15 @@
     <!-- Main Content -->
     <main class="flex-grow max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 w-full">
         
-        <!-- Header Section -->
-        <div class="text-center mb-16">
-            <h1 class="text-4xl md:text-5xl font-extrabold text-white mb-4 tracking-tight">
-                Interactive <span class="text-transparent bg-clip-text bg-gradient-to-r from-primary to-secondary">Simulations</span>
-            </h1>
-            <p class="text-lg text-slate-400 max-w-2xl mx-auto">
-                A collection of physics engines, cellular automata, mathematical visualizations, and interactive experiments built with web technologies.
-            </p>
-        </div>
-
         <!-- Search and Filter Bar -->
-        <div class="relative max-w-xl mx-auto mb-12 text-slate-400 focus-within:text-white">
+        <div class="relative max-w-xl mx-auto mb-12 text-slate-500 focus-within:text-slate-900">
             <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                 <i data-lucide="search" class="h-5 w-5"></i>
             </div>
             <input 
                 type="text" 
                 id="searchInput" 
-                class="block w-full pl-11 pr-4 py-3 bg-card border border-slate-700 rounded-xl leading-5 bg-opacity-50 text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary focus:bg-opacity-100 transition duration-150 sm:text-sm" 
+                class="block w-full pl-11 pr-4 py-3 bg-white border border-slate-300 rounded-xl leading-5 text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition duration-150 sm:text-sm shadow-sm" 
                 placeholder="Search simulations by name or keyword..."
             >
         </div>
@@ -100,15 +84,15 @@
 
         <!-- Empty State (Hidden by default) -->
         <div id="emptyState" class="hidden text-center py-20">
-            <i data-lucide="ghost" class="h-16 w-16 text-slate-600 mx-auto mb-4"></i>
-            <h3 class="text-xl font-medium text-slate-300">No simulations found</h3>
+            <i data-lucide="ghost" class="h-16 w-16 text-slate-400 mx-auto mb-4"></i>
+            <h3 class="text-xl font-medium text-slate-800">No simulations found</h3>
             <p class="text-slate-500 mt-2">Try adjusting your search terms.</p>
         </div>
 
     </main>
 
     <!-- Footer -->
-    <footer class="border-t border-slate-800 bg-dark py-8 mt-auto">
+    <footer class="border-t border-slate-200 bg-white py-8 mt-auto">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row justify-between items-center gap-4 text-sm text-slate-500">
             <p>&copy; <span id="year"></span> Your Name. All rights reserved.</p>
             <p>Hosted on <a href="https://pages.github.com/" class="text-primary hover:underline">GitHub Pages</a></p>
@@ -203,24 +187,24 @@
             data.forEach(sim => {
                 const card = document.createElement('a');
                 card.href = sim.link;
-                card.className = "card-hover block bg-card border border-slate-700/50 rounded-2xl p-6 group cursor-pointer relative overflow-hidden";
+                card.className = "card-hover block bg-white border border-slate-200 rounded-2xl p-6 group cursor-pointer relative overflow-hidden shadow-sm hover:shadow-md";
                 
                 // Card Content HTML
                 card.innerHTML = `
                     <div class="absolute top-0 left-0 w-1 bg-gradient-to-b from-primary to-secondary h-full opacity-0 group-hover:opacity-100 transition-opacity"></div>
                     
                     <div class="flex items-start justify-between mb-4">
-                        <div class="p-3 bg-dark rounded-xl text-primary border border-slate-700/50">
+                        <div class="p-3 bg-blue-50 rounded-xl text-primary border border-blue-100">
                             <i data-lucide="${sim.icon}" class="h-6 w-6"></i>
                         </div>
-                        <i data-lucide="arrow-up-right" class="h-5 w-5 text-slate-500 group-hover:text-white transition-colors"></i>
+                        <i data-lucide="arrow-up-right" class="h-5 w-5 text-slate-400 group-hover:text-primary transition-colors"></i>
                     </div>
                     
-                    <h2 class="text-xl font-bold text-white mb-2 group-hover:text-primary transition-colors">${sim.title}</h2>
-                    <p class="text-sm text-slate-400 mb-4 line-clamp-3">${sim.description}</p>
+                    <h2 class="text-xl font-bold text-slate-800 mb-2 group-hover:text-primary transition-colors">${sim.title}</h2>
+                    <p class="text-sm text-slate-600 mb-4 line-clamp-3">${sim.description}</p>
                     
-                    <div class="flex flex-wrap gap-2 mt-auto pt-4 border-t border-slate-700/50">
-                        ${sim.tags.slice(0, 3).map(tag => `<span class="text-xs font-medium text-slate-500 bg-dark px-2 py-1 rounded-md border border-slate-700/30">${tag}</span>`).join('')}
+                    <div class="flex flex-wrap gap-2 mt-auto pt-4 border-t border-slate-100">
+                        ${sim.tags.slice(0, 3).map(tag => `<span class="text-xs font-medium text-slate-600 bg-slate-50 px-2 py-1 rounded-md border border-slate-200">${tag}</span>`).join('')}
                     </div>
                 `;
                 grid.appendChild(card);
