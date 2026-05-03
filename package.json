@@ -1,0 +1,9 @@
+{
+  "name": "omnilabs-backend",
+  "version": "1.0.0",
+  "description": "Dependencies for Netlify Serverless Functions",
+  "dependencies": {
+    "firebase-admin": "^12.0.0",
+    "stripe": "^14.19.0"
+  }
+}
