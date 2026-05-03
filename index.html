@@ -64,7 +64,8 @@
                 </div>
                 
                 <div class="flex items-center gap-4">
-                    <button id="upgradeBtn" class="hidden bg-gradient-to-r from-primary to-blue-600 text-white px-5 py-2 rounded-xl font-medium hover:shadow-lg hover:-translate-y-0.5 transition-all flex items-center gap-2">
+                    <!-- 'hidden' removed so button shows immediately while auth loads -->
+                    <button id="upgradeBtn" class="bg-gradient-to-r from-primary to-blue-600 text-white px-5 py-2 rounded-xl font-medium hover:shadow-lg hover:-translate-y-0.5 transition-all flex items-center gap-2">
                         <i data-lucide="unlock" class="h-4 w-4"></i> Upgrade
                     </button>
                     <span id="premiumBadge" class="hidden bg-gradient-to-r from-amber-400 to-orange-500 text-white px-4 py-2 rounded-xl font-bold shadow-sm flex items-center gap-2">
@@ -270,18 +271,27 @@
                     const subRef = doc(db, 'artifacts', appId, 'users', user.uid, 'subscription', 'status');
                     onSnapshot(subRef, (snap) => {
                         isPremium = snap.exists() && snap.data().hasPaid === true;
+                        
+                        // Explicitly toggle button based on verified premium status
                         document.getElementById('upgradeBtn').classList.toggle('hidden', isPremium);
                         document.getElementById('premiumBadge').classList.toggle('hidden', !isPremium);
                         filterSims();
                     }, (err) => {
-                        console.log("Database not accessible yet.");
+                        console.log("Database not accessible yet. Defaulting to trial mode.");
+                        document.getElementById('upgradeBtn').classList.remove('hidden');
                         filterSims();
                     });
+                } else {
+                    document.getElementById('upgradeBtn').classList.remove('hidden');
                 }
             });
-            signInAnonymously(auth).catch(e => console.log("Auth failed, check config."));
+            signInAnonymously(auth).catch(e => {
+                console.log("Auth failed. Showing upgrade button as default.");
+                document.getElementById('upgradeBtn').classList.remove('hidden');
+            });
         } else {
-            // If Firebase failed, just render the default view
+            // If Firebase initialization failed, keep the upgrade button visible for the trial experience
+            document.getElementById('upgradeBtn').classList.remove('hidden');
             filterSims();
         }
 
@@ -304,7 +314,7 @@
 
         document.getElementById('processPaymentBtn').onclick = async () => {
             if (!currentUser) {
-                alert("Session not started. Please refresh.");
+                alert("Session not started. Please refresh the page.");
                 return;
             }
             const btn = document.getElementById('processPaymentBtn');
