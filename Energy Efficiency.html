@@ -192,7 +192,7 @@
                     <div 
                         draggable={isDraggable}
                         onDragStart={isDraggable ? (e) => handleDragStart(e, type) : undefined}
-                        className={`h-12 flex items-center justify-center border-2 rounded relative overflow-hidden transition-all duration-300 ${getColors(type)} ${isDraggable ? 'cursor-grab active:cursor-grabbing hover:brightness-110' : ''}`}
+                        className={`h-10 flex items-center justify-center border-2 rounded relative overflow-hidden transition-all duration-300 ${getColors(type)} ${isDraggable ? 'cursor-grab active:cursor-grabbing hover:brightness-110' : ''}`}
                         style={{ width: `${percentage}%` }}
                         title={`${getLabel(type)}: ${value} J`}
                     >
@@ -216,98 +216,98 @@
                 <div 
                     draggable
                     onDragStart={(e) => handleDragStart(e, type)}
-                    className={`px-4 py-2 m-1 rounded-full cursor-grab active:cursor-grabbing border-2 flex items-center gap-2 font-bold ${getColors(type)} hover:scale-105 transition-transform overflow-hidden relative`}
+                    className={`px-3 py-1.5 m-0.5 text-sm rounded-full cursor-grab active:cursor-grabbing border-2 flex items-center gap-1.5 font-bold ${getColors(type)} hover:scale-105 transition-transform overflow-hidden relative`}
                 >
                     <BarEffect type={type} />
-                    <GripHorizontal size={16} className="opacity-70 relative z-10" />
+                    <GripHorizontal size={14} className="opacity-70 relative z-10" />
                     <span className="relative z-10">{getLabel(type)}</span>
                 </div>
             );
 
             return (
-                <div className="min-h-screen p-4 md:p-8">
-                    <div className="max-w-5xl mx-auto space-y-8">
+                <div className="h-screen w-screen overflow-hidden p-2 md:p-4 flex flex-col bg-slate-50">
+                    <div className="max-w-6xl w-full mx-auto flex flex-col h-full gap-3 md:gap-4">
                         
                         {/* HEADER */}
-                        <header className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 text-center relative">
-                            <h1 className="text-3xl font-extrabold text-slate-900 mb-2">Incandescent Bulb Efficiency Modeler</h1>
-                            <p className="text-slate-600 max-w-2xl mx-auto mb-4">
-                                Adjust the values and complete the models to calculate the bulb's efficiency.
-                            </p>
+                        <header className="bg-white p-3 md:px-6 md:py-4 rounded-2xl shadow-sm border border-slate-200 flex justify-between items-center shrink-0">
+                            <div>
+                                <h1 className="text-xl md:text-2xl font-extrabold text-slate-900 leading-tight">Incandescent Bulb Efficiency Modeler</h1>
+                                <p className="text-xs md:text-sm text-slate-600 hidden md:block">
+                                    Adjust values and complete the models to calculate the bulb's efficiency.
+                                </p>
+                            </div>
                             <button 
                                 onClick={startQuiz}
-                                className="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-6 rounded-full transition-colors shadow-md flex items-center gap-2 mx-auto"
+                                className="bg-purple-600 hover:bg-purple-700 text-white font-bold py-1.5 px-4 md:py-2 md:px-6 rounded-full transition-colors shadow-md flex items-center gap-2 text-sm md:text-base whitespace-nowrap shrink-0"
                             >
                                 <BrainCircuit size={18} />
                                 Test Yourself
                             </button>
                         </header>
 
-                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                        <div className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-3 md:gap-4 min-h-0">
                             
                             {/* LEFT COLUMN */}
-                            <div className="lg:col-span-1 space-y-6">
-                                <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-                                    <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
-                                        <span className="bg-slate-800 text-white w-8 h-8 rounded-full flex items-center justify-center text-sm">1</span>
+                            <div className="lg:col-span-1 flex flex-col gap-3 md:gap-4 min-h-0 overflow-y-auto pr-1">
+                                <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 shrink-0">
+                                    <h2 className="text-lg font-bold mb-3 flex items-center gap-2">
+                                        <span className="bg-slate-800 text-white w-6 h-6 rounded-full flex items-center justify-center text-xs">1</span>
                                         Set Energy Values
                                     </h2>
                                     
-                                    <div className="space-y-6">
+                                    <div className="space-y-4">
                                         <div>
-                                            <div className="flex justify-between mb-1">
-                                                <label className="font-semibold text-yellow-700">Useful Energy (Light)</label>
-                                                <span className="font-mono bg-yellow-100 text-yellow-800 px-2 rounded">{useful} Joules</span>
+                                            <div className="flex justify-between mb-0.5">
+                                                <label className="text-sm font-semibold text-yellow-700">Useful (Light)</label>
+                                                <span className="text-sm font-mono bg-yellow-100 text-yellow-800 px-1.5 rounded">{useful} J</span>
                                             </div>
                                             <input 
                                                 type="range" min="1" max="100" value={useful} 
                                                 onChange={(e) => setUseful(parseInt(e.target.value))}
-                                                className="w-full accent-yellow-500 cursor-pointer"
+                                                className="w-full h-1.5 accent-yellow-500 cursor-pointer"
                                             />
-                                            <p className="text-xs text-slate-500 mt-1">Energy converted to actual light.</p>
                                         </div>
 
                                         <div>
-                                            <div className="flex justify-between mb-1">
-                                                <label className="font-semibold text-red-700">Dissipated Energy (Heat)</label>
-                                                <span className="font-mono bg-red-100 text-red-800 px-2 rounded">{dissipated} Joules</span>
+                                            <div className="flex justify-between mb-0.5">
+                                                <label className="text-sm font-semibold text-red-700">Dissipated (Heat)</label>
+                                                <span className="text-sm font-mono bg-red-100 text-red-800 px-1.5 rounded">{dissipated} J</span>
                                             </div>
                                             <input 
                                                 type="range" min="1" max="200" value={dissipated} 
                                                 onChange={(e) => setDissipated(parseInt(e.target.value))}
-                                                className="w-full accent-red-500 cursor-pointer"
+                                                className="w-full h-1.5 accent-red-500 cursor-pointer"
                                             />
-                                            <p className="text-xs text-slate-500 mt-1">Energy wasted as heat to the surroundings.</p>
                                         </div>
 
-                                        <div className="pt-4 border-t border-slate-100">
-                                            <div className="flex justify-between items-center bg-blue-50 p-3 rounded-lg border border-blue-100">
-                                                <span className="font-bold text-blue-900">Total Input:</span>
-                                                <span className="font-mono text-xl text-blue-700 font-bold">{total} Joules</span>
+                                        <div className="pt-3 border-t border-slate-100">
+                                            <div className="flex justify-between items-center bg-blue-50 p-2 rounded-lg border border-blue-100">
+                                                <span className="text-sm font-bold text-blue-900">Total Input:</span>
+                                                <span className="font-mono text-lg text-blue-700 font-bold">{total} J</span>
                                             </div>
                                         </div>
                                     </div>
                                 </div>
 
                                 {/* Energy Output Visualization */}
-                                <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-                                    <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4 text-center">Energy Output</h3>
-                                    <div className="relative w-48 h-48 mx-auto flex items-center justify-center">
+                                <div className="bg-white p-3 rounded-xl shadow-sm border border-slate-200 flex-1 flex flex-col justify-center min-h-[140px]">
+                                    <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 text-center shrink-0">Energy Output</h3>
+                                    <div className="relative flex-1 w-full flex items-center justify-center">
                                         {/* Heat Glow (Red) */}
                                         <div 
                                             className="absolute inset-0 rounded-full bg-red-500 blur-2xl transition-all duration-300 pointer-events-none"
-                                            style={{ opacity: (dissipated / total) * 0.7, transform: `scale(${0.8 + (dissipated / total) * 0.5})` }}
+                                            style={{ opacity: (dissipated / total) * 0.7, transform: `scale(${0.6 + (dissipated / total) * 0.4})` }}
                                         ></div>
 
                                         {/* Bulb SVG */}
-                                        <svg viewBox="0 0 100 100" className="relative z-10 w-28 h-28 drop-shadow-lg overflow-visible">
+                                        <svg viewBox="0 0 100 100" className="relative z-10 w-24 h-24 drop-shadow-md overflow-visible">
                                             {/* Light Rays */}
                                             {Array.from({ length: 12 }).map((_, i) => {
                                                 const angle = (i * 30 * Math.PI) / 180;
                                                 const cx = 50;
                                                 const cy = 38;
                                                 const r1 = 34;
-                                                const rayLength = 50 * (useful / total);
+                                                const rayLength = 40 * (useful / total);
                                                 const r2 = r1 + rayLength;
                                                 
                                                 return (
@@ -315,7 +315,7 @@
                                                         key={`ray-${i}`} 
                                                         x1={cx + r1 * Math.cos(angle)} y1={cy + r1 * Math.sin(angle)} 
                                                         x2={cx + r2 * Math.cos(angle)} y2={cy + r2 * Math.sin(angle)} 
-                                                        stroke="#facc15" strokeWidth="3.5" strokeLinecap="round"
+                                                        stroke="#facc15" strokeWidth="3" strokeLinecap="round"
                                                         style={{ opacity: useful > 0 ? 0.6 + (useful / total) * 0.4 : 0, filter: 'drop-shadow(0px 0px 4px rgba(250,204,21,0.6))' }} 
                                                     />
                                                 );
@@ -328,150 +328,148 @@
                                             <path d="M44 82 L56 82 L52 88 L48 88 Z" fill="#475569" stroke="#475569" strokeWidth="2"/>
                                         </svg>
                                     </div>
-                                    <div className="flex justify-around mt-4 px-2 text-xs font-bold text-slate-500">
-                                        <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-yellow-400 shadow-sm"></span> Light</span>
-                                        <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-red-500 shadow-sm"></span> Heat</span>
+                                    <div className="flex justify-around mt-1 px-2 text-[10px] font-bold text-slate-500 shrink-0">
+                                        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-yellow-400 shadow-sm"></span> Light</span>
+                                        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500 shadow-sm"></span> Heat</span>
                                     </div>
                                 </div>
 
-                                <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-                                    <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-3">Available Concepts</h3>
-                                    <div className="flex flex-wrap gap-2">
+                                <div className="bg-white p-3 rounded-xl shadow-sm border border-slate-200 shrink-0">
+                                    <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Available Concepts</h3>
+                                    <div className="flex flex-wrap gap-1">
                                         <ConceptChip type="useful" />
                                         <ConceptChip type="dissipated" />
                                         <ConceptChip type="total" />
                                     </div>
-                                    <p className="text-xs text-slate-500 mt-3 italic">Drag these chips into the formula builder later.</p>
                                 </div>
                             </div>
 
                             {/* RIGHT COLUMN */}
-                            <div className="lg:col-span-2 space-y-8">
+                            <div className="lg:col-span-2 flex flex-col gap-3 md:gap-4 min-h-0 overflow-y-auto pr-1">
                                 
                                 {/* ACTIVITY 2 */}
-                                <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-                                    <div className="flex justify-between items-start mb-4">
-                                        <h2 className="text-xl font-bold flex items-center gap-2">
-                                            <span className="bg-slate-800 text-white w-8 h-8 rounded-full flex items-center justify-center text-sm">2</span>
+                                <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex flex-col shrink-0 lg:flex-1 min-h-0">
+                                    <div className="flex justify-between items-start mb-2 shrink-0">
+                                        <h2 className="text-lg font-bold flex items-center gap-2">
+                                            <span className="bg-slate-800 text-white w-6 h-6 rounded-full flex items-center justify-center text-xs">2</span>
                                             Build the Bar Model
                                         </h2>
-                                        <button onClick={resetActivity} className="text-slate-400 hover:text-slate-700 flex items-center gap-1 text-sm bg-slate-100 px-3 py-1 rounded-full transition-colors">
-                                            <RefreshCcw size={14} /> Reset
+                                        <button onClick={resetActivity} className="text-slate-400 hover:text-slate-700 flex items-center gap-1 text-xs bg-slate-100 px-2 py-1 rounded-full transition-colors">
+                                            <RefreshCcw size={12} /> Reset
                                         </button>
                                     </div>
-                                    <p className="mb-6 text-slate-600">Drag the Useful and Dissipated bars from the bank below into the empty slot to prove that they equal the Total Energy.</p>
+                                    <p className="mb-3 text-sm text-slate-600 shrink-0">Drag Useful and Dissipated bars below to prove they equal Total Energy.</p>
 
-                                    <div className="mb-2">
-                                        <div className="text-sm font-bold text-blue-800 mb-1">The Total</div>
+                                    <div className="mb-2 shrink-0">
+                                        <div className="text-xs font-bold text-blue-800 mb-0.5">The Total</div>
                                         <ProportionBar type="total" showLabel={true} />
                                     </div>
 
-                                    <div className="mb-8">
-                                        <div className="text-sm font-bold text-slate-600 mb-1 flex items-center justify-between">
+                                    <div className="mb-3 shrink-0">
+                                        <div className="text-xs font-bold text-slate-600 mb-0.5 flex items-center justify-between">
                                             <span>The Parts</span>
-                                            {isCombinationCorrect && <span className="text-green-600 text-xs flex items-center gap-1 font-bold animate-pulse"><CheckCircle2 size={14}/> Models Match!</span>}
+                                            {isCombinationCorrect && <span className="text-green-600 text-[10px] flex items-center gap-1 font-bold animate-pulse"><CheckCircle2 size={12}/> Models Match!</span>}
                                         </div>
                                         
                                         <div 
                                             onDragOver={handleDragOver}
                                             onDrop={handleDropCombination}
-                                            className={`min-h-[3.5rem] w-full border-2 border-dashed rounded flex transition-colors duration-300 ${isCombinationCorrect ? 'border-green-400 bg-green-50/50' : 'border-slate-300 bg-slate-50 hover:bg-slate-100'}`}
+                                            className={`h-10 w-full border-2 border-dashed rounded flex transition-colors duration-300 ${isCombinationCorrect ? 'border-green-400 bg-green-50/50' : 'border-slate-300 bg-slate-50 hover:bg-slate-100'}`}
                                         >
                                             {combinationZone.length === 0 && (
-                                                <div className="w-full h-12 flex items-center justify-center text-slate-400 italic text-sm">Drag bars here...</div>
+                                                <div className="w-full h-full flex items-center justify-center text-slate-400 italic text-xs">Drag bars here...</div>
                                             )}
                                             {combinationZone.map((type, index) => (
-                                                <div key={index} style={{ width: `${(getValue(type)/total)*100}%` }} className="transition-all duration-300">
-                                                    <div className={`h-12 w-full flex items-center justify-center border-y-2 border-r-2 first:border-l-2 shadow-inner overflow-hidden relative ${getColors(type)}`}>
+                                                <div key={index} style={{ width: `${(getValue(type)/total)*100}%` }} className="transition-all duration-300 h-full">
+                                                    <div className={`h-full w-full flex items-center justify-center border-y-2 border-r-2 first:border-l-2 shadow-inner overflow-hidden relative ${getColors(type)}`}>
                                                         <BarEffect type={type} />
-                                                        <span className="font-semibold text-xs whitespace-nowrap px-1 z-10 truncate relative drop-shadow-md text-white">{getLabel(type)}</span>
+                                                        <span className="font-semibold text-[10px] sm:text-xs whitespace-nowrap px-1 z-10 truncate relative drop-shadow-md text-white">{getLabel(type)}</span>
                                                     </div>
                                                 </div>
                                             ))}
                                         </div>
                                     </div>
 
-                                    <div className="bg-slate-100 p-4 rounded-xl border border-slate-200">
-                                        <p className="text-xs font-bold text-slate-500 uppercase mb-3">Drag these to build the model:</p>
-                                        <div className="space-y-3">
+                                    <div className="bg-slate-100 p-3 rounded-lg border border-slate-200 mt-auto shrink-0">
+                                        <p className="text-[10px] font-bold text-slate-500 uppercase mb-2">Drag these to build the model:</p>
+                                        <div className="space-y-2">
                                             {!combinationZone.includes('useful') && <ProportionBar type="useful" isDraggable={true} />}
                                             {!combinationZone.includes('dissipated') && <ProportionBar type="dissipated" isDraggable={true} />}
-                                            {combinationZone.length === 2 && <div className="text-center text-slate-500 text-sm py-4 italic">All parts placed.</div>}
+                                            {combinationZone.length === 2 && <div className="text-center text-slate-500 text-xs py-1 italic">All parts placed.</div>}
                                         </div>
                                     </div>
                                 </div>
 
                                 {/* ACTIVITY 3 */}
-                                <div className={`p-6 rounded-2xl shadow-sm border transition-all duration-500 ${isCombinationCorrect ? 'bg-white border-slate-200' : 'bg-slate-50 border-slate-200 opacity-70 grayscale-[30%]'}`}>
-                                    <div className="flex justify-between items-start mb-4">
-                                        <h2 className="text-xl font-bold flex items-center gap-2">
-                                            <span className="bg-slate-800 text-white w-8 h-8 rounded-full flex items-center justify-center text-sm">3</span>
+                                <div className={`p-4 rounded-xl shadow-sm border transition-all duration-500 flex flex-col shrink-0 lg:flex-1 min-h-0 ${isCombinationCorrect ? 'bg-white border-slate-200' : 'bg-slate-50 border-slate-200 opacity-70 grayscale-[30%]'}`}>
+                                    <div className="flex justify-between items-start mb-2 shrink-0">
+                                        <h2 className="text-lg font-bold flex items-center gap-2">
+                                            <span className="bg-slate-800 text-white w-6 h-6 rounded-full flex items-center justify-center text-xs">3</span>
                                             Calculate Efficiency
                                         </h2>
                                         {!isCombinationCorrect && (
-                                            <span className="text-xs text-amber-600 bg-amber-50 px-2 py-1 rounded-md border border-amber-200 flex items-center gap-1">
-                                                <AlertCircle size={14}/> Complete step 2 first
+                                            <span className="text-[10px] text-amber-600 bg-amber-50 px-2 py-0.5 rounded border border-amber-200 flex items-center gap-1">
+                                                <AlertCircle size={12}/> Complete step 2
                                             </span>
                                         )}
                                     </div>
-                                    <p className="mb-6 text-slate-600">Drag the correct concept chips from the left panel into the formula to calculate the energy efficiency percentage.</p>
+                                    <p className="mb-2 text-sm text-slate-600 shrink-0">Drag correct chips into the formula to calculate efficiency.</p>
 
-                                    <div className={`flex flex-wrap items-center justify-center gap-x-4 gap-y-6 py-8 px-2 sm:px-4 bg-slate-50 rounded-xl border-2 ${isFormulaCorrect ? 'border-green-300 bg-green-50/30' : 'border-slate-100'}`}>
+                                    <div className={`flex flex-wrap items-center justify-center gap-x-3 gap-y-3 py-3 px-2 sm:px-4 bg-slate-50 rounded-xl border-2 flex-1 ${isFormulaCorrect ? 'border-green-300 bg-green-50/30' : 'border-slate-100'}`}>
                                         
-                                        <div className="text-xl sm:text-2xl font-bold text-slate-700 whitespace-nowrap">Efficiency =</div>
+                                        <div className="text-base sm:text-lg font-bold text-slate-700 whitespace-nowrap">Efficiency =</div>
 
-                                        <div className="flex flex-col items-center gap-2">
+                                        <div className="flex flex-col items-center gap-1">
                                             <div 
                                                 onDragOver={handleDragOver}
                                                 onDrop={(e) => isCombinationCorrect && handleDropFormula(e, 'numerator')}
-                                                className={`w-48 sm:w-56 h-14 border-2 border-dashed rounded-xl flex items-center justify-center transition-colors ${numerator ? '' : 'border-slate-300 bg-white hover:bg-slate-100'} ${!isCombinationCorrect ? 'cursor-not-allowed' : ''}`}
+                                                className={`w-36 sm:w-44 h-10 border-2 border-dashed rounded-lg flex items-center justify-center transition-colors ${numerator ? '' : 'border-slate-300 bg-white hover:bg-slate-100'} ${!isCombinationCorrect ? 'cursor-not-allowed' : ''}`}
                                             >
                                                 {numerator ? (
-                                                    <div className={`w-full h-full flex items-center justify-center rounded-lg font-bold text-xs sm:text-sm shadow-sm text-center px-1 leading-tight relative overflow-hidden ${getColors(numerator)}`}>
+                                                    <div className={`w-full h-full flex items-center justify-center rounded font-bold text-[10px] sm:text-xs shadow-sm text-center px-1 leading-tight relative overflow-hidden ${getColors(numerator)}`}>
                                                         <BarEffect type={numerator} />
                                                         <span className="relative z-10 drop-shadow-md">{getLabel(numerator)} ({getValue(numerator)}J)</span>
                                                     </div>
                                                 ) : (
-                                                    <span className="text-slate-400 text-xs sm:text-sm">Drop Numerator Here</span>
+                                                    <span className="text-slate-400 text-[10px] sm:text-xs">Drop Numerator</span>
                                                 )}
                                             </div>
 
-                                            <div className="w-full h-1 bg-slate-800 rounded-full"></div>
+                                            <div className="w-full h-0.5 bg-slate-800 rounded-full"></div>
 
                                             <div 
                                                 onDragOver={handleDragOver}
                                                 onDrop={(e) => isCombinationCorrect && handleDropFormula(e, 'denominator')}
-                                                className={`w-48 sm:w-56 h-14 border-2 border-dashed rounded-xl flex items-center justify-center transition-colors ${denominator ? '' : 'border-slate-300 bg-white hover:bg-slate-100'} ${!isCombinationCorrect ? 'cursor-not-allowed' : ''}`}
+                                                className={`w-36 sm:w-44 h-10 border-2 border-dashed rounded-lg flex items-center justify-center transition-colors ${denominator ? '' : 'border-slate-300 bg-white hover:bg-slate-100'} ${!isCombinationCorrect ? 'cursor-not-allowed' : ''}`}
                                             >
                                                 {denominator ? (
-                                                    <div className={`w-full h-full flex items-center justify-center rounded-lg font-bold text-xs sm:text-sm shadow-sm text-center px-1 leading-tight relative overflow-hidden ${getColors(denominator)}`}>
+                                                    <div className={`w-full h-full flex items-center justify-center rounded font-bold text-[10px] sm:text-xs shadow-sm text-center px-1 leading-tight relative overflow-hidden ${getColors(denominator)}`}>
                                                         <BarEffect type={denominator} />
                                                         <span className="relative z-10 drop-shadow-md">{getLabel(denominator)} ({getValue(denominator)}J)</span>
                                                     </div>
                                                 ) : (
-                                                    <span className="text-slate-400 text-xs sm:text-sm">Drop Denominator Here</span>
+                                                    <span className="text-slate-400 text-[10px] sm:text-xs">Drop Denominator</span>
                                                 )}
                                             </div>
                                         </div>
 
-                                        <div className="text-xl sm:text-2xl font-bold text-slate-700 whitespace-nowrap">x 100%</div>
+                                        <div className="text-base sm:text-lg font-bold text-slate-700 whitespace-nowrap">x 100%</div>
 
-                                        <div className="flex items-center gap-3">
-                                            <div className="text-2xl sm:text-3xl font-bold text-slate-400">=</div>
-                                            <div className={`w-24 h-16 sm:w-32 sm:h-20 rounded-2xl flex items-center justify-center text-xl sm:text-3xl font-black shadow-inner border-2 transition-all duration-500 ${isFormulaCorrect ? 'bg-green-500 border-green-600 text-white scale-110' : 'bg-slate-100 border-slate-200 text-slate-300'}`}>
+                                        <div className="flex items-center gap-2">
+                                            <div className="text-lg sm:text-xl font-bold text-slate-400">=</div>
+                                            <div className={`w-16 h-12 sm:w-20 sm:h-14 rounded-xl flex items-center justify-center text-sm sm:text-lg font-black shadow-inner border-2 transition-all duration-500 ${isFormulaCorrect ? 'bg-green-500 border-green-600 text-white scale-110' : 'bg-slate-100 border-slate-200 text-slate-300'}`}>
                                                 {isFormulaCorrect ? `${((useful / total) * 100).toFixed(1)}%` : '?'}
                                             </div>
                                         </div>
                                     </div>
 
-                                    <div className="mt-4 min-h-[2rem] text-center">
+                                    <div className="mt-2 min-h-[1.5rem] text-center shrink-0 flex items-center justify-center">
                                         {numerator && denominator && !isFormulaCorrect && (
-                                            <p className="text-red-500 font-semibold animate-pulse">Not quite right. Efficiency measures how much of the Total energy is turned into Useful energy.</p>
+                                            <p className="text-red-500 text-[10px] sm:text-xs font-semibold animate-pulse">Efficiency is Useful energy divided by Total energy.</p>
                                         )}
                                         {isFormulaCorrect && (
-                                            <div className="text-green-600 font-bold flex flex-col items-center gap-1">
-                                                <span className="flex items-center gap-2 text-lg"><CheckCircle2 /> Calculation Correct!</span>
-                                                <span className="text-sm font-normal text-slate-600 text-center max-w-lg">Notice how low the efficiency is when heat (dissipated energy) is high. This is why incandescent bulbs are being replaced by LEDs!</span>
+                                            <div className="text-green-600 font-bold flex flex-col items-center">
+                                                <span className="flex items-center gap-1 text-xs sm:text-sm"><CheckCircle2 size={14}/> Correct!</span>
                                             </div>
                                         )}
                                     </div>
