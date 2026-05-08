@@ -8,8 +8,6 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
-    <!-- Stripe.js - Required for secure redirection -->
-    <script src="https://js.stripe.com/v3/"></script>
     
     <script>
         tailwind.config = {
@@ -38,7 +36,6 @@
         }
         .modal-animate { transition: all 0.3s ease-out; }
         
-        /* Loading skeleton effect */
         .skeleton {
             background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
             background-size: 200% 100%;
@@ -62,16 +59,6 @@
                     </div>
                     <span class="font-bold text-xl text-slate-900 tracking-tight">OmniLabs</span>
                 </div>
-                
-                <div class="flex items-center gap-4">
-                    <!-- 'hidden' removed so button shows immediately while auth loads -->
-                    <button id="upgradeBtn" class="bg-gradient-to-r from-primary to-blue-600 text-white px-5 py-2 rounded-xl font-medium hover:shadow-lg hover:-translate-y-0.5 transition-all flex items-center gap-2">
-                        <i data-lucide="unlock" class="h-4 w-4"></i> Upgrade
-                    </button>
-                    <span id="premiumBadge" class="hidden bg-gradient-to-r from-amber-400 to-orange-500 text-white px-4 py-2 rounded-xl font-bold shadow-sm flex items-center gap-2">
-                        <i data-lucide="crown" class="h-4 w-4"></i> Premium
-                    </span>
-                </div>
             </div>
         </div>
     </nav>
@@ -94,7 +81,6 @@
 
         <!-- Grid -->
         <div id="simulationsGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            <!-- Initial skeletons -->
             <div class="skeleton h-48 rounded-2xl"></div>
             <div class="skeleton h-48 rounded-2xl"></div>
             <div class="skeleton h-48 rounded-2xl"></div>
@@ -113,45 +99,14 @@
     <footer class="border-t border-slate-200 bg-white py-8 mt-auto">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row justify-between items-center gap-4 text-sm text-slate-400">
             <p>&copy; <span id="year"></span> OmniLabs. All rights reserved.</p>
-            <div class="flex gap-6">
-                <p>Securely powered by Stripe & Firebase</p>
-            </div>
         </div>
     </footer>
 
-    <!-- Upgrade Modal -->
-    <div id="upgradeModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4 opacity-0 modal-animate">
-        <div class="bg-white rounded-3xl shadow-2xl p-8 max-w-md w-full relative transform scale-95 modal-animate">
-            <button id="closeModalBtn" class="absolute top-5 right-5 text-slate-400 hover:text-slate-700 bg-slate-100 hover:bg-slate-200 p-2 rounded-full transition-colors">
-                <i data-lucide="x" class="h-5 w-5"></i>
-            </button>
-            <div class="text-center mt-4">
-                <div class="bg-amber-100 text-amber-600 rounded-2xl p-4 inline-block mb-6">
-                    <i data-lucide="crown" class="h-10 w-10"></i>
-                </div>
-                <h2 class="text-3xl font-extrabold text-slate-900 mb-2">Unlock Everything</h2>
-                <p class="text-slate-600 mb-8 leading-relaxed">Your free trial includes the first 6 simulations. Get lifetime access to all <strong>46 simulations</strong> for a small one-time fee.</p>
-                
-                <button id="processPaymentBtn" class="w-full bg-gradient-to-r from-amber-500 to-orange-600 text-white font-bold py-4 px-6 rounded-2xl shadow-lg hover:shadow-amber-500/20 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2 text-lg">
-                    <span>Unlock for $9.99</span>
-                </button>
-                
-                <p class="text-xs text-slate-400 mt-5 flex items-center justify-center gap-1">
-                    <i data-lucide="lock" class="h-3 w-3"></i> Secure checkout via Stripe
-                </p>
-            </div>
-        </div>
-    </div>
-
     <!-- Logic -->
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
+    <script>
         document.getElementById('year').textContent = new Date().getFullYear();
 
-        // 1. FALLBACK DATA (Prevents blank page if GitHub API fails)
+        // 1. FALLBACK DATA
         const initialFiles = [
             "Acid-Base Identification Labs.html", "Balancing Chemical Equations.html", "Blood Compatibility.html",
             "Blood Typing Lab.html", "Bohn-Rutherford Builder.html", "Burning Iron Wool.html", "Cell Division.html",
@@ -165,31 +120,14 @@
             "Separation Techniques Lab.html", "Solubility.html", "States of Matter.html", "Technical Drawings.html",
             "Thermal Expansion.html", "Tropisms.html", "Watersheds.html", "Waves.html"
         ];
-
-        // 2. CONFIG
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : { apiKey: "none" };
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        const STRIPE_PUBLIC_KEY = 'pk_live_51TLZnsEE3EzFy2xVx9Iur8TZ4HMrCnpKch1Ynka8uiCSAP9omAT8WFQOfKIijAEcUDDl3iWbIKwhyXqfrHcOjPem00CykiicKL'; 
-
-        // Initialize Firebase safely
-        let db, auth;
-        try {
-            const app = initializeApp(firebaseConfig);
-            auth = getAuth(app);
-            db = getFirestore(app);
-        } catch(e) { console.warn("Firebase config not loaded yet."); }
-
-        let currentUser = null;
-        let isPremium = false;
         
-        // Initial set based on fallback
         let allSimulations = initialFiles.map((name, index) => ({
             id: index,
             title: name.replace('.html', ''),
             link: name
         }));
 
-        // 3. METADATA HELPERS
+        // 2. METADATA HELPERS
         const getIcon = (t) => {
             t = t.toLowerCase();
             if (t.includes('blood') || t.includes('heart')) return 'heart';
@@ -213,7 +151,7 @@
             return tags;
         };
 
-        // 4. CORE RENDERING
+        // 3. CORE RENDERING
         const render = (data) => {
             const grid = document.getElementById('simulationsGrid');
             const empty = document.getElementById('emptyState');
@@ -229,21 +167,17 @@
             empty.classList.add('hidden');
 
             data.forEach((sim) => {
-                const locked = !isPremium && sim.id >= 6;
-                const card = document.createElement(locked ? 'div' : 'a');
-                if (!locked) card.href = sim.link;
+                const card = document.createElement('a');
+                card.href = sim.link;
                 
-                card.className = `block bg-white border border-slate-200 rounded-2xl p-6 group relative overflow-hidden transition-all shadow-sm ${locked ? 'cursor-pointer hover:border-amber-200' : 'card-hover cursor-pointer hover:shadow-md'}`;
-                
-                if (locked) card.onclick = openModal;
+                card.className = `block bg-white border border-slate-200 rounded-2xl p-6 group relative overflow-hidden transition-all shadow-sm card-hover cursor-pointer hover:shadow-md`;
 
                 card.innerHTML = `
-                    ${locked ? `<div class="absolute inset-0 bg-white/40 backdrop-blur-[1.5px] z-10 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"><div class="bg-amber-500 text-white px-4 py-2 rounded-xl font-bold text-sm shadow-lg flex items-center gap-2"><i data-lucide="lock" class="h-4 w-4"></i> Unlock Access</div></div>` : ''}
                     <div class="flex items-start justify-between mb-4">
-                        <div class="p-3 ${locked ? 'bg-slate-50 text-slate-400' : 'bg-blue-50 text-primary'} rounded-xl border border-slate-100">
+                        <div class="p-3 bg-blue-50 text-primary rounded-xl border border-slate-100">
                             <i data-lucide="${getIcon(sim.title)}" class="h-6 w-6"></i>
                         </div>
-                        <i data-lucide="${locked ? 'lock' : 'arrow-up-right'}" class="h-5 w-5 ${locked ? 'text-amber-400' : 'text-slate-300 group-hover:text-primary'} transition-colors"></i>
+                        <i data-lucide="arrow-up-right" class="h-5 w-5 text-slate-300 group-hover:text-primary transition-colors"></i>
                     </div>
                     <h2 class="text-lg font-bold text-slate-800 mb-1 group-hover:text-primary transition-colors">${sim.title}</h2>
                     <div class="flex flex-wrap gap-2 mt-3">
@@ -263,87 +197,7 @@
 
         document.getElementById('searchInput').oninput = filterSims;
 
-        // 5. AUTHENTICATION & REAL-TIME SYNC
-        if (auth && db) {
-            onAuthStateChanged(auth, (user) => {
-                currentUser = user;
-                if (user) {
-                    const subRef = doc(db, 'artifacts', appId, 'users', user.uid, 'subscription', 'status');
-                    onSnapshot(subRef, (snap) => {
-                        isPremium = snap.exists() && snap.data().hasPaid === true;
-                        
-                        // Explicitly toggle button based on verified premium status
-                        document.getElementById('upgradeBtn').classList.toggle('hidden', isPremium);
-                        document.getElementById('premiumBadge').classList.toggle('hidden', !isPremium);
-                        filterSims();
-                    }, (err) => {
-                        console.log("Database not accessible yet. Defaulting to trial mode.");
-                        document.getElementById('upgradeBtn').classList.remove('hidden');
-                        filterSims();
-                    });
-                } else {
-                    document.getElementById('upgradeBtn').classList.remove('hidden');
-                }
-            });
-            signInAnonymously(auth).catch(e => {
-                console.log("Auth failed. Showing upgrade button as default.");
-                document.getElementById('upgradeBtn').classList.remove('hidden');
-            });
-        } else {
-            // If Firebase initialization failed, keep the upgrade button visible for the trial experience
-            document.getElementById('upgradeBtn').classList.remove('hidden');
-            filterSims();
-        }
-
-        // 6. MODAL & REDIRECT TO STRIPE
-        const modal = document.getElementById('upgradeModal');
-        function openModal() {
-            modal.classList.remove('hidden');
-            setTimeout(() => { 
-                modal.classList.add('opacity-100'); 
-                modal.firstElementChild.classList.replace('scale-95', 'scale-100'); 
-            }, 10);
-        }
-        function closeModal() {
-            modal.classList.remove('opacity-100'); 
-            modal.firstElementChild.classList.replace('scale-100', 'scale-95');
-            setTimeout(() => modal.classList.add('hidden'), 300);
-        }
-        document.getElementById('upgradeBtn').onclick = openModal;
-        document.getElementById('closeModalBtn').onclick = closeModal;
-
-        document.getElementById('processPaymentBtn').onclick = async () => {
-            if (!currentUser) {
-                alert("Session not started. Please refresh the page.");
-                return;
-            }
-            const btn = document.getElementById('processPaymentBtn');
-            btn.disabled = true;
-            btn.innerHTML = '<i data-lucide="loader-2" class="h-5 w-5 animate-spin"></i> Redirecting...';
-            lucide.createIcons();
-
-            try {
-                const stripe = Stripe(STRIPE_PUBLIC_KEY);
-                const response = await fetch('/.netlify/functions/create-checkout', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ uid: currentUser.uid })
-                });
-                
-                const session = await response.json();
-                if (session.id) {
-                    await stripe.redirectToCheckout({ sessionId: session.id });
-                } else {
-                    throw new Error(session.error || 'Checkout session failed');
-                }
-            } catch (err) {
-                console.error(err);
-                btn.innerHTML = 'Error. Try again?';
-                btn.disabled = false;
-            }
-        };
-
-        // 7. GITHUB DATA FETCH (Updates the fallback list if successful)
+        // 4. GITHUB DATA FETCH
         const fetchSims = async () => {
             try {
                 const res = await fetch(`https://api.github.com/repos/altarac/sims/contents/`);
@@ -358,7 +212,6 @@
                     }));
                 filterSims();
             } catch (e) { 
-                console.log("GitHub API limited. Using fallback list.");
                 filterSims(); 
             }
         };
