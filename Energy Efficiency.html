@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Incandescent Bulb Efficiency Modeler</title>
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- React & ReactDOM -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <!-- Babel to compile JSX in the browser -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans selection:bg-blue-200">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        // --- INLINE ICONS ---
+        const RefreshCcw = ({ size = 24, className = "" }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+        );
+        const CheckCircle2 = ({ size = 24, className = "" }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+        );
+        const AlertCircle = ({ size = 24, className = "" }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        );
+        const GripHorizontal = ({ size = 24, className = "" }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="9" r="1"/><circle cx="19" cy="9" r="1"/><circle cx="5" cy="9" r="1"/><circle cx="12" cy="15" r="1"/><circle cx="19" cy="15" r="1"/><circle cx="5" cy="15" r="1"/></svg>
+        );
+        const BrainCircuit = ({ size = 24, className = "" }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M12 4.5a2.5 2.5 0 0 0-4.96-.46 2.5 2.5 0 0 0-1.98 3 2.5 2.5 0 0 0-1.32 4.24 3 3 0 0 0 .34 5.58 2.5 2.5 0 0 0 2.96 3.08 2.5 2.5 0 0 0 4.91.05L12 20V4.5Z"/><path d="M16 8V5c0-1.1.9-2 2-2"/><path d="M12 13h4"/><path d="M12 18h6a2 2 0 0 1 2 2v1"/><path d="M12 8h8"/><circle cx="16" cy="13" r="2"/><circle cx="20" cy="8" r="2"/></svg>
+        );
+        const XCircle = ({ size = 24, className = "" }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/></svg>
+        );
+        const ArrowRight = ({ size = 24, className = "" }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+        );
+
+        const App = () => {
+            // --- STATE ---
+            const [useful, setUseful] = useState(30);
+            const [dissipated, setDissipated] = useState(70);
+            const total = useful + dissipated;
+
+            const [combinationZone, setCombinationZone] = useState([]); 
+            const [isCombinationCorrect, setIsCombinationCorrect] = useState(false);
+
+            const [numerator, setNumerator] = useState(null);
+            const [denominator, setDenominator] = useState(null);
+            const [isFormulaCorrect, setIsFormulaCorrect] = useState(false);
+
+            // --- QUIZ STATE ---
+            const SCENARIOS = [
+                { name: "LED Light Bulb", useful: 7, dissipated: 1, desc: "An LED bulb produces 7J of light energy and dissipates 1J of heat energy.", hint: "Find the total energy first by adding the useful and dissipated energy together." },
+                { name: "Electric Motor", useful: 125, dissipated: 40, desc: "An electric motor uses energy to spin. It outputs 125J of kinetic energy and loses 40J as heat due to friction.", hint: "Find the total energy first by adding the useful and dissipated energy together." },
+                { name: "Gaming Console", useful: 85, dissipated: 115, desc: "A gaming console draws 200J of total input energy from the outlet. It wastes 115J of this energy as heat.", hint: "Find the useful energy first! Subtract the wasted heat from the total input." },
+                { name: "Hair Dryer", useful: 1100, dissipated: 400, desc: "A hair dryer uses a total of 1500J of electrical energy. It dissipates 400J as heat to its casing and sound, converting the rest to useful energy.", hint: "Find the useful energy first! Subtract the dissipated heat from the total input." },
+                { name: "Efficient Washing Machine", useful: 340, dissipated: 180, desc: "A washing machine transforms electrical energy into 340J of useful kinetic energy, while 180J is dissipated as heat and sound.", hint: "Find the total energy first by adding the useful and dissipated energy together." },
+                { name: "Electric Heater", useful: 950, dissipated: 50, desc: "An electric heater consumes 1000J of total energy, successfully converting 950J of it into useful thermal energy for the room.", hint: "Read carefully! You are already given the Useful Energy and the Total Energy. You don't need to add or subtract anything before using the formula." }
+            ];
+
+            const [quizActive, setQuizActive] = useState(false);
+            const [currentScenario, setCurrentScenario] = useState(null);
+            const [userAnswer, setUserAnswer] = useState('');
+            const [quizFeedback, setQuizFeedback] = useState(null);
+
+            const startQuiz = () => {
+                setQuizActive(true);
+                pickRandomScenario();
+            };
+
+            const pickRandomScenario = () => {
+                const randomIndex = Math.floor(Math.random() * SCENARIOS.length);
+                setCurrentScenario(SCENARIOS[randomIndex]);
+                setUserAnswer('');
+                setQuizFeedback(null);
+            };
+
+            const checkQuizAnswer = () => {
+                if (!currentScenario || userAnswer === '') return;
+                const totalEnergy = currentScenario.useful + currentScenario.dissipated;
+                const correctEff = ((currentScenario.useful / totalEnergy) * 100).toFixed(1);
+                const parsedUserAnswer = parseFloat(userAnswer).toFixed(1);
+
+                if (parsedUserAnswer === correctEff) {
+                    setQuizFeedback('correct');
+                } else {
+                    setQuizFeedback('incorrect');
+                }
+            };
+
+            // --- LOGIC ---
+            useEffect(() => {
+                setIsCombinationCorrect(combinationZone.includes('useful') && combinationZone.includes('dissipated'));
+            }, [combinationZone]);
+
+            useEffect(() => {
+                setIsFormulaCorrect(numerator === 'useful' && denominator === 'total');
+            }, [numerator, denominator]);
+
+            const handleDragStart = (e, itemType) => {
+                e.dataTransfer.setData('itemType', itemType);
+                e.dataTransfer.effectAllowed = 'copy';
+            };
+
+            const handleDragOver = (e) => {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'copy';
+            };
+
+            const handleDropCombination = (e) => {
+                e.preventDefault();
+                const itemType = e.dataTransfer.getData('itemType');
+                if ((itemType === 'useful' || itemType === 'dissipated') && !combinationZone.includes(itemType)) {
+                    setCombinationZone([...combinationZone, itemType]);
+                }
+            };
+
+            const handleDropFormula = (e, slot) => {
+                e.preventDefault();
+                const itemType = e.dataTransfer.getData('itemType');
+                if (slot === 'numerator') setNumerator(itemType);
+                if (slot === 'denominator') setDenominator(itemType);
+            };
+
+            const resetActivity = () => {
+                setCombinationZone([]);
+                setNumerator(null);
+                setDenominator(null);
+            };
+
+            // --- HELPER COMPONENTS ---
+            const getColors = (type) => {
+                switch (type) {
+                case 'useful': return 'bg-yellow-400 border-yellow-500 text-yellow-900 shadow-[0_0_15px_rgba(250,204,21,0.4)]';
+                case 'dissipated': return 'bg-red-500 border-red-600 text-red-50 shadow-[0_0_15px_rgba(239,68,68,0.4)]';
+                case 'total': return 'bg-blue-600 border-blue-700 text-blue-50';
+                default: return 'bg-gray-200 border-gray-300 text-gray-700';
+                }
+            };
+
+            const getLabel = (type) => {
+                switch (type) {
+                case 'useful': return 'Useful Energy (Light)';
+                case 'dissipated': return 'Dissipated Energy (Heat)';
+                case 'total': return 'Total Input Energy';
+                default: return 'Unknown';
+                }
+            };
+
+            const getValue = (type) => {
+                switch (type) {
+                case 'useful': return useful;
+                case 'dissipated': return dissipated;
+                case 'total': return total;
+                default: return 0;
+                }
+            };
+
+            const BarEffect = ({ type }) => {
+                if (type === 'useful') {
+                    return (
+                        <div 
+                        className="absolute inset-0 opacity-50 mix-blend-screen pointer-events-none"
+                        style={{ backgroundImage: 'repeating-conic-gradient(from 0deg at -10% 50%, transparent 0deg 5deg, rgba(255,255,255,0.8) 5deg 10deg)' }}
+                        ></div>
+                    );
+                }
+                if (type === 'dissipated') {
+                    return (
+                        <div className="absolute inset-0 pointer-events-none mix-blend-overlay opacity-90 flex items-center justify-around overflow-hidden">
+                        <div className="w-24 h-24 bg-orange-400 blur-xl rounded-full scale-150 transform -translate-y-4"></div>
+                        <div className="w-32 h-32 bg-red-800 blur-2xl rounded-full scale-150 transform translate-y-4"></div>
+                        <div className="w-20 h-20 bg-orange-300 blur-xl rounded-full scale-150"></div>
+                        <div className="w-24 h-24 bg-red-900 blur-2xl rounded-full scale-150 transform -translate-y-2"></div>
+                        </div>
+                    );
+                }
+                return null;
+            };
+
+            const ProportionBar = ({ type, isDraggable = false, showLabel = true }) => {
+                const value = getValue(type);
+                const percentage = (value / total) * 100;
+                
+                return (
+                    <div 
+                        draggable={isDraggable}
+                        onDragStart={isDraggable ? (e) => handleDragStart(e, type) : undefined}
+                        className={`h-12 flex items-center justify-center border-2 rounded relative overflow-hidden transition-all duration-300 ${getColors(type)} ${isDraggable ? 'cursor-grab active:cursor-grabbing hover:brightness-110' : ''}`}
+                        style={{ width: `${percentage}%` }}
+                        title={`${getLabel(type)}: ${value} J`}
+                    >
+                        <BarEffect type={type} />
+                        {isDraggable && <GripHorizontal className="absolute left-2 opacity-50 z-10" size={16} />}
+                        {showLabel && percentage > 15 && (
+                        <span className="font-semibold text-sm whitespace-nowrap px-2 z-10 truncate drop-shadow-md relative">
+                            {getLabel(type)} ({value}J)
+                        </span>
+                        )}
+                        {showLabel && percentage <= 15 && percentage > 5 && (
+                        <span className="font-semibold text-xs whitespace-nowrap px-1 z-10 truncate drop-shadow-md relative">
+                            {value}J
+                        </span>
+                        )}
+                    </div>
+                );
+            };
+
+            const ConceptChip = ({ type }) => (
+                <div 
+                    draggable
+                    onDragStart={(e) => handleDragStart(e, type)}
+                    className={`px-4 py-2 m-1 rounded-full cursor-grab active:cursor-grabbing border-2 flex items-center gap-2 font-bold ${getColors(type)} hover:scale-105 transition-transform overflow-hidden relative`}
+                >
+                    <BarEffect type={type} />
+                    <GripHorizontal size={16} className="opacity-70 relative z-10" />
+                    <span className="relative z-10">{getLabel(type)}</span>
+                </div>
+            );
+
+            return (
+                <div className="min-h-screen p-4 md:p-8">
+                    <div className="max-w-5xl mx-auto space-y-8">
+                        
+                        {/* HEADER */}
+                        <header className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 text-center relative">
+                            <h1 className="text-3xl font-extrabold text-slate-900 mb-2">Incandescent Bulb Efficiency Modeler</h1>
+                            <p className="text-slate-600 max-w-2xl mx-auto mb-4">
+                                Adjust the values and complete the models to calculate the bulb's efficiency.
+                            </p>
+                            <button 
+                                onClick={startQuiz}
+                                className="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-6 rounded-full transition-colors shadow-md flex items-center gap-2 mx-auto"
+                            >
+                                <BrainCircuit size={18} />
+                                Test Yourself
+                            </button>
+                        </header>
+
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                            
+                            {/* LEFT COLUMN */}
+                            <div className="lg:col-span-1 space-y-6">
+                                <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                                    <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
+                                        <span className="bg-slate-800 text-white w-8 h-8 rounded-full flex items-center justify-center text-sm">1</span>
+                                        Set Energy Values
+                                    </h2>
+                                    
+                                    <div className="space-y-6">
+                                        <div>
+                                            <div className="flex justify-between mb-1">
+                                                <label className="font-semibold text-yellow-700">Useful Energy (Light)</label>
+                                                <span className="font-mono bg-yellow-100 text-yellow-800 px-2 rounded">{useful} Joules</span>
+                                            </div>
+                                            <input 
+                                                type="range" min="1" max="100" value={useful} 
+                                                onChange={(e) => setUseful(parseInt(e.target.value))}
+                                                className="w-full accent-yellow-500 cursor-pointer"
+                                            />
+                                            <p className="text-xs text-slate-500 mt-1">Energy converted to actual light.</p>
+                                        </div>
+
+                                        <div>
+                                            <div className="flex justify-between mb-1">
+                                                <label className="font-semibold text-red-700">Dissipated Energy (Heat)</label>
+                                                <span className="font-mono bg-red-100 text-red-800 px-2 rounded">{dissipated} Joules</span>
+                                            </div>
+                                            <input 
+                                                type="range" min="1" max="200" value={dissipated} 
+                                                onChange={(e) => setDissipated(parseInt(e.target.value))}
+                                                className="w-full accent-red-500 cursor-pointer"
+                                            />
+                                            <p className="text-xs text-slate-500 mt-1">Energy wasted as heat to the surroundings.</p>
+                                        </div>
+
+                                        <div className="pt-4 border-t border-slate-100">
+                                            <div className="flex justify-between items-center bg-blue-50 p-3 rounded-lg border border-blue-100">
+                                                <span className="font-bold text-blue-900">Total Input:</span>
+                                                <span className="font-mono text-xl text-blue-700 font-bold">{total} Joules</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Energy Output Visualization */}
+                                <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                                    <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4 text-center">Energy Output</h3>
+                                    <div className="relative w-48 h-48 mx-auto flex items-center justify-center">
+                                        {/* Heat Glow (Red) */}
+                                        <div 
+                                            className="absolute inset-0 rounded-full bg-red-500 blur-2xl transition-all duration-300 pointer-events-none"
+                                            style={{ opacity: (dissipated / total) * 0.7, transform: `scale(${0.8 + (dissipated / total) * 0.5})` }}
+                                        ></div>
+
+                                        {/* Bulb SVG */}
+                                        <svg viewBox="0 0 100 100" className="relative z-10 w-28 h-28 drop-shadow-lg overflow-visible">
+                                            {/* Light Rays */}
+                                            {Array.from({ length: 12 }).map((_, i) => {
+                                                const angle = (i * 30 * Math.PI) / 180;
+                                                const cx = 50;
+                                                const cy = 38;
+                                                const r1 = 34;
+                                                const rayLength = 50 * (useful / total);
+                                                const r2 = r1 + rayLength;
+                                                
+                                                return (
+                                                    <line 
+                                                        key={`ray-${i}`} 
+                                                        x1={cx + r1 * Math.cos(angle)} y1={cy + r1 * Math.sin(angle)} 
+                                                        x2={cx + r2 * Math.cos(angle)} y2={cy + r2 * Math.sin(angle)} 
+                                                        stroke="#facc15" strokeWidth="3.5" strokeLinecap="round"
+                                                        style={{ opacity: useful > 0 ? 0.6 + (useful / total) * 0.4 : 0, filter: 'drop-shadow(0px 0px 4px rgba(250,204,21,0.6))' }} 
+                                                    />
+                                                );
+                                            })}
+                                            {/* Glass bulb */}
+                                            <path d="M50 15 C25 15 20 40 32 55 C36 60 38 65 38 72 L62 72 C62 65 64 60 68 55 C80 40 75 15 50 15 Z" fill={`rgba(253, 224, 71, ${(useful / total)})`} stroke="#475569" strokeWidth="3" />
+                                            <path d="M42 72 L42 45 M58 72 L58 45 M42 45 Q50 30 58 45" fill="none" stroke={(useful / total) > 0.15 ? "#fef08a" : "#94a3b8"} strokeWidth="2" />
+                                            <rect x="38" y="72" width="24" height="6" fill="#cbd5e1" stroke="#475569" strokeWidth="2" />
+                                            <rect x="40" y="78" width="20" height="4" fill="#94a3b8" stroke="#475569" strokeWidth="2" />
+                                            <path d="M44 82 L56 82 L52 88 L48 88 Z" fill="#475569" stroke="#475569" strokeWidth="2"/>
+                                        </svg>
+                                    </div>
+                                    <div className="flex justify-around mt-4 px-2 text-xs font-bold text-slate-500">
+                                        <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-yellow-400 shadow-sm"></span> Light</span>
+                                        <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-red-500 shadow-sm"></span> Heat</span>
+                                    </div>
+                                </div>
+
+                                <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                                    <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-3">Available Concepts</h3>
+                                    <div className="flex flex-wrap gap-2">
+                                        <ConceptChip type="useful" />
+                                        <ConceptChip type="dissipated" />
+                                        <ConceptChip type="total" />
+                                    </div>
+                                    <p className="text-xs text-slate-500 mt-3 italic">Drag these chips into the formula builder later.</p>
+                                </div>
+                            </div>
+
+                            {/* RIGHT COLUMN */}
+                            <div className="lg:col-span-2 space-y-8">
+                                
+                                {/* ACTIVITY 2 */}
+                                <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                                    <div className="flex justify-between items-start mb-4">
+                                        <h2 className="text-xl font-bold flex items-center gap-2">
+                                            <span className="bg-slate-800 text-white w-8 h-8 rounded-full flex items-center justify-center text-sm">2</span>
+                                            Build the Bar Model
+                                        </h2>
+                                        <button onClick={resetActivity} className="text-slate-400 hover:text-slate-700 flex items-center gap-1 text-sm bg-slate-100 px-3 py-1 rounded-full transition-colors">
+                                            <RefreshCcw size={14} /> Reset
+                                        </button>
+                                    </div>
+                                    <p className="mb-6 text-slate-600">Drag the Useful and Dissipated bars from the bank below into the empty slot to prove that they equal the Total Energy.</p>
+
+                                    <div className="mb-2">
+                                        <div className="text-sm font-bold text-blue-800 mb-1">The Total</div>
+                                        <ProportionBar type="total" showLabel={true} />
+                                    </div>
+
+                                    <div className="mb-8">
+                                        <div className="text-sm font-bold text-slate-600 mb-1 flex items-center justify-between">
+                                            <span>The Parts</span>
+                                            {isCombinationCorrect && <span className="text-green-600 text-xs flex items-center gap-1 font-bold animate-pulse"><CheckCircle2 size={14}/> Models Match!</span>}
+                                        </div>
+                                        
+                                        <div 
+                                            onDragOver={handleDragOver}
+                                            onDrop={handleDropCombination}
+                                            className={`min-h-[3.5rem] w-full border-2 border-dashed rounded flex transition-colors duration-300 ${isCombinationCorrect ? 'border-green-400 bg-green-50/50' : 'border-slate-300 bg-slate-50 hover:bg-slate-100'}`}
+                                        >
+                                            {combinationZone.length === 0 && (
+                                                <div className="w-full h-12 flex items-center justify-center text-slate-400 italic text-sm">Drag bars here...</div>
+                                            )}
+                                            {combinationZone.map((type, index) => (
+                                                <div key={index} style={{ width: `${(getValue(type)/total)*100}%` }} className="transition-all duration-300">
+                                                    <div className={`h-12 w-full flex items-center justify-center border-y-2 border-r-2 first:border-l-2 shadow-inner overflow-hidden relative ${getColors(type)}`}>
+                                                        <BarEffect type={type} />
+                                                        <span className="font-semibold text-xs whitespace-nowrap px-1 z-10 truncate relative drop-shadow-md text-white">{getLabel(type)}</span>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    <div className="bg-slate-100 p-4 rounded-xl border border-slate-200">
+                                        <p className="text-xs font-bold text-slate-500 uppercase mb-3">Drag these to build the model:</p>
+                                        <div className="space-y-3">
+                                            {!combinationZone.includes('useful') && <ProportionBar type="useful" isDraggable={true} />}
+                                            {!combinationZone.includes('dissipated') && <ProportionBar type="dissipated" isDraggable={true} />}
+                                            {combinationZone.length === 2 && <div className="text-center text-slate-500 text-sm py-4 italic">All parts placed.</div>}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* ACTIVITY 3 */}
+                                <div className={`p-6 rounded-2xl shadow-sm border transition-all duration-500 ${isCombinationCorrect ? 'bg-white border-slate-200' : 'bg-slate-50 border-slate-200 opacity-70 grayscale-[30%]'}`}>
+                                    <div className="flex justify-between items-start mb-4">
+                                        <h2 className="text-xl font-bold flex items-center gap-2">
+                                            <span className="bg-slate-800 text-white w-8 h-8 rounded-full flex items-center justify-center text-sm">3</span>
+                                            Calculate Efficiency
+                                        </h2>
+                                        {!isCombinationCorrect && (
+                                            <span className="text-xs text-amber-600 bg-amber-50 px-2 py-1 rounded-md border border-amber-200 flex items-center gap-1">
+                                                <AlertCircle size={14}/> Complete step 2 first
+                                            </span>
+                                        )}
+                                    </div>
+                                    <p className="mb-6 text-slate-600">Drag the correct concept chips from the left panel into the formula to calculate the energy efficiency percentage.</p>
+
+                                    <div className={`flex flex-wrap items-center justify-center gap-x-4 gap-y-6 py-8 px-2 sm:px-4 bg-slate-50 rounded-xl border-2 ${isFormulaCorrect ? 'border-green-300 bg-green-50/30' : 'border-slate-100'}`}>
+                                        
+                                        <div className="text-xl sm:text-2xl font-bold text-slate-700 whitespace-nowrap">Efficiency =</div>
+
+                                        <div className="flex flex-col items-center gap-2">
+                                            <div 
+                                                onDragOver={handleDragOver}
+                                                onDrop={(e) => isCombinationCorrect && handleDropFormula(e, 'numerator')}
+                                                className={`w-48 sm:w-56 h-14 border-2 border-dashed rounded-xl flex items-center justify-center transition-colors ${numerator ? '' : 'border-slate-300 bg-white hover:bg-slate-100'} ${!isCombinationCorrect ? 'cursor-not-allowed' : ''}`}
+                                            >
+                                                {numerator ? (
+                                                    <div className={`w-full h-full flex items-center justify-center rounded-lg font-bold text-xs sm:text-sm shadow-sm text-center px-1 leading-tight relative overflow-hidden ${getColors(numerator)}`}>
+                                                        <BarEffect type={numerator} />
+                                                        <span className="relative z-10 drop-shadow-md">{getLabel(numerator)} ({getValue(numerator)}J)</span>
+                                                    </div>
+                                                ) : (
+                                                    <span className="text-slate-400 text-xs sm:text-sm">Drop Numerator Here</span>
+                                                )}
+                                            </div>
+
+                                            <div className="w-full h-1 bg-slate-800 rounded-full"></div>
+
+                                            <div 
+                                                onDragOver={handleDragOver}
+                                                onDrop={(e) => isCombinationCorrect && handleDropFormula(e, 'denominator')}
+                                                className={`w-48 sm:w-56 h-14 border-2 border-dashed rounded-xl flex items-center justify-center transition-colors ${denominator ? '' : 'border-slate-300 bg-white hover:bg-slate-100'} ${!isCombinationCorrect ? 'cursor-not-allowed' : ''}`}
+                                            >
+                                                {denominator ? (
+                                                    <div className={`w-full h-full flex items-center justify-center rounded-lg font-bold text-xs sm:text-sm shadow-sm text-center px-1 leading-tight relative overflow-hidden ${getColors(denominator)}`}>
+                                                        <BarEffect type={denominator} />
+                                                        <span className="relative z-10 drop-shadow-md">{getLabel(denominator)} ({getValue(denominator)}J)</span>
+                                                    </div>
+                                                ) : (
+                                                    <span className="text-slate-400 text-xs sm:text-sm">Drop Denominator Here</span>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        <div className="text-xl sm:text-2xl font-bold text-slate-700 whitespace-nowrap">x 100%</div>
+
+                                        <div className="flex items-center gap-3">
+                                            <div className="text-2xl sm:text-3xl font-bold text-slate-400">=</div>
+                                            <div className={`w-24 h-16 sm:w-32 sm:h-20 rounded-2xl flex items-center justify-center text-xl sm:text-3xl font-black shadow-inner border-2 transition-all duration-500 ${isFormulaCorrect ? 'bg-green-500 border-green-600 text-white scale-110' : 'bg-slate-100 border-slate-200 text-slate-300'}`}>
+                                                {isFormulaCorrect ? `${((useful / total) * 100).toFixed(1)}%` : '?'}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="mt-4 min-h-[2rem] text-center">
+                                        {numerator && denominator && !isFormulaCorrect && (
+                                            <p className="text-red-500 font-semibold animate-pulse">Not quite right. Efficiency measures how much of the Total energy is turned into Useful energy.</p>
+                                        )}
+                                        {isFormulaCorrect && (
+                                            <div className="text-green-600 font-bold flex flex-col items-center gap-1">
+                                                <span className="flex items-center gap-2 text-lg"><CheckCircle2 /> Calculation Correct!</span>
+                                                <span className="text-sm font-normal text-slate-600 text-center max-w-lg">Notice how low the efficiency is when heat (dissipated energy) is high. This is why incandescent bulbs are being replaced by LEDs!</span>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* QUIZ MODAL */}
+                    {quizActive && (
+                        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                            <div className="bg-white rounded-2xl shadow-xl border border-slate-200 w-full max-w-2xl overflow-hidden">
+                                <div className="bg-purple-600 p-4 flex justify-between items-center text-white">
+                                    <h2 className="text-xl font-bold flex items-center gap-2">
+                                        <BrainCircuit size={20} />
+                                        Test Yourself
+                                    </h2>
+                                    <button onClick={() => setQuizActive(false)} className="hover:bg-purple-700 p-1 rounded transition-colors">
+                                        <XCircle size={24} />
+                                    </button>
+                                </div>
+                                
+                                <div className="p-6 space-y-6 bg-slate-50">
+                                    <div className="flex justify-between items-center border-b border-slate-200 pb-4">
+                                        <h3 className="font-bold text-lg text-slate-800">Scenario: {currentScenario?.name}</h3>
+                                        <button onClick={pickRandomScenario} className="text-slate-500 hover:text-slate-800 flex items-center gap-1 text-xs font-bold bg-slate-200 px-3 py-1.5 rounded transition-colors">
+                                            <RefreshCcw size={14} /> Skip
+                                        </button>
+                                    </div>
+                                    
+                                    <p className="text-slate-700 text-lg leading-relaxed">{currentScenario?.desc}</p>
+                                    
+                                    <div className="flex flex-col sm:flex-row items-start sm:items-start gap-4 pt-2">
+                                        <div className="flex flex-col gap-1">
+                                            <div className="flex items-center gap-2">
+                                                <label className="font-semibold text-slate-600 w-20">Efficiency:</label>
+                                                <input 
+                                                    type="number" step="0.1" value={userAnswer}
+                                                    onChange={(e) => setUserAnswer(e.target.value)}
+                                                    placeholder="e.g. 25.5"
+                                                    className="w-28 px-3 py-2 border-2 border-slate-300 rounded-lg focus:border-purple-500 focus:outline-none text-lg font-mono"
+                                                    onKeyDown={(e) => e.key === 'Enter' && checkQuizAnswer()}
+                                                />
+                                                <span className="font-bold text-slate-500 text-xl">%</span>
+                                            </div>
+                                            <span className="text-xs text-slate-500 ml-[5.5rem] italic">(round to nearest tenth)</span>
+                                        </div>
+                                        
+                                        <button 
+                                            onClick={checkQuizAnswer}
+                                            className="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-6 rounded-lg transition-colors shadow-sm mt-0 sm:mt-1"
+                                        >
+                                            Check Answer
+                                        </button>
+                                    </div>
+
+                                    {quizFeedback === 'correct' && (
+                                        <div className="mt-4 p-4 bg-green-100 text-green-800 rounded-lg flex items-start gap-3 border border-green-200">
+                                            <CheckCircle2 className="shrink-0 mt-0.5" />
+                                            <div>
+                                                <p className="font-bold">Correct!</p>
+                                                <p className="text-sm mb-2">
+                                                    Useful Energy = {currentScenario.useful}J, Total Energy = {currentScenario.useful + currentScenario.dissipated}J.<br/> 
+                                                    ({currentScenario.useful} / {currentScenario.useful + currentScenario.dissipated}) × 100% = {((currentScenario.useful / (currentScenario.useful + currentScenario.dissipated)) * 100).toFixed(1)}%
+                                                </p>
+                                                <button onClick={pickRandomScenario} className="text-sm font-bold flex items-center gap-1 text-green-900 hover:text-green-700 transition-colors bg-green-200 px-3 py-1.5 rounded-full mt-2">
+                                                    Next Scenario <ArrowRight size={14} />
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {quizFeedback === 'incorrect' && (
+                                        <div className="mt-4 p-4 bg-red-100 text-red-800 rounded-lg flex items-start gap-3 border border-red-200">
+                                            <XCircle className="shrink-0 mt-0.5" />
+                                            <div>
+                                                <p className="font-bold">Not quite right.</p>
+                                                <p className="text-sm">Remember the formula: (Useful Energy ÷ Total Input Energy) × 100%. Depending on the scenario, you might need to calculate the Useful Energy or Total Input Energy first before plugging them into the formula!</p>
+                                                {currentScenario.hint && (
+                                                    <div className="mt-3 p-3 bg-red-50 rounded-md border border-red-200 text-sm">
+                                                        <span className="font-bold text-red-900 mr-2">Hint:</span>
+                                                        {currentScenario.hint}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
