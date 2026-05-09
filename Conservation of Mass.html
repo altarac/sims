@@ -78,8 +78,8 @@
 
                 <!-- Digital Scale Base -->
                 <div class="absolute bottom-[32px] w-48 h-12 bg-slate-300 rounded-t-lg border-2 border-slate-400 z-10 flex items-center justify-center shadow-lg" style="left: 85%; transform: translateX(-50%);">
-                    <div class="bg-slate-900 px-4 py-1.5 rounded border border-slate-700 shadow-inner w-36 text-right">
-                        <span id="scale-display" class="font-digital text-emerald-400 text-2xl tracking-widest drop-shadow-[0_0_5px_rgba(52,211,153,0.5)]">0.00 g</span>
+                    <div class="bg-slate-900 px-3 py-1.5 rounded border border-slate-700 shadow-inner w-40 text-right">
+                        <span id="scale-display" class="font-digital text-emerald-400 text-2xl tracking-wider drop-shadow-[0_0_5px_rgba(52,211,153,0.5)] whitespace-nowrap">0.00 g</span>
                     </div>
                 </div>
                 <!-- Digital Scale Pan -->
@@ -205,16 +205,18 @@
                 </div>
 
             </div>
+        </div>
+    </div>
 
-            <!-- Quiz Modal Overlay -->
-            <div id="quiz-modal" class="hidden absolute inset-0 bg-slate-900/40 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-                <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md modal-fade-in p-6 relative">
-                    <button onclick="closeQuiz()" class="absolute top-3 right-3 text-slate-400 hover:text-slate-700 bg-slate-50 hover:bg-slate-200 p-2 rounded-full transition-colors">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-                    </button>
-                    
-                    <div class="text-center mb-6">
-                        <div class="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-3">
+    <!-- Quiz Modal Overlay -->
+    <div id="quiz-modal" class="hidden fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md modal-fade-in p-6 relative max-h-[90vh] overflow-y-auto">
+            <button onclick="closeQuiz()" class="absolute top-3 right-3 text-slate-400 hover:text-slate-700 bg-slate-50 hover:bg-slate-200 p-2 rounded-full transition-colors z-10">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+            
+            <div class="text-center mb-6 mt-2">
+                <div class="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-3">
                             <svg class="w-6 h-6 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path></svg>
                         </div>
                         <h3 class="text-xl font-bold text-slate-800">Knowledge Check</h3>
@@ -244,8 +246,6 @@
                     </div>
                 </div>
             </div>
-        </div>
-    </div>
 
     <script>
         // Lab Data Constants
