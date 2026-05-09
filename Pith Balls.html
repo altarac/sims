@@ -1,0 +1,1097 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Pith Ball Electrostatics Simulation</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            overscroll-behavior-y: contain; /* Prevents pull-to-refresh on mobile */
+        }
+        canvas {
+            touch-action: none; /* Prevents canvas from capturing gestures meant for scrolling */
+            cursor: crosshair;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col font-sans">
+
+    <!-- Header -->
+    <header class="bg-indigo-600 text-white p-4 shadow-md flex-none">
+        <div class="max-w-6xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-4">
+            <h1 class="text-2xl font-bold flex items-center gap-2">
+                <svg class="w-6 h-6 text-yellow-300" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                Pith Ball Electrostatics
+            </h1>
+            <div class="flex items-center gap-3">
+                <button onclick="openQuiz()" class="bg-yellow-400 hover:bg-yellow-300 text-yellow-900 font-bold py-1.5 px-4 rounded-full shadow-sm transition-colors text-sm flex items-center gap-1">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path></svg>
+                    Test Yourself
+                </button>
+                <div class="text-sm bg-indigo-700 px-3 py-1 rounded-full border border-indigo-500 hidden sm:block">
+                    Interactive Physics Simulation
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-1 max-w-6xl w-full mx-auto p-4 flex flex-col lg:flex-row gap-6">
+        
+        <!-- Controls Panel -->
+        <aside class="w-full lg:w-72 flex flex-col gap-6">
+            
+            <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+                <h2 class="font-semibold text-lg mb-3">1. Select Tool</h2>
+                <div class="flex flex-col gap-2">
+                    <button id="btn-negative" class="tool-btn relative w-full text-left px-4 py-3 rounded-lg border-2 border-blue-500 bg-blue-50 text-blue-800 font-medium transition-all shadow-sm ring-2 ring-blue-500 ring-offset-1" onclick="setRodType('negative')">
+                        <span class="font-bold text-xl mr-2 text-blue-600">−</span> Negative Rod (Plastic)
+                    </button>
+                    <button id="btn-positive" class="tool-btn relative w-full text-left px-4 py-3 rounded-lg border-2 border-slate-200 hover:border-red-300 hover:bg-red-50 text-slate-700 font-medium transition-all" onclick="setRodType('positive')">
+                        <span class="font-bold text-xl mr-2 text-red-500">+</span> Positive Rod (Glass)
+                    </button>
+                    <button id="btn-ground" class="tool-btn relative w-full text-left px-4 py-3 rounded-lg border-2 border-slate-200 hover:border-amber-300 hover:bg-amber-50 text-slate-700 font-medium transition-all" onclick="setRodType('ground')">
+                        <span class="font-bold text-xl mr-2 text-amber-600">👆</span> Ground (Finger)
+                    </button>
+                </div>
+            </div>
+
+            <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+                <h2 class="font-semibold text-lg mb-3">2. Actions</h2>
+                <button onclick="resetBalls()" class="w-full bg-slate-800 hover:bg-slate-700 text-white font-medium py-2 px-4 rounded-lg transition-colors flex items-center justify-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                    Reset Balls to Neutral
+                </button>
+            </div>
+
+            <div class="bg-blue-50 p-5 rounded-xl border border-blue-100 text-sm text-blue-900">
+                <h3 class="font-semibold mb-2 flex items-center gap-1">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    How to play:
+                </h3>
+                <ul class="list-disc pl-4 space-y-1">
+                    <li>Move your mouse/finger into the canvas area to use the selected tool.</li>
+                    <li><strong>Induction:</strong> Bring a charged rod <em>near</em> a neutral ball. It polarizes and attracts!</li>
+                    <li><strong>Conduction:</strong> Touch the ball with the rod to transfer charge. Watch them repel.</li>
+                    <li><strong>Grounding:</strong> Touch a charged ball with the Ground tool to discharge it.</li>
+                </ul>
+            </div>
+
+        </aside>
+
+        <!-- Canvas Area -->
+        <div class="flex-1 bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden relative flex flex-col">
+            <!-- Overlay status text -->
+            <div id="status-overlay" class="absolute top-4 left-0 right-0 text-center pointer-events-none opacity-0 transition-opacity duration-300">
+                <span class="bg-black/70 text-white px-4 py-2 rounded-full text-sm font-medium tracking-wide">
+                    Conduction Triggered!
+                </span>
+            </div>
+            
+            <canvas id="simCanvas" class="w-full h-[500px] lg:h-[600px] block"></canvas>
+        </div>
+
+    </main>
+
+    <!-- Quiz Modal -->
+    <div id="quiz-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden flex flex-col max-h-[90vh]">
+            <div class="bg-indigo-600 p-4 text-white flex justify-between items-center">
+                <h2 class="text-xl font-bold flex items-center gap-2">
+                    <svg class="w-5 h-5 text-yellow-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path></svg>
+                    Test Yourself
+                </h2>
+                <button onclick="closeQuiz()" class="text-white hover:text-indigo-200 transition-colors">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+            <div class="p-6 flex-1 overflow-y-auto">
+                <div id="quiz-progress" class="text-sm text-indigo-600 font-semibold mb-2">Question 1 of 4</div>
+                <div id="quiz-svg-container" class="mb-4 bg-slate-50 rounded-xl border border-slate-100 p-2"></div>
+                <p id="quiz-question" class="text-slate-800 font-medium mb-4"></p>
+                <div id="quiz-options" class="flex flex-col gap-2">
+                    <!-- Buttons injected via JS -->
+                </div>
+                <div id="quiz-feedback" class="mt-4 p-3 rounded-lg hidden text-sm font-medium"></div>
+            </div>
+            <div class="p-4 border-t border-slate-100 bg-slate-50 flex justify-end">
+                <button id="quiz-next-btn" onclick="nextQuestion()" class="hidden bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-6 rounded-lg transition-colors">Next Question</button>
+                <button id="quiz-finish-btn" onclick="closeQuiz()" class="hidden bg-slate-800 hover:bg-slate-700 text-white font-medium py-2 px-6 rounded-lg transition-colors">Finish Quiz</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Physics Configuration
+        const config = {
+            gravity: 0.4,
+            stringLength: 250,
+            ballRadius: 18,
+            rodRadius: 20,
+            damping: 0.985,      // Air resistance
+            kCoulomb: 4000,      // Scale for electric force
+            kPolarization: 200000 // Scale for induced dipole force
+        };
+
+        // State Variables
+        let rod = {
+            active: false,
+            x: -100,
+            y: -100,
+            type: 'negative', // 'negative', 'positive', 'ground'
+            charge: -1        // -1, 1, or 0
+        };
+
+        let balls = [
+            { id: 1, px: 0, py: 80, L: config.stringLength, theta: 0, omega: 0, q: 0, x: 0, y: 0 },
+            { id: 2, px: 0, py: 80, L: config.stringLength, theta: 0, omega: 0, q: 0, x: 0, y: 0 }
+        ];
+
+        // Resize handler
+        function resize() {
+            // Get actual dimensions
+            const rect = canvas.parentElement.getBoundingClientRect();
+            canvas.width = rect.width;
+            canvas.height = rect.height;
+
+            // Update pivot points based on width
+            const center = canvas.width / 2;
+            balls[0].px = center - 60;
+            balls[1].px = center + 60;
+            
+            // Adjust string length for small screens
+            config.stringLength = canvas.height * 0.55;
+            balls.forEach(b => b.L = config.stringLength);
+        }
+
+        window.addEventListener('resize', resize);
+
+        // Input Handling
+        function updateRodPos(clientX, clientY) {
+            const rect = canvas.getBoundingClientRect();
+            rod.x = clientX - rect.left;
+            rod.y = clientY - rect.top;
+        }
+
+        canvas.addEventListener('mousemove', (e) => {
+            rod.active = true;
+            updateRodPos(e.clientX, e.clientY);
+        });
+        canvas.addEventListener('mouseleave', () => { rod.active = false; });
+        canvas.addEventListener('mouseenter', () => { rod.active = true; });
+
+        canvas.addEventListener('touchstart', (e) => {
+            rod.active = true;
+            updateRodPos(e.touches[0].clientX, e.touches[0].clientY);
+            e.preventDefault(); 
+        }, { passive: false });
+
+        canvas.addEventListener('touchmove', (e) => {
+            if (rod.active) {
+                updateRodPos(e.touches[0].clientX, e.touches[0].clientY);
+            }
+            e.preventDefault();
+        }, { passive: false });
+
+        canvas.addEventListener('touchend', (e) => {
+            rod.active = false;
+            e.preventDefault();
+        }, { passive: false });
+
+
+        // UI Interaction
+        window.setRodType = function(type) {
+            rod.type = type;
+            if (type === 'negative') rod.charge = -1;
+            else if (type === 'positive') rod.charge = 1;
+            else if (type === 'ground') rod.charge = 0;
+
+            // Update buttons visually
+            document.querySelectorAll('.tool-btn').forEach(btn => {
+                btn.classList.remove('ring-2', 'ring-offset-1');
+                
+                // Reset specific active classes
+                btn.classList.remove('border-blue-500', 'bg-blue-50', 'text-blue-800');
+                btn.classList.remove('border-red-500', 'bg-red-50', 'text-red-800');
+                btn.classList.remove('border-amber-500', 'bg-amber-50', 'text-amber-800');
+                
+                // Set default classes
+                btn.classList.add('border-slate-200', 'text-slate-700');
+            });
+
+            const activeBtn = document.getElementById(`btn-${type}`);
+            activeBtn.classList.remove('border-slate-200', 'text-slate-700');
+            activeBtn.classList.add('ring-2', 'ring-offset-1');
+            
+            if (type === 'negative') {
+                activeBtn.classList.add('border-blue-500', 'bg-blue-50', 'text-blue-800', 'ring-blue-500');
+            } else if (type === 'positive') {
+                activeBtn.classList.add('border-red-500', 'bg-red-50', 'text-red-800', 'ring-red-500');
+            } else if (type === 'ground') {
+                activeBtn.classList.add('border-amber-500', 'bg-amber-50', 'text-amber-800', 'ring-amber-500');
+            }
+        };
+
+        window.resetBalls = function() {
+            balls.forEach(b => {
+                b.theta = 0;
+                b.omega = 0;
+                b.q = 0;
+            });
+            showStatus("Balls Neutralized");
+        };
+
+        let statusTimeout;
+        function showStatus(text) {
+            const overlay = document.getElementById('status-overlay');
+            overlay.querySelector('span').innerText = text;
+            overlay.style.opacity = '1';
+            clearTimeout(statusTimeout);
+            statusTimeout = setTimeout(() => {
+                overlay.style.opacity = '0';
+            }, 1500);
+        }
+
+        // Physics Engine Loop
+        function physicsStep() {
+            // 1. Setup frame positions and resets
+            balls.forEach(b => {
+                b.x = b.px + b.L * Math.sin(b.theta);
+                b.y = b.py + b.L * Math.cos(b.theta);
+                b.ax = 0;
+                b.ay = config.gravity; 
+            });
+
+            // 2. Rod <-> Ball Interactions
+            if (rod.active) {
+                balls.forEach(b => {
+                    let dx = b.x - rod.x;
+                    let dy = b.y - rod.y;
+                    let r = Math.sqrt(dx*dx + dy*dy);
+                    let r_min = Math.max(r, 10); // clamp for math safety
+                    let dx_norm = dx / r_min;
+                    let dy_norm = dy / r_min;
+
+                    // Collision (Conduction)
+                    if (r < config.ballRadius + config.rodRadius) {
+                        if (rod.type === 'ground') {
+                            if (b.q !== 0) {
+                                b.q = 0; // Discharge
+                                showStatus("Discharged!");
+                            }
+                            // Dampen momentum heavily so it stops swinging immediately
+                            b.omega *= 0.2; 
+                        } else if (rod.type !== 'ground' && b.q !== rod.charge) {
+                            b.q = rod.charge; // Transfer charge
+                            showStatus("Conduction!");
+                        }
+                        
+                        // Mechanical push-out so they don't overlap
+                        let overlap = (config.ballRadius + config.rodRadius - r);
+                        let push = overlap * 0.5;
+                        b.ax += push * dx_norm;
+                        b.ay += push * dy_norm;
+                    } 
+                    // Electric Forces (Coulomb + Polarization)
+                    else {
+                        if (rod.charge !== 0) {
+                            // Coulomb Force (Charge-Charge)
+                            // If same sign: repulsive (F > 0, pushes dx). Opposite: attractive (F < 0, pulls -dx).
+                            let f_coulomb = config.kCoulomb * b.q * rod.charge / (r_min * r_min);
+                            
+                            // Polarization Force (Neutral-Charge)
+                            // A neutral ball is attracted to a charged rod. Scales down as ball becomes charged.
+                            let neutralFactor = 1 - Math.abs(b.q);
+                            let f_polarization = -config.kPolarization * neutralFactor * Math.abs(rod.charge) / (r_min * r_min * r_min);
+
+                            let f_total = f_coulomb + f_polarization;
+                            
+                            b.ax += f_total * dx_norm;
+                            b.ay += f_total * dy_norm;
+                        }
+                    }
+                });
+            }
+
+            // 3. Ball <-> Ball Interactions
+            let b1 = balls[0], b2 = balls[1];
+            let dx = b2.x - b1.x;
+            let dy = b2.y - b1.y;
+            let r = Math.sqrt(dx*dx + dy*dy);
+            let r_min_coulomb = Math.max(r, config.ballRadius * 2); // Prevent infinity force at close range
+            let r_min_dir = Math.max(r, 5);
+            let dx_norm = dx / r_min_dir;
+            let dy_norm = dy / r_min_dir;
+
+            // Apply Coulomb Force universally
+            let repulsionMultiplier = (b1.q * b2.q > 0) ? 2.5 : 1.0; // Repel stronger than before
+            let f_coulomb = config.kCoulomb * repulsionMultiplier * b1.q * b2.q / (r_min_coulomb * r_min_coulomb);
+            b1.ax -= f_coulomb * dx_norm; b1.ay -= f_coulomb * dy_norm;
+            b2.ax += f_coulomb * dx_norm; b2.ay += f_coulomb * dy_norm;
+
+            // Ball-Ball Polarization
+            let f_pol1 = -config.kPolarization * 0.3 * (1 - Math.abs(b2.q)) * Math.abs(b1.q) / (r_min_coulomb * r_min_coulomb * r_min_coulomb);
+            let f_pol2 = -config.kPolarization * 0.3 * (1 - Math.abs(b1.q)) * Math.abs(b2.q) / (r_min_coulomb * r_min_coulomb * r_min_coulomb);
+            let f_pol_total = f_pol1 + f_pol2; // always attractive (negative)
+
+            b1.ax -= f_pol_total * dx_norm; b1.ay -= f_pol_total * dy_norm;
+            b2.ax += f_pol_total * dx_norm; b2.ay += f_pol_total * dy_norm;
+
+            if (r < config.ballRadius * 2) {
+                if (b1.q * b2.q < 0) {
+                    // Opposite charges - stick together! (Do not neutralize)
+                    b1.omega *= 0.5; // Dampen swinging heavily to look "stuck"
+                    b2.omega *= 0.5;
+                } else {
+                    // Touched! Average the charge (Conduction)
+                    if (Math.abs(b1.q - b2.q) > 0.1) {
+                        let avgQ = (b1.q + b2.q) / 2;
+                        b1.q = avgQ;
+                        b2.q = avgQ;
+                    }
+                }
+                
+                // Springy mechanical bounce (pushes them out if overlapping)
+                let push = (config.ballRadius * 2 - r) * 0.5;
+                b1.ax -= push * dx_norm; b1.ay -= push * dy_norm;
+                b2.ax += push * dx_norm; b2.ay += push * dy_norm;
+            }
+
+            // 4. Update Kinematics (Pendulum Math)
+            balls.forEach(b => {
+                // Project cartesian acceleration onto the tangential arc path
+                // Tangential vector is (cos(theta), -sin(theta))
+                let alpha = (b.ax * Math.cos(b.theta) - b.ay * Math.sin(b.theta)) / b.L;
+                
+                b.omega += alpha;
+                b.omega *= config.damping;
+                b.theta += b.omega;
+                
+                // Update final coordinates for drawing
+                b.x = b.px + b.L * Math.sin(b.theta);
+                b.y = b.py + b.L * Math.cos(b.theta);
+            });
+        }
+
+        // Render Engine
+        function drawGrid() {
+            ctx.strokeStyle = '#f1f5f9'; // slate-100
+            ctx.lineWidth = 1;
+            for (let i = 0; i < canvas.width; i += 40) {
+                ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, canvas.height); ctx.stroke();
+            }
+            for (let i = 0; i < canvas.height; i += 40) {
+                ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(canvas.width, i); ctx.stroke();
+            }
+        }
+
+        function drawScene() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawGrid();
+
+            // Draw stand
+            ctx.fillStyle = '#64748b'; // slate-500
+            ctx.fillRect(balls[0].px - 80, balls[0].py - 10, (balls[1].px - balls[0].px) + 160, 20);
+            
+            // Draw pivot pins
+            balls.forEach(b => {
+                ctx.beginPath();
+                ctx.arc(b.px, b.py, 4, 0, Math.PI * 2);
+                ctx.fillStyle = '#334155';
+                ctx.fill();
+            });
+
+            // Draw strings and balls
+            balls.forEach(b => {
+                // String
+                ctx.beginPath();
+                ctx.moveTo(b.px, b.py);
+                ctx.lineTo(b.x, b.y);
+                ctx.strokeStyle = '#94a3b8'; // slate-400
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                // Ball
+                ctx.beginPath();
+                ctx.arc(b.x, b.y, config.ballRadius, 0, Math.PI * 2);
+                
+                // Color based on charge
+                let fillStyle = '#f8fafc'; // neutral white/slate-50
+                let strokeStyle = '#cbd5e1'; 
+
+                if (b.q > 0) {
+                    fillStyle = '#fee2e2'; // red-100
+                    strokeStyle = '#ef4444'; // red-500
+                } else if (b.q < 0) {
+                    fillStyle = '#dbeafe'; // blue-100
+                    strokeStyle = '#3b82f6'; // blue-500
+                }
+
+                ctx.fillStyle = fillStyle;
+                ctx.fill();
+                ctx.lineWidth = 3;
+                ctx.strokeStyle = strokeStyle;
+                ctx.stroke();
+
+                // Draw charge symbols on ball
+                ctx.fillStyle = '#000';
+                ctx.font = 'bold 18px Arial';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+
+                if (b.q !== 0) {
+                    // Fully charged
+                    ctx.fillStyle = b.q > 0 ? '#b91c1c' : '#1d4ed8'; // dark red/blue
+                    ctx.fillText(b.q > 0 ? '+' : '−', b.x, b.y + 2);
+                } else if (rod.active && rod.charge !== 0) {
+                    // Polarization visual (neutral ball, rod nearby)
+                    let dx = rod.x - b.x;
+                    let dy = rod.y - b.y;
+                    let r = Math.sqrt(dx*dx + dy*dy);
+                    if (r < 200) {
+                        let angle = Math.atan2(dy, dx);
+                        let offset = 8;
+                        
+                        let nearSym = rod.charge > 0 ? '−' : '+';
+                        let farSym = rod.charge > 0 ? '+' : '−';
+                        
+                        ctx.font = 'bold 14px Arial';
+                        // Near side (opposite charge)
+                        ctx.fillStyle = rod.charge > 0 ? '#2563eb' : '#dc2626';
+                        ctx.fillText(nearSym, b.x + Math.cos(angle)*offset, b.y + Math.sin(angle)*offset + 1);
+                        
+                        // Far side (same charge)
+                        ctx.fillStyle = rod.charge > 0 ? '#dc2626' : '#2563eb';
+                        ctx.fillText(farSym, b.x - Math.cos(angle)*offset, b.y - Math.sin(angle)*offset + 1);
+                    }
+                }
+            });
+
+            // Draw Rod
+            if (rod.active) {
+                ctx.save();
+                ctx.translate(rod.x, rod.y);
+                
+                if (rod.type === 'ground') {
+                    // Draw Finger/Ground as emoji
+                    ctx.font = '55px sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'top';
+                    ctx.fillText('👆', 0, -10); // Offset slightly so tip is at collision center
+                } else {
+                    // We draw the rod extending towards the bottom-right
+                    const angle = Math.PI / 4; 
+                    ctx.rotate(angle);
+
+                    // Draw Charged Rod
+                    ctx.beginPath();
+                    // Capsule shape
+                    ctx.moveTo(0, -config.rodRadius);
+                    ctx.lineTo(180, -config.rodRadius);
+                    ctx.arc(180, 0, config.rodRadius, -Math.PI/2, Math.PI/2);
+                    ctx.lineTo(0, config.rodRadius);
+                    ctx.arc(0, 0, config.rodRadius, Math.PI/2, -Math.PI/2);
+                    
+                    if (rod.type === 'positive') {
+                        // Glass rod
+                        ctx.fillStyle = 'rgba(252, 165, 165, 0.85)'; // semi-transparent red
+                        ctx.fill();
+                        ctx.strokeStyle = '#ef4444';
+                        ctx.lineWidth = 3;
+                        ctx.stroke();
+
+                        // Charge markings
+                        ctx.fillStyle = '#7f1d1d';
+                        ctx.font = 'bold 24px Arial';
+                        for (let i = 1; i <= 4; i++) {
+                            ctx.fillText('+', i * 35, 8);
+                        }
+                    } else {
+                        // Plastic rod
+                        ctx.fillStyle = 'rgba(59, 130, 246, 0.9)'; // solid blue
+                        ctx.fill();
+                        ctx.strokeStyle = '#1d4ed8';
+                        ctx.lineWidth = 3;
+                        ctx.stroke();
+
+                        // Charge markings
+                        ctx.fillStyle = '#eff6ff';
+                        ctx.font = 'bold 24px Arial';
+                        for (let i = 1; i <= 4; i++) {
+                            ctx.fillText('−', i * 35, 6);
+                        }
+                    }
+                }
+                
+                ctx.restore();
+            }
+        }
+
+        // Main App Loop
+        function loop() {
+            physicsStep();
+            drawScene();
+            requestAnimationFrame(loop);
+        }
+
+        // --- Quiz Logic ---
+        const quizQuestions = [
+            {
+                svg: `<svg viewBox="0 0 200 150" class="w-full h-32 mx-auto">
+                        <line x1="100" y1="20" x2="100" y2="20" stroke="#64748b" stroke-width="2"/>
+                        <circle cx="100" cy="20" r="4" fill="#334155"/>
+                        <line x1="100" y1="20" x2="50" y2="100" stroke="#94a3b8" stroke-width="2"/>
+                        <line x1="100" y1="20" x2="150" y2="100" stroke="#94a3b8" stroke-width="2"/>
+                        <circle cx="50" cy="100" r="18" fill="#fee2e2" stroke="#ef4444" stroke-width="3"/>
+                        <text x="50" y="105" text-anchor="middle" font-weight="bold" fill="#b91c1c">+</text>
+                        <circle cx="150" cy="100" r="18" fill="#f8fafc" stroke="#cbd5e1" stroke-width="3"/>
+                        <text x="150" y="105" text-anchor="middle" font-weight="bold" fill="#64748b">?</text>
+                      </svg>`,
+                text: "Two charged pith balls are repelling each other. If the left ball is Positive, what must the charge of the right ball be?",
+                options: ["Positive", "Negative", "Neutral"],
+                correct: 0,
+                explanation: "Like charges repel. Since they are pushing away from each other, they must both be Positive."
+            },
+            {
+                svg: `<svg viewBox="0 0 200 150" class="w-full h-32 mx-auto">
+                        <circle cx="100" cy="20" r="4" fill="#334155"/>
+                        <line x1="100" y1="20" x2="80" y2="100" stroke="#94a3b8" stroke-width="2"/>
+                        <line x1="100" y1="20" x2="120" y2="100" stroke="#94a3b8" stroke-width="2"/>
+                        <circle cx="80" cy="100" r="18" fill="#dbeafe" stroke="#3b82f6" stroke-width="3"/>
+                        <text x="80" y="105" text-anchor="middle" font-weight="bold" fill="#1d4ed8">−</text>
+                        <circle cx="120" cy="100" r="18" fill="#f8fafc" stroke="#cbd5e1" stroke-width="3"/>
+                        <text x="120" y="105" text-anchor="middle" font-weight="bold" fill="#64748b">?</text>
+                      </svg>`,
+                text: "Two charged pith balls are attracted to each other. If the left ball is Negative, what must the charge of the right ball be?",
+                options: ["Positive", "Negative", "Neutral"],
+                correct: 0,
+                explanation: "Opposite charges attract. Since they are pulling towards each other and are charged, the right ball must be Positive."
+            },
+            {
+                svg: `<svg viewBox="0 0 200 150" class="w-full h-32 mx-auto">
+                        <rect x="20" y="80" width="80" height="20" rx="10" fill="#3b82f6" opacity="0.9" stroke="#1d4ed8" stroke-width="2"/>
+                        <text x="40" y="95" font-weight="bold" fill="#eff6ff">−</text>
+                        <text x="60" y="95" font-weight="bold" fill="#eff6ff">−</text>
+                        <text x="80" y="95" font-weight="bold" fill="#eff6ff">−</text>
+                        <circle cx="150" cy="20" r="4" fill="#334155"/>
+                        <line x1="150" y1="20" x2="170" y2="90" stroke="#94a3b8" stroke-width="2"/>
+                        <circle cx="170" cy="90" r="18" fill="#f8fafc" stroke="#cbd5e1" stroke-width="3"/>
+                        <text x="170" y="95" text-anchor="middle" font-weight="bold" fill="#64748b">?</text>
+                      </svg>`,
+                text: "A plastic wand (Negative) is brought near a charged pith ball, and the ball swings away (repels). What is the charge of the ball?",
+                options: ["Positive", "Negative", "Neutral"],
+                correct: 1,
+                explanation: "Repulsion occurs between objects with the same charge. Since the wand is negative, the ball must also be Negative."
+            },
+            {
+                svg: `<svg viewBox="0 0 200 150" class="w-full h-32 mx-auto">
+                        <rect x="20" y="80" width="80" height="20" rx="10" fill="#fca5a5" opacity="0.85" stroke="#ef4444" stroke-width="2"/>
+                        <text x="40" y="95" font-weight="bold" fill="#7f1d1d">+</text>
+                        <text x="60" y="95" font-weight="bold" fill="#7f1d1d">+</text>
+                        <text x="80" y="95" font-weight="bold" fill="#7f1d1d">+</text>
+                        <circle cx="150" cy="20" r="4" fill="#334155"/>
+                        <line x1="150" y1="20" x2="120" y2="90" stroke="#94a3b8" stroke-width="2"/>
+                        <circle cx="120" cy="90" r="18" fill="#f8fafc" stroke="#cbd5e1" stroke-width="3"/>
+                        <text x="120" y="95" text-anchor="middle" font-weight="bold" fill="#64748b">?</text>
+                      </svg>`,
+                text: "A glass wand (Positive) is brought near a charged pith ball, and the ball swings towards it. What must the charge of the ball be?",
+                options: ["Positive", "Negative", "Neutral"],
+                correct: 1,
+                explanation: "Opposite charges attract. Since the wand is positive and the ball is drawn to it, the ball must be Negative."
+            },
+            {
+                svg: `<svg viewBox="0 0 300 150" class="w-full h-32 mx-auto">
+                        <!-- Group 1: A & B Repel -->
+                        <circle cx="50" cy="20" r="4" fill="#334155"/>
+                        <line x1="50" y1="20" x2="25" y2="90" stroke="#94a3b8" stroke-width="2"/>
+                        <line x1="50" y1="20" x2="75" y2="90" stroke="#94a3b8" stroke-width="2"/>
+                        <!-- Ball A (-) -->
+                        <circle cx="25" cy="90" r="14" fill="#dbeafe" stroke="#3b82f6" stroke-width="2"/>
+                        <text x="25" y="94" text-anchor="middle" font-weight="bold" fill="#1d4ed8">−</text>
+                        <text x="25" y="125" text-anchor="middle" font-weight="bold" fill="#64748b">A</text>
+                        <!-- Ball B -->
+                        <circle cx="75" cy="90" r="14" fill="#f8fafc" stroke="#cbd5e1" stroke-width="2"/>
+                        <text x="75" y="125" text-anchor="middle" font-weight="bold" fill="#64748b">B</text>
+
+                        <!-- Group 2: B & C Attract -->
+                        <circle cx="150" cy="20" r="4" fill="#334155"/>
+                        <line x1="150" y1="20" x2="135" y2="90" stroke="#94a3b8" stroke-width="2"/>
+                        <line x1="150" y1="20" x2="165" y2="90" stroke="#94a3b8" stroke-width="2"/>
+                        <!-- Ball B -->
+                        <circle cx="135" cy="90" r="14" fill="#f8fafc" stroke="#cbd5e1" stroke-width="2"/>
+                        <text x="135" y="125" text-anchor="middle" font-weight="bold" fill="#64748b">B</text>
+                        <!-- Ball C -->
+                        <circle cx="165" cy="90" r="14" fill="#f8fafc" stroke="#cbd5e1" stroke-width="2"/>
+                        <text x="165" y="125" text-anchor="middle" font-weight="bold" fill="#64748b">C</text>
+
+                        <!-- Group 3: C & D Repel -->
+                        <circle cx="250" cy="20" r="4" fill="#334155"/>
+                        <line x1="250" y1="20" x2="225" y2="90" stroke="#94a3b8" stroke-width="2"/>
+                        <line x1="250" y1="20" x2="275" y2="90" stroke="#94a3b8" stroke-width="2"/>
+                        <!-- Ball C -->
+                        <circle cx="225" cy="90" r="14" fill="#f8fafc" stroke="#cbd5e1" stroke-width="2"/>
+                        <text x="225" y="125" text-anchor="middle" font-weight="bold" fill="#64748b">C</text>
+                        <!-- Ball D (?) -->
+                        <circle cx="275" cy="90" r="14" fill="#f8fafc" stroke="#cbd5e1" stroke-width="2"/>
+                        <text x="275" y="94" text-anchor="middle" font-weight="bold" fill="#64748b">?</text>
+                        <text x="275" y="125" text-anchor="middle" font-weight="bold" fill="#64748b">D</text>
+                      </svg>`,
+                text: "Four charged pith balls (A, B, C, D) interact as shown. A and B repel, B and C attract, and C and D repel. If Ball A is Negative, what is the charge of Ball D?",
+                options: ["Positive", "Negative", "Neutral"],
+                correct: 0,
+                explanation: "A is Negative. Since A repels B, B must also be Negative. B attracts C, so C must be Positive. Finally, C repels D, which means D must have the same charge as C. Therefore, D is Positive."
+            },
+            {
+                svg: `<svg viewBox="0 0 300 150" class="w-full h-32 mx-auto">
+                        <!-- Group 1: W & X Attract -->
+                        <circle cx="50" cy="20" r="4" fill="#334155"/>
+                        <line x1="50" y1="20" x2="35" y2="90" stroke="#94a3b8" stroke-width="2"/>
+                        <line x1="50" y1="20" x2="65" y2="90" stroke="#94a3b8" stroke-width="2"/>
+                        <!-- Ball W (+) -->
+                        <circle cx="35" cy="90" r="14" fill="#fee2e2" stroke="#ef4444" stroke-width="2"/>
+                        <text x="35" y="94" text-anchor="middle" font-weight="bold" fill="#b91c1c">+</text>
+                        <text x="35" y="125" text-anchor="middle" font-weight="bold" fill="#64748b">W</text>
+                        <!-- Ball X -->
+                        <circle cx="65" cy="90" r="14" fill="#f8fafc" stroke="#cbd5e1" stroke-width="2"/>
+                        <text x="65" y="125" text-anchor="middle" font-weight="bold" fill="#64748b">X</text>
+
+                        <!-- Group 2: X & Y Repel -->
+                        <circle cx="150" cy="20" r="4" fill="#334155"/>
+                        <line x1="150" y1="20" x2="125" y2="90" stroke="#94a3b8" stroke-width="2"/>
+                        <line x1="150" y1="20" x2="175" y2="90" stroke="#94a3b8" stroke-width="2"/>
+                        <!-- Ball X -->
+                        <circle cx="125" cy="90" r="14" fill="#f8fafc" stroke="#cbd5e1" stroke-width="2"/>
+                        <text x="125" y="125" text-anchor="middle" font-weight="bold" fill="#64748b">X</text>
+                        <!-- Ball Y -->
+                        <circle cx="175" cy="90" r="14" fill="#f8fafc" stroke="#cbd5e1" stroke-width="2"/>
+                        <text x="175" y="125" text-anchor="middle" font-weight="bold" fill="#64748b">Y</text>
+
+                        <!-- Group 3: Y & Z Repel -->
+                        <circle cx="250" cy="20" r="4" fill="#334155"/>
+                        <line x1="250" y1="20" x2="225" y2="90" stroke="#94a3b8" stroke-width="2"/>
+                        <line x1="250" y1="20" x2="275" y2="90" stroke="#94a3b8" stroke-width="2"/>
+                        <!-- Ball Y -->
+                        <circle cx="225" cy="90" r="14" fill="#f8fafc" stroke="#cbd5e1" stroke-width="2"/>
+                        <text x="225" y="125" text-anchor="middle" font-weight="bold" fill="#64748b">Y</text>
+                        <!-- Ball Z (?) -->
+                        <circle cx="275" cy="90" r="14" fill="#f8fafc" stroke="#cbd5e1" stroke-width="2"/>
+                        <text x="275" y="94" text-anchor="middle" font-weight="bold" fill="#64748b">?</text>
+                        <text x="275" y="125" text-anchor="middle" font-weight="bold" fill="#64748b">Z</text>
+                      </svg>`,
+                text: "Four charged pith balls (W, X, Y, Z) interact as shown. W and X attract, X and Y repel, and Y and Z repel. If Ball W is Positive, what is the charge of Ball Z?",
+                options: ["Positive", "Negative", "Neutral"],
+                correct: 1,
+                explanation: "W is Positive. W attracts X, meaning X is Negative. X repels Y, meaning Y is also Negative. Y repels Z, meaning Z must be the same charge as Y. Therefore, Z is Negative."
+            },
+            {
+                svg: `<svg viewBox="0 0 200 150" class="w-full h-32 mx-auto">
+                        <rect x="20" y="80" width="80" height="20" rx="10" fill="#fca5a5" opacity="0.85" stroke="#ef4444" stroke-width="2"/>
+                        <text x="40" y="95" font-weight="bold" fill="#7f1d1d">+</text>
+                        <text x="60" y="95" font-weight="bold" fill="#7f1d1d">+</text>
+                        <text x="80" y="95" font-weight="bold" fill="#7f1d1d">+</text>
+                        <circle cx="150" cy="20" r="4" fill="#334155"/>
+                        <line x1="150" y1="20" x2="170" y2="90" stroke="#94a3b8" stroke-width="2"/>
+                        <circle cx="170" cy="90" r="18" fill="#f8fafc" stroke="#cbd5e1" stroke-width="3"/>
+                        <text x="170" y="95" text-anchor="middle" font-weight="bold" fill="#64748b">?</text>
+                      </svg>`,
+                text: "A glass wand (Positive) is brought near a charged pith ball, and the ball swings away (repels). What is the charge of the ball?",
+                options: ["Positive", "Negative", "Neutral"],
+                correct: 0,
+                explanation: "Repulsion occurs between objects with the same charge. Since the wand is positive, the ball must also be Positive."
+            },
+            {
+                svg: `<svg viewBox="0 0 200 150" class="w-full h-32 mx-auto">
+                        <rect x="20" y="80" width="80" height="20" rx="10" fill="#3b82f6" opacity="0.9" stroke="#1d4ed8" stroke-width="2"/>
+                        <text x="40" y="95" font-weight="bold" fill="#eff6ff">−</text>
+                        <text x="60" y="95" font-weight="bold" fill="#eff6ff">−</text>
+                        <text x="80" y="95" font-weight="bold" fill="#eff6ff">−</text>
+                        <circle cx="150" cy="20" r="4" fill="#334155"/>
+                        <line x1="150" y1="20" x2="120" y2="90" stroke="#94a3b8" stroke-width="2"/>
+                        <circle cx="120" cy="90" r="18" fill="#f8fafc" stroke="#cbd5e1" stroke-width="3"/>
+                        <text x="120" y="95" text-anchor="middle" font-weight="bold" fill="#64748b">?</text>
+                      </svg>`,
+                text: "A plastic wand (Negative) is brought near a charged pith ball, and the ball swings towards it. What must the charge of the ball be?",
+                options: ["Positive", "Negative", "Neutral"],
+                correct: 0,
+                explanation: "Opposite charges attract. Since the wand is negative and the ball is drawn to it, the ball must be Positive."
+            },
+            {
+                svg: `<svg viewBox="0 0 200 150" class="w-full h-32 mx-auto">
+                        <circle cx="100" cy="20" r="4" fill="#334155"/>
+                        <line x1="100" y1="20" x2="80" y2="100" stroke="#94a3b8" stroke-width="2"/>
+                        <line x1="100" y1="20" x2="120" y2="100" stroke="#94a3b8" stroke-width="2"/>
+                        <circle cx="80" cy="100" r="18" fill="#fee2e2" stroke="#ef4444" stroke-width="3"/>
+                        <text x="80" y="105" text-anchor="middle" font-weight="bold" fill="#b91c1c">+</text>
+                        <circle cx="120" cy="100" r="18" fill="#f8fafc" stroke="#cbd5e1" stroke-width="3"/>
+                        <text x="120" y="105" text-anchor="middle" font-weight="bold" fill="#64748b">?</text>
+                      </svg>`,
+                text: "Two charged pith balls are attracted to each other. If the left ball is Positive, what must the charge of the right ball be?",
+                options: ["Positive", "Negative", "Neutral"],
+                correct: 1,
+                explanation: "Opposite charges attract. Since they are pulling towards each other and the left is positive, the right ball must be Negative."
+            },
+            {
+                svg: `<svg viewBox="0 0 200 150" class="w-full h-32 mx-auto">
+                        <line x1="100" y1="20" x2="100" y2="20" stroke="#64748b" stroke-width="2"/>
+                        <circle cx="100" cy="20" r="4" fill="#334155"/>
+                        <line x1="100" y1="20" x2="50" y2="100" stroke="#94a3b8" stroke-width="2"/>
+                        <line x1="100" y1="20" x2="150" y2="100" stroke="#94a3b8" stroke-width="2"/>
+                        <circle cx="50" cy="100" r="18" fill="#dbeafe" stroke="#3b82f6" stroke-width="3"/>
+                        <text x="50" y="105" text-anchor="middle" font-weight="bold" fill="#1d4ed8">−</text>
+                        <circle cx="150" cy="100" r="18" fill="#f8fafc" stroke="#cbd5e1" stroke-width="3"/>
+                        <text x="150" y="105" text-anchor="middle" font-weight="bold" fill="#64748b">?</text>
+                      </svg>`,
+                text: "Two charged pith balls are repelling each other. If the left ball is Negative, what must the charge of the right ball be?",
+                options: ["Positive", "Negative", "Neutral"],
+                correct: 1,
+                explanation: "Like charges repel. Since they are pushing away from each other, they must both be Negative."
+            },
+            {
+                svg: `<svg viewBox="0 0 250 150" class="w-full h-32 mx-auto">
+                        <!-- Group 1: A & B Attract -->
+                        <circle cx="75" cy="20" r="4" fill="#334155"/>
+                        <line x1="75" y1="20" x2="60" y2="90" stroke="#94a3b8" stroke-width="2"/>
+                        <line x1="75" y1="20" x2="90" y2="90" stroke="#94a3b8" stroke-width="2"/>
+                        <circle cx="60" cy="90" r="14" fill="#fee2e2" stroke="#ef4444" stroke-width="2"/>
+                        <text x="60" y="94" text-anchor="middle" font-weight="bold" fill="#b91c1c">+</text>
+                        <text x="60" y="125" text-anchor="middle" font-weight="bold" fill="#64748b">A</text>
+                        <circle cx="90" cy="90" r="14" fill="#f8fafc" stroke="#cbd5e1" stroke-width="2"/>
+                        <text x="90" y="125" text-anchor="middle" font-weight="bold" fill="#64748b">B</text>
+
+                        <!-- Group 2: B & C Attract -->
+                        <circle cx="175" cy="20" r="4" fill="#334155"/>
+                        <line x1="175" y1="20" x2="160" y2="90" stroke="#94a3b8" stroke-width="2"/>
+                        <line x1="175" y1="20" x2="190" y2="90" stroke="#94a3b8" stroke-width="2"/>
+                        <circle cx="160" cy="90" r="14" fill="#f8fafc" stroke="#cbd5e1" stroke-width="2"/>
+                        <text x="160" y="125" text-anchor="middle" font-weight="bold" fill="#64748b">B</text>
+                        <circle cx="190" cy="90" r="14" fill="#f8fafc" stroke="#cbd5e1" stroke-width="2"/>
+                        <text x="190" y="94" text-anchor="middle" font-weight="bold" fill="#64748b">?</text>
+                        <text x="190" y="125" text-anchor="middle" font-weight="bold" fill="#64748b">C</text>
+                      </svg>`,
+                text: "Three charged pith balls (A, B, C). A and B attract, B and C attract. If Ball A is Positive, what is the charge of Ball C?",
+                options: ["Positive", "Negative", "Neutral"],
+                correct: 0,
+                explanation: "A(+) attracts B, so B is Negative. B(-) attracts C, so C must be Positive."
+            },
+            {
+                svg: `<svg viewBox="0 0 250 150" class="w-full h-32 mx-auto">
+                        <!-- Group 1: A & B Repel -->
+                        <circle cx="75" cy="20" r="4" fill="#334155"/>
+                        <line x1="75" y1="20" x2="50" y2="90" stroke="#94a3b8" stroke-width="2"/>
+                        <line x1="75" y1="20" x2="100" y2="90" stroke="#94a3b8" stroke-width="2"/>
+                        <circle cx="50" cy="90" r="14" fill="#dbeafe" stroke="#3b82f6" stroke-width="2"/>
+                        <text x="50" y="94" text-anchor="middle" font-weight="bold" fill="#1d4ed8">−</text>
+                        <text x="50" y="125" text-anchor="middle" font-weight="bold" fill="#64748b">A</text>
+                        <circle cx="100" cy="90" r="14" fill="#f8fafc" stroke="#cbd5e1" stroke-width="2"/>
+                        <text x="100" y="125" text-anchor="middle" font-weight="bold" fill="#64748b">B</text>
+
+                        <!-- Group 2: B & C Attract -->
+                        <circle cx="175" cy="20" r="4" fill="#334155"/>
+                        <line x1="175" y1="20" x2="160" y2="90" stroke="#94a3b8" stroke-width="2"/>
+                        <line x1="175" y1="20" x2="190" y2="90" stroke="#94a3b8" stroke-width="2"/>
+                        <circle cx="160" cy="90" r="14" fill="#f8fafc" stroke="#cbd5e1" stroke-width="2"/>
+                        <text x="160" y="125" text-anchor="middle" font-weight="bold" fill="#64748b">B</text>
+                        <circle cx="190" cy="90" r="14" fill="#f8fafc" stroke="#cbd5e1" stroke-width="2"/>
+                        <text x="190" y="94" text-anchor="middle" font-weight="bold" fill="#64748b">?</text>
+                        <text x="190" y="125" text-anchor="middle" font-weight="bold" fill="#64748b">C</text>
+                      </svg>`,
+                text: "Three charged pith balls (A, B, C). A and B repel, B and C attract. If Ball A is Negative, what is the charge of Ball C?",
+                options: ["Positive", "Negative", "Neutral"],
+                correct: 0,
+                explanation: "A(-) repels B, so B is Negative. B(-) attracts C, so C must be Positive."
+            },
+            {
+                svg: `<svg viewBox="0 0 250 150" class="w-full h-32 mx-auto">
+                        <!-- Group 1: A & B Repel -->
+                        <circle cx="75" cy="20" r="4" fill="#334155"/>
+                        <line x1="75" y1="20" x2="50" y2="90" stroke="#94a3b8" stroke-width="2"/>
+                        <line x1="75" y1="20" x2="100" y2="90" stroke="#94a3b8" stroke-width="2"/>
+                        <circle cx="50" cy="90" r="14" fill="#fee2e2" stroke="#ef4444" stroke-width="2"/>
+                        <text x="50" y="94" text-anchor="middle" font-weight="bold" fill="#b91c1c">+</text>
+                        <text x="50" y="125" text-anchor="middle" font-weight="bold" fill="#64748b">A</text>
+                        <circle cx="100" cy="90" r="14" fill="#f8fafc" stroke="#cbd5e1" stroke-width="2"/>
+                        <text x="100" y="125" text-anchor="middle" font-weight="bold" fill="#64748b">B</text>
+
+                        <!-- Group 2: B & C Repel -->
+                        <circle cx="175" cy="20" r="4" fill="#334155"/>
+                        <line x1="175" y1="20" x2="150" y2="90" stroke="#94a3b8" stroke-width="2"/>
+                        <line x1="175" y1="20" x2="200" y2="90" stroke="#94a3b8" stroke-width="2"/>
+                        <circle cx="150" cy="90" r="14" fill="#f8fafc" stroke="#cbd5e1" stroke-width="2"/>
+                        <text x="150" y="125" text-anchor="middle" font-weight="bold" fill="#64748b">B</text>
+                        <circle cx="200" cy="90" r="14" fill="#f8fafc" stroke="#cbd5e1" stroke-width="2"/>
+                        <text x="200" y="94" text-anchor="middle" font-weight="bold" fill="#64748b">?</text>
+                        <text x="200" y="125" text-anchor="middle" font-weight="bold" fill="#64748b">C</text>
+                      </svg>`,
+                text: "Three charged pith balls (A, B, C). A and B repel, B and C repel. If Ball A is Positive, what is the charge of Ball C?",
+                options: ["Positive", "Negative", "Neutral"],
+                correct: 0,
+                explanation: "A(+) repels B, so B is Positive. B(+) repels C, so C must also be Positive."
+            },
+            {
+                svg: `<svg viewBox="0 0 250 150" class="w-full h-32 mx-auto">
+                        <!-- Group 1: A & B Attract -->
+                        <circle cx="75" cy="20" r="4" fill="#334155"/>
+                        <line x1="75" y1="20" x2="60" y2="90" stroke="#94a3b8" stroke-width="2"/>
+                        <line x1="75" y1="20" x2="90" y2="90" stroke="#94a3b8" stroke-width="2"/>
+                        <circle cx="60" cy="90" r="14" fill="#dbeafe" stroke="#3b82f6" stroke-width="2"/>
+                        <text x="60" y="94" text-anchor="middle" font-weight="bold" fill="#1d4ed8">−</text>
+                        <text x="60" y="125" text-anchor="middle" font-weight="bold" fill="#64748b">A</text>
+                        <circle cx="90" cy="90" r="14" fill="#f8fafc" stroke="#cbd5e1" stroke-width="2"/>
+                        <text x="90" y="125" text-anchor="middle" font-weight="bold" fill="#64748b">B</text>
+
+                        <!-- Group 2: B & C Repel -->
+                        <circle cx="175" cy="20" r="4" fill="#334155"/>
+                        <line x1="175" y1="20" x2="150" y2="90" stroke="#94a3b8" stroke-width="2"/>
+                        <line x1="175" y1="20" x2="200" y2="90" stroke="#94a3b8" stroke-width="2"/>
+                        <circle cx="150" cy="90" r="14" fill="#f8fafc" stroke="#cbd5e1" stroke-width="2"/>
+                        <text x="150" y="125" text-anchor="middle" font-weight="bold" fill="#64748b">B</text>
+                        <circle cx="200" cy="90" r="14" fill="#f8fafc" stroke="#cbd5e1" stroke-width="2"/>
+                        <text x="200" y="94" text-anchor="middle" font-weight="bold" fill="#64748b">?</text>
+                        <text x="200" y="125" text-anchor="middle" font-weight="bold" fill="#64748b">C</text>
+                      </svg>`,
+                text: "Three charged pith balls (A, B, C). A and B attract, B and C repel. If Ball A is Negative, what is the charge of Ball C?",
+                options: ["Positive", "Negative", "Neutral"],
+                correct: 0,
+                explanation: "A(-) attracts B, so B is Positive. B(+) repels C, so C must also be Positive."
+            },
+            {
+                svg: `<svg viewBox="0 0 300 150" class="w-full h-32 mx-auto">
+                        <!-- Group 1: A & B Attract -->
+                        <circle cx="50" cy="20" r="4" fill="#334155"/>
+                        <line x1="50" y1="20" x2="35" y2="90" stroke="#94a3b8" stroke-width="2"/>
+                        <line x1="50" y1="20" x2="65" y2="90" stroke="#94a3b8" stroke-width="2"/>
+                        <circle cx="35" cy="90" r="14" fill="#fee2e2" stroke="#ef4444" stroke-width="2"/>
+                        <text x="35" y="94" text-anchor="middle" font-weight="bold" fill="#b91c1c">+</text>
+                        <text x="35" y="125" text-anchor="middle" font-weight="bold" fill="#64748b">A</text>
+                        <circle cx="65" cy="90" r="14" fill="#f8fafc" stroke="#cbd5e1" stroke-width="2"/>
+                        <text x="65" y="125" text-anchor="middle" font-weight="bold" fill="#64748b">B</text>
+
+                        <!-- Group 2: B & C Repel -->
+                        <circle cx="150" cy="20" r="4" fill="#334155"/>
+                        <line x1="150" y1="20" x2="125" y2="90" stroke="#94a3b8" stroke-width="2"/>
+                        <line x1="150" y1="20" x2="175" y2="90" stroke="#94a3b8" stroke-width="2"/>
+                        <circle cx="125" cy="90" r="14" fill="#f8fafc" stroke="#cbd5e1" stroke-width="2"/>
+                        <text x="125" y="125" text-anchor="middle" font-weight="bold" fill="#64748b">B</text>
+                        <circle cx="175" cy="90" r="14" fill="#f8fafc" stroke="#cbd5e1" stroke-width="2"/>
+                        <text x="175" y="125" text-anchor="middle" font-weight="bold" fill="#64748b">C</text>
+
+                        <!-- Group 3: C & D Attract -->
+                        <circle cx="250" cy="20" r="4" fill="#334155"/>
+                        <line x1="250" y1="20" x2="235" y2="90" stroke="#94a3b8" stroke-width="2"/>
+                        <line x1="250" y1="20" x2="265" y2="90" stroke="#94a3b8" stroke-width="2"/>
+                        <circle cx="235" cy="90" r="14" fill="#f8fafc" stroke="#cbd5e1" stroke-width="2"/>
+                        <text x="235" y="125" text-anchor="middle" font-weight="bold" fill="#64748b">C</text>
+                        <circle cx="265" cy="90" r="14" fill="#f8fafc" stroke="#cbd5e1" stroke-width="2"/>
+                        <text x="265" y="94" text-anchor="middle" font-weight="bold" fill="#64748b">?</text>
+                        <text x="265" y="125" text-anchor="middle" font-weight="bold" fill="#64748b">D</text>
+                      </svg>`,
+                text: "Four charged pith balls (A, B, C, D) interact. A and B attract, B and C repel, and C and D attract. If Ball A is Positive, what is the charge of Ball D?",
+                options: ["Positive", "Negative", "Neutral"],
+                correct: 0,
+                explanation: "A(+) attracts B(-). B(-) repels C(-). C(-) attracts D(+). Therefore, D is Positive."
+            },
+            {
+                svg: `<svg viewBox="0 0 300 150" class="w-full h-32 mx-auto">
+                        <!-- Group 1: A & B Repel -->
+                        <circle cx="50" cy="20" r="4" fill="#334155"/>
+                        <line x1="50" y1="20" x2="25" y2="90" stroke="#94a3b8" stroke-width="2"/>
+                        <line x1="50" y1="20" x2="75" y2="90" stroke="#94a3b8" stroke-width="2"/>
+                        <circle cx="25" cy="90" r="14" fill="#dbeafe" stroke="#3b82f6" stroke-width="2"/>
+                        <text x="25" y="94" text-anchor="middle" font-weight="bold" fill="#1d4ed8">−</text>
+                        <text x="25" y="125" text-anchor="middle" font-weight="bold" fill="#64748b">A</text>
+                        <circle cx="75" cy="90" r="14" fill="#f8fafc" stroke="#cbd5e1" stroke-width="2"/>
+                        <text x="75" y="125" text-anchor="middle" font-weight="bold" fill="#64748b">B</text>
+
+                        <!-- Group 2: B & C Repel -->
+                        <circle cx="150" cy="20" r="4" fill="#334155"/>
+                        <line x1="150" y1="20" x2="125" y2="90" stroke="#94a3b8" stroke-width="2"/>
+                        <line x1="150" y1="20" x2="175" y2="90" stroke="#94a3b8" stroke-width="2"/>
+                        <circle cx="125" cy="90" r="14" fill="#f8fafc" stroke="#cbd5e1" stroke-width="2"/>
+                        <text x="125" y="125" text-anchor="middle" font-weight="bold" fill="#64748b">B</text>
+                        <circle cx="175" cy="90" r="14" fill="#f8fafc" stroke="#cbd5e1" stroke-width="2"/>
+                        <text x="175" y="125" text-anchor="middle" font-weight="bold" fill="#64748b">C</text>
+
+                        <!-- Group 3: C & D Repel -->
+                        <circle cx="250" cy="20" r="4" fill="#334155"/>
+                        <line x1="250" y1="20" x2="225" y2="90" stroke="#94a3b8" stroke-width="2"/>
+                        <line x1="250" y1="20" x2="275" y2="90" stroke="#94a3b8" stroke-width="2"/>
+                        <circle cx="225" cy="90" r="14" fill="#f8fafc" stroke="#cbd5e1" stroke-width="2"/>
+                        <text x="225" y="125" text-anchor="middle" font-weight="bold" fill="#64748b">C</text>
+                        <circle cx="275" cy="90" r="14" fill="#f8fafc" stroke="#cbd5e1" stroke-width="2"/>
+                        <text x="275" y="94" text-anchor="middle" font-weight="bold" fill="#64748b">?</text>
+                        <text x="275" y="125" text-anchor="middle" font-weight="bold" fill="#64748b">D</text>
+                      </svg>`,
+                text: "Four charged pith balls (A, B, C, D) interact. A and B repel, B and C repel, and C and D repel. If Ball A is Negative, what is the charge of Ball D?",
+                options: ["Positive", "Negative", "Neutral"],
+                correct: 1,
+                explanation: "A(-) repels B(-). B(-) repels C(-). C(-) repels D(-). All balls are Negative."
+            },
+            {
+                svg: `<svg viewBox="0 0 300 150" class="w-full h-32 mx-auto">
+                        <!-- Group 1: A & B Attract -->
+                        <circle cx="50" cy="20" r="4" fill="#334155"/>
+                        <line x1="50" y1="20" x2="35" y2="90" stroke="#94a3b8" stroke-width="2"/>
+                        <line x1="50" y1="20" x2="65" y2="90" stroke="#94a3b8" stroke-width="2"/>
+                        <circle cx="35" cy="90" r="14" fill="#fee2e2" stroke="#ef4444" stroke-width="2"/>
+                        <text x="35" y="94" text-anchor="middle" font-weight="bold" fill="#b91c1c">+</text>
+                        <text x="35" y="125" text-anchor="middle" font-weight="bold" fill="#64748b">A</text>
+                        <circle cx="65" cy="90" r="14" fill="#f8fafc" stroke="#cbd5e1" stroke-width="2"/>
+                        <text x="65" y="125" text-anchor="middle" font-weight="bold" fill="#64748b">B</text>
+
+                        <!-- Group 2: B & C Attract -->
+                        <circle cx="150" cy="20" r="4" fill="#334155"/>
+                        <line x1="150" y1="20" x2="135" y2="90" stroke="#94a3b8" stroke-width="2"/>
+                        <line x1="150" y1="20" x2="165" y2="90" stroke="#94a3b8" stroke-width="2"/>
+                        <circle cx="135" cy="90" r="14" fill="#f8fafc" stroke="#cbd5e1" stroke-width="2"/>
+                        <text x="135" y="125" text-anchor="middle" font-weight="bold" fill="#64748b">B</text>
+                        <circle cx="165" cy="90" r="14" fill="#f8fafc" stroke="#cbd5e1" stroke-width="2"/>
+                        <text x="165" y="125" text-anchor="middle" font-weight="bold" fill="#64748b">C</text>
+
+                        <!-- Group 3: C & D Attract -->
+                        <circle cx="250" cy="20" r="4" fill="#334155"/>
+                        <line x1="250" y1="20" x2="235" y2="90" stroke="#94a3b8" stroke-width="2"/>
+                        <line x1="250" y1="20" x2="265" y2="90" stroke="#94a3b8" stroke-width="2"/>
+                        <circle cx="235" cy="90" r="14" fill="#f8fafc" stroke="#cbd5e1" stroke-width="2"/>
+                        <text x="235" y="125" text-anchor="middle" font-weight="bold" fill="#64748b">C</text>
+                        <circle cx="265" cy="90" r="14" fill="#f8fafc" stroke="#cbd5e1" stroke-width="2"/>
+                        <text x="265" y="94" text-anchor="middle" font-weight="bold" fill="#64748b">?</text>
+                        <text x="265" y="125" text-anchor="middle" font-weight="bold" fill="#64748b">D</text>
+                      </svg>`,
+                text: "Four charged pith balls (A, B, C, D) interact. A and B attract, B and C attract, and C and D attract. If Ball A is Positive, what is the charge of Ball D?",
+                options: ["Positive", "Negative", "Neutral"],
+                correct: 1,
+                explanation: "A(+) attracts B(-). B(-) attracts C(+). C(+) attracts D(-). Therefore, D is Negative."
+            },
+            {
+                svg: `<svg viewBox="0 0 300 150" class="w-full h-32 mx-auto">
+                        <!-- Group 1: A & B Attract -->
+                        <circle cx="50" cy="20" r="4" fill="#334155"/>
+                        <line x1="50" y1="20" x2="35" y2="90" stroke="#94a3b8" stroke-width="2"/>
+                        <line x1="50" y1="20" x2="65" y2="90" stroke="#94a3b8" stroke-width="2"/>
+                        <circle cx="35" cy="90" r="14" fill="#dbeafe" stroke="#3b82f6" stroke-width="2"/>
+                        <text x="35" y="94" text-anchor="middle" font-weight="bold" fill="#1d4ed8">−</text>
+                        <text x="35" y="125" text-anchor="middle" font-weight="bold" fill="#64748b">A</text>
+                        <circle cx="65" cy="90" r="14" fill="#f8fafc" stroke="#cbd5e1" stroke-width="2"/>
+                        <text x="65" y="125" text-anchor="middle" font-weight="bold" fill="#64748b">B</text>
+
+                        <!-- Group 2: B & C Attract -->
+                        <circle cx="150" cy="20" r="4" fill="#334155"/>
+                        <line x1="150" y1="20" x2="135" y2="90" stroke="#94a3b8" stroke-width="2"/>
+                        <line x1="150" y1="20" x2="165" y2="90" stroke="#94a3b8" stroke-width="2"/>
+                        <circle cx="135" cy="90" r="14" fill="#f8fafc" stroke="#cbd5e1" stroke-width="2"/>
+                        <text x="135" y="125" text-anchor="middle" font-weight="bold" fill="#64748b">B</text>
+                        <circle cx="165" cy="90" r="14" fill="#f8fafc" stroke="#cbd5e1" stroke-width="2"/>
+                        <text x="165" y="125" text-anchor="middle" font-weight="bold" fill="#64748b">C</text>
+
+                        <!-- Group 3: C & D Repel -->
+                        <circle cx="250" cy="20" r="4" fill="#334155"/>
+                        <line x1="250" y1="20" x2="225" y2="90" stroke="#94a3b8" stroke-width="2"/>
+                        <line x1="250" y1="20" x2="275" y2="90" stroke="#94a3b8" stroke-width="2"/>
+                        <circle cx="225" cy="90" r="14" fill="#f8fafc" stroke="#cbd5e1" stroke-width="2"/>
+                        <text x="225" y="125" text-anchor="middle" font-weight="bold" fill="#64748b">C</text>
+                        <circle cx="275" cy="90" r="14" fill="#f8fafc" stroke="#cbd5e1" stroke-width="2"/>
+                        <text x="275" y="94" text-anchor="middle" font-weight="bold" fill="#64748b">?</text>
+                        <text x="275" y="125" text-anchor="middle" font-weight="bold" fill="#64748b">D</text>
+                      </svg>`,
+                text: "Four charged pith balls (A, B, C, D) interact. A and B attract, B and C attract, and C and D repel. If Ball A is Negative, what is the charge of Ball D?",
+                options: ["Positive", "Negative", "Neutral"],
+                correct: 1,
+                explanation: "A(-) attracts B(+). B(+) attracts C(-). C(-) repels D(-). Therefore, D is Negative."
+            }
+        ];
+
+        let currentQuestionIndex = 0;
+        let quizAnswered = false;
+
+        window.openQuiz = function() {
+            currentQuestionIndex = 0;
+            document.getElementById('quiz-modal').classList.remove('hidden');
+            loadQuestion();
+        }
+
+        window.closeQuiz = function() {
+            document.getElementById('quiz-modal').classList.add('hidden');
+        }
+
+        function loadQuestion() {
+            quizAnswered = false;
+            const q = quizQuestions[currentQuestionIndex];
+            
+            document.getElementById('quiz-progress').innerText = `Question ${currentQuestionIndex + 1} of ${quizQuestions.length}`;
+            document.getElementById('quiz-svg-container').innerHTML = q.svg;
+            document.getElementById('quiz-question').innerText = q.text;
+            
+            const optionsContainer = document.getElementById('quiz-options');
+            optionsContainer.innerHTML = '';
+            
+            q.options.forEach((opt, index) => {
+                const btn = document.createElement('button');
+                btn.className = 'w-full text-left px-4 py-3 rounded-lg border-2 border-slate-200 hover:border-indigo-300 hover:bg-indigo-50 text-slate-700 font-medium transition-all';
+                btn.innerText = opt;
+                btn.onclick = () => selectAnswer(index, btn);
+                optionsContainer.appendChild(btn);
+            });
+            
+            document.getElementById('quiz-feedback').classList.add('hidden');
+            document.getElementById('quiz-next-btn').classList.add('hidden');
+            document.getElementById('quiz-finish-btn').classList.add('hidden');
+        }
+
+        window.selectAnswer = function(index, btnElem) {
+            if (quizAnswered) return;
+            quizAnswered = true;
+            
+            const q = quizQuestions[currentQuestionIndex];
+            const isCorrect = (index === q.correct);
+            
+            const feedbackEl = document.getElementById('quiz-feedback');
+            feedbackEl.classList.remove('hidden', 'bg-red-100', 'text-red-800', 'bg-green-100', 'text-green-800');
+            
+            const allBtns = document.getElementById('quiz-options').querySelectorAll('button');
+            
+            if (isCorrect) {
+                btnElem.classList.replace('border-slate-200', 'border-green-500');
+                btnElem.classList.replace('text-slate-700', 'text-green-800');
+                btnElem.classList.replace('hover:bg-indigo-50', 'bg-green-50');
+                feedbackEl.classList.add('bg-green-100', 'text-green-800');
+                feedbackEl.innerHTML = `<strong>Correct!</strong> ${q.explanation}`;
+            } else {
+                btnElem.classList.replace('border-slate-200', 'border-red-500');
+                btnElem.classList.replace('text-slate-700', 'text-red-800');
+                btnElem.classList.replace('hover:bg-indigo-50', 'bg-red-50');
+                
+                // Highlight correct answer
+                allBtns[q.correct].classList.replace('border-slate-200', 'border-green-500');
+                allBtns[q.correct].classList.add('bg-green-50', 'text-green-800');
+                
+                feedbackEl.classList.add('bg-red-100', 'text-red-800');
+                feedbackEl.innerHTML = `<strong>Incorrect.</strong> ${q.explanation}`;
+            }
+            
+            allBtns.forEach(b => b.classList.add('opacity-80', 'cursor-default'));
+            
+            if (currentQuestionIndex < quizQuestions.length - 1) {
+                document.getElementById('quiz-next-btn').classList.remove('hidden');
+            } else {
+                document.getElementById('quiz-finish-btn').classList.remove('hidden');
+            }
+        }
+
+        window.nextQuestion = function() {
+            if (currentQuestionIndex < quizQuestions.length - 1) {
+                currentQuestionIndex++;
+                loadQuestion();
+            }
+        }
+
+        // Initialization
+        resize();
+        loop();
+
+    </script>
+</body>
+</html>
