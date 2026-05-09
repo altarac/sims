@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Conservation of Mass Virtual Lab</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom styles to enhance the glass beaker look */
+        .glass-beaker {
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.4) 0%, rgba(255, 255, 255, 0.05) 100%);
+            box-shadow: inset -5px -5px 15px rgba(0, 0, 0, 0.1), inset 5px 5px 15px rgba(255, 255, 255, 0.5), 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            border-left: 2px solid rgba(255, 255, 255, 0.6);
+            border-right: 2px solid rgba(255, 255, 255, 0.6);
+            border-bottom: 3px solid rgba(255, 255, 255, 0.8);
+        }
+        
+        .beaker-glare {
+            position: absolute;
+            top: 5%;
+            left: 10%;
+            width: 15%;
+            height: 90%;
+            background: linear-gradient(90deg, rgba(255,255,255,0.4) 0%, rgba(255,255,255,0) 100%);
+            border-radius: 10px;
+            pointer-events: none;
+            z-index: 30;
+        }
+
+        .measurement-mark {
+            width: 15%;
+            height: 2px;
+            background-color: rgba(255,255,255,0.7);
+            margin-bottom: 15%;
+        }
+
+        /* Digital font for the scale */
+        @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap');
+        .font-digital {
+            font-family: 'Share Tech Mono', monospace;
+        }
+
+        /* Modal specific animations */
+        .modal-fade-in {
+            animation: fadeIn 0.2s ease-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: scale(0.95); }
+            to { opacity: 1; transform: scale(1); }
+        }
+    </style>
+</head>
+<body class="bg-slate-100 min-h-screen text-slate-800 p-4 md:p-8">
+
+    <div class="max-w-5xl mx-auto">
+        <!-- Header -->
+        <header class="mb-6 flex flex-col md:flex-row justify-between items-center gap-4">
+            <div class="text-center md:text-left">
+                <h1 class="text-3xl md:text-4xl font-bold text-slate-800 mb-2">Law of Conservation of Mass</h1>
+                <p class="text-slate-600 text-lg">Observe how the total mass remains constant during a chemical reaction.</p>
+            </div>
+            <button onclick="openQuiz()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-6 rounded-full shadow-lg transform transition hover:-translate-y-0.5 active:translate-y-0 flex items-center">
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path></svg>
+                Test Yourself
+            </button>
+        </header>
+
+        <!-- Main Lab Container -->
+        <div class="bg-white rounded-2xl shadow-xl overflow-hidden border border-slate-200 flex flex-col md:flex-row relative">
+            
+            <!-- Lab Bench (Canvas) -->
+            <div class="relative w-full md:w-2/3 h-[450px] bg-sky-50 overflow-hidden flex-shrink-0">
+                <!-- Wall background detail -->
+                <div class="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MCIgaGVpZ2h0PSI0MCI+PHBhdGggZD0iTTAgMGg0MHY0MEgweiIgZmlsbD0ibm9uZSIvPjxwYXRoIGQ9Ik0wIDBoNDB2NDBIMHoiIGZpbGw9IiNlN2YwZjciIGZpbGwtb3BhY2l0eT0iMC40IiBmaWxsLXJ1bGU9ImV2ZW5vZGQiLz48cGF0aCBkPSJNMCAwdjQwaDQwVjBIMHptMjAgMjB2MjBoMjBWMjBIMjB6IiBmaWxsPSIjZGJlYWZlIiBmaWxsLW9wYWNpdHk9IjAuNSIvPjwvc3ZnPg==')] opacity-50"></div>
+                
+                <!-- Table -->
+                <div class="absolute bottom-0 w-full h-8 bg-slate-800 z-10 border-t-4 border-slate-600 shadow-[0_-10px_20px_rgba(0,0,0,0.1)]"></div>
+
+                <!-- Digital Scale Base -->
+                <div class="absolute bottom-[32px] w-48 h-12 bg-slate-300 rounded-t-lg border-2 border-slate-400 z-10 flex items-center justify-center shadow-lg" style="left: 85%; transform: translateX(-50%);">
+                    <div class="bg-slate-900 px-4 py-1.5 rounded border border-slate-700 shadow-inner w-36 text-right">
+                        <span id="scale-display" class="font-digital text-emerald-400 text-2xl tracking-widest drop-shadow-[0_0_5px_rgba(52,211,153,0.5)]">0.00 g</span>
+                    </div>
+                </div>
+                <!-- Digital Scale Pan -->
+                <div id="scale-pan" class="absolute bottom-[80px] w-36 h-2 bg-slate-400 rounded-t-md border-x border-t border-slate-500 z-10 shadow-sm" style="left: 85%; transform: translateX(-50%);"></div>
+
+                <!-- Beaker 1 (Red) -->
+                <div id="beaker1" class="absolute w-16 h-24 glass-beaker rounded-b-xl overflow-hidden z-20 flex flex-col justify-end transition-all duration-500 ease-in-out cursor-grab active:cursor-grabbing touch-none" style="left: 20%; bottom: 32px; transform: translateX(-50%) rotate(0deg);">
+                    <div class="beaker-glare"></div>
+                    <div class="absolute left-0 bottom-4 flex flex-col items-start w-full z-30">
+                        <div class="measurement-mark"></div>
+                        <div class="measurement-mark"></div>
+                        <div class="measurement-mark"></div>
+                    </div>
+                    <!-- Red Liquid -->
+                    <div id="liquid1" class="w-full bg-red-500/85 transition-all duration-1000 ease-in-out relative" style="height: 60%;">
+                        <div class="absolute top-0 w-full h-1 bg-red-400/80"></div>
+                    </div>
+                </div>
+
+                <!-- Beaker 2 (Blue) -->
+                <div id="beaker2" class="absolute w-16 h-24 glass-beaker rounded-b-xl overflow-hidden z-20 flex flex-col justify-end transition-all duration-500 ease-in-out cursor-grab active:cursor-grabbing touch-none" style="left: 40%; bottom: 32px; transform: translateX(-50%) rotate(0deg);">
+                    <div class="beaker-glare"></div>
+                    <div class="absolute left-0 bottom-4 flex flex-col items-start w-full z-30">
+                        <div class="measurement-mark"></div>
+                        <div class="measurement-mark"></div>
+                        <div class="measurement-mark"></div>
+                    </div>
+                    <!-- Blue Liquid -->
+                    <div id="liquid2" class="w-full bg-blue-500/85 transition-all duration-1000 ease-in-out relative" style="height: 50%;">
+                        <div class="absolute top-0 w-full h-1 bg-blue-400/80"></div>
+                    </div>
+                </div>
+
+                <!-- Beaker 3 (Mixture/Green) -->
+                <div id="beaker3" class="absolute w-24 h-36 glass-beaker rounded-b-2xl overflow-hidden z-10 flex flex-col justify-end transition-all duration-500 ease-in-out cursor-grab active:cursor-grabbing touch-none" style="left: 60%; bottom: 32px; transform: translateX(-50%) rotate(0deg);">
+                    <div class="beaker-glare"></div>
+                    <div class="absolute left-0 bottom-6 flex flex-col items-start w-full z-30">
+                        <div class="measurement-mark"></div>
+                        <div class="measurement-mark" style="width: 25%;"></div>
+                        <div class="measurement-mark"></div>
+                        <div class="measurement-mark" style="width: 25%;"></div>
+                    </div>
+                    <!-- Green Liquid (Starts Empty) -->
+                    <div id="liquid3" class="w-full transition-all duration-1000 ease-in-out relative" style="height: 0%;">
+                        <div class="absolute top-0 w-full h-1"></div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Dashboard / Controls -->
+            <div class="w-full md:w-1/3 bg-white p-6 flex flex-col border-t md:border-t-0 md:border-l border-slate-200">
+                
+                <div class="flex-grow">
+                    <h2 class="text-xl font-bold text-slate-800 mb-4 flex items-center">
+                        <svg class="w-5 h-5 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"></path></svg>
+                        Lab Manual
+                    </h2>
+                    
+                    <!-- Dynamic Instruction Box -->
+                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6 shadow-sm min-h-[100px] flex items-center">
+                        <p id="instruction-text" class="text-slate-700 text-sm md:text-base leading-relaxed">
+                            Welcome! Drag the red or blue beaker onto the digital scale to measure its mass.
+                        </p>
+                    </div>
+
+                    <!-- Mass Sliders (Values Hidden) -->
+                    <div class="mb-5 space-y-4">
+                        <div>
+                            <div class="flex justify-between items-center mb-1">
+                                <label class="text-xs font-bold text-slate-500 uppercase">Adjust Red Reactant Amount</label>
+                            </div>
+                            <input type="range" id="red-slider" min="30" max="180" step="0.5" value="150.5" class="w-full accent-red-500 cursor-pointer">
+                        </div>
+                        <div>
+                            <div class="flex justify-between items-center mb-1">
+                                <label class="text-xs font-bold text-slate-500 uppercase">Adjust Blue Reactant Amount</label>
+                            </div>
+                            <input type="range" id="blue-slider" min="30" max="180" step="0.5" value="125.2" class="w-full accent-blue-500 cursor-pointer">
+                        </div>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="flex gap-3">
+                        <button id="log-toggle-btn" onclick="toggleLog()" class="flex-1 bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-700 font-bold py-2.5 px-4 rounded-xl shadow-sm transform transition hover:-translate-y-0.5 active:translate-y-0">
+                            Show Log
+                        </button>
+                        <button onclick="resetLab()" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 px-4 rounded-xl shadow-sm transform transition hover:-translate-y-0.5 active:translate-y-0">
+                            Reset Lab
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Observation Log -->
+                <div id="log-content" class="hidden mt-8 border-t border-slate-200 pt-6">
+                    <h3 class="text-sm font-bold text-slate-500 uppercase tracking-wider mb-3">Observation Log</h3>
+                    
+                    <div class="space-y-2 text-sm text-slate-700">
+                        <div class="flex justify-between items-center bg-slate-50 p-2 rounded">
+                            <span class="flex items-center"><span class="w-3 h-3 rounded-full bg-red-500 mr-2"></span>Red Reactant:</span>
+                            <span id="log-red" class="font-mono font-bold text-slate-900">-- g</span>
+                        </div>
+                        <div class="flex justify-between items-center bg-slate-50 p-2 rounded">
+                            <span class="flex items-center"><span class="w-3 h-3 rounded-full bg-blue-500 mr-2"></span>Blue Reactant:</span>
+                            <span id="log-blue" class="font-mono font-bold text-slate-900">-- g</span>
+                        </div>
+                        <div class="flex justify-between items-center bg-blue-100 p-2 rounded border border-blue-200 font-bold">
+                            <span>Total Reactants:</span>
+                            <span id="log-reactants" class="font-mono text-blue-800">-- g</span>
+                        </div>
+                        
+                        <div class="h-2"></div> <!-- Spacer -->
+
+                        <div class="flex justify-between items-center bg-slate-50 p-2 rounded">
+                            <span class="flex items-center"><span class="w-3 h-3 rounded-full bg-emerald-500 mr-2"></span>Green Product:</span>
+                            <span id="log-green" class="font-mono font-bold text-slate-900">-- g</span>
+                        </div>
+                        <div class="flex justify-between items-center bg-emerald-100 p-2 rounded border border-emerald-200 font-bold">
+                            <span>Total Products:</span>
+                            <span id="log-products" class="font-mono text-emerald-800">-- g</span>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Quiz Modal Overlay -->
+            <div id="quiz-modal" class="hidden absolute inset-0 bg-slate-900/40 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+                <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md modal-fade-in p-6 relative">
+                    <button onclick="closeQuiz()" class="absolute top-3 right-3 text-slate-400 hover:text-slate-700 bg-slate-50 hover:bg-slate-200 p-2 rounded-full transition-colors">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                    </button>
+                    
+                    <div class="text-center mb-6">
+                        <div class="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                            <svg class="w-6 h-6 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path></svg>
+                        </div>
+                        <h3 class="text-xl font-bold text-slate-800">Knowledge Check</h3>
+                        <p class="text-sm text-slate-500">Apply the Law of Conservation of Mass</p>
+                    </div>
+
+                    <div class="bg-slate-50 border border-slate-200 rounded-xl p-5 mb-6 min-h-[120px] flex items-center justify-center text-center">
+                        <p id="quiz-question" class="text-slate-700 leading-relaxed m-0 w-full">
+                            <!-- Question text injected here -->
+                        </p>
+                    </div>
+
+                    <div class="space-y-4">
+                        <div>
+                            <label class="text-xs font-bold text-slate-400 uppercase mb-1 block">Your Answer (grams)</label>
+                            <input type="number" id="quiz-input" step="0.01" class="w-full bg-slate-100 border-2 border-slate-200 rounded-lg p-3 text-lg font-mono focus:border-emerald-500 focus:outline-none" placeholder="0.00">
+                        </div>
+                        
+                        <div id="quiz-feedback" class="hidden text-sm font-bold text-center p-2 rounded-lg"></div>
+
+                        <button id="quiz-submit-btn" onclick="checkQuizAnswer()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 px-4 rounded-xl shadow-md transition transform active:scale-[0.98]">
+                            Check Answer
+                        </button>
+                        <button id="quiz-next-btn" onclick="generateQuestion()" class="hidden w-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-3 px-4 rounded-xl border border-slate-300 transition">
+                            Next Question
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Lab Data Constants
+        const GLASS_MASS_SMALL = 20.00;
+        const GLASS_MASS_LARGE = 40.00;
+
+        // State Trackers
+        let MASS_B1 = 150.50; 
+        let MASS_B2 = 125.20; 
+        let MASS_B3 = MASS_B1 + MASS_B2; 
+
+        let b1Poured = false;
+        let b2Poured = false;
+        let loggedB1 = false;
+        let loggedB2 = false;
+        let loggedB3 = false;
+        let itemOnScale = null;
+        let isAnimating = false;
+
+        // DOM Elements
+        const b1 = document.getElementById('beaker1');
+        const b2 = document.getElementById('beaker2');
+        const b3 = document.getElementById('beaker3');
+        const liquid1 = document.getElementById('liquid1');
+        const liquid2 = document.getElementById('liquid2');
+        const liquid3 = document.getElementById('liquid3');
+        const scaleDisplay = document.getElementById('scale-display');
+        const scalePan = document.getElementById('scale-pan');
+        const instruction = document.getElementById('instruction-text');
+        const logContent = document.getElementById('log-content');
+        const logToggleBtn = document.getElementById('log-toggle-btn');
+        const redSlider = document.getElementById('red-slider');
+        const blueSlider = document.getElementById('blue-slider');
+
+        // Quiz State
+        let currentAnswer = null;
+
+        // Helper: Wait function
+        const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+        function toggleLog() {
+            logContent.classList.toggle('hidden');
+            logToggleBtn.innerText = logContent.classList.contains('hidden') ? "Show Log" : "Hide Log";
+        }
+
+        function updateScale(mass) {
+            scaleDisplay.innerText = mass.toFixed(2) + " g";
+        }
+
+        function isOverlapping(rect1, rect2) {
+            return !(rect1.right < rect2.left || rect1.left > rect2.right || rect1.bottom < rect2.top || rect1.top > rect2.bottom);
+        }
+
+        function updateInstructions() {
+            if (loggedB3) {
+                instruction.innerHTML = `<span class="text-emerald-700 font-bold block mb-1">Law of Conservation Demonstrated!</span> The mass of the product (${MASS_B3.toFixed(2)}g) exactly equals the sum of the reactants. Mass is conserved.`;
+            } else if (b1Poured && b2Poured) {
+                instruction.innerText = "The reaction is complete! Drag the green product beaker to the scale to find its mass.";
+            } else if (loggedB1 && loggedB2) {
+                instruction.innerText = "Both reactants weighed. Now, drag the red and blue beakers over the large beaker to pour and mix them.";
+            } else if (loggedB1 || loggedB2) {
+                instruction.innerText = "Great! Now drag the other small beaker to the scale to weigh it.";
+            } else {
+                instruction.innerText = "Welcome! Drag the red or blue beaker onto the digital scale to measure its mass.";
+            }
+        }
+
+        function logMeasurement(beaker, mass) {
+            if (beaker === b1 && !b1Poured && !loggedB1) {
+                loggedB1 = true;
+                document.getElementById('log-red').innerText = mass.toFixed(2) + ' g';
+            }
+            if (beaker === b2 && !b2Poured && !loggedB2) {
+                loggedB2 = true;
+                document.getElementById('log-blue').innerText = mass.toFixed(2) + ' g';
+            }
+            if (loggedB1 && loggedB2) {
+                document.getElementById('log-reactants').innerText = (MASS_B1 + MASS_B2).toFixed(2) + ' g';
+            }
+            if (beaker === b3 && b1Poured && b2Poured && !loggedB3) {
+                loggedB3 = true;
+                document.getElementById('log-green').innerText = mass.toFixed(2) + ' g';
+                document.getElementById('log-products').innerText = mass.toFixed(2) + ' g';
+            }
+            updateInstructions();
+        }
+
+        function updateBeaker3Color() {
+            const l3Top = liquid3.firstElementChild;
+            liquid3.classList.remove('bg-emerald-500/85', 'bg-red-500/85', 'bg-blue-500/85');
+            l3Top.classList.remove('bg-emerald-400/80', 'bg-red-400/80', 'bg-blue-400/80');
+
+            if (b1Poured && b2Poured) {
+                liquid3.classList.add('bg-emerald-500/85');
+                l3Top.classList.add('bg-emerald-400/80');
+            } else if (b1Poured) {
+                liquid3.classList.add('bg-red-500/85');
+                l3Top.classList.add('bg-red-400/80');
+            } else if (b2Poured) {
+                liquid3.classList.add('bg-blue-500/85');
+                l3Top.classList.add('bg-blue-400/80');
+            }
+        }
+
+        async function performPour(beaker, baseLeft) {
+            isAnimating = true;
+            const pourLeft = beaker === b1 ? '52%' : '68%';
+            const pourAngle = beaker === b1 ? '45deg' : '-45deg';
+            const liquid = beaker === b1 ? liquid1 : liquid2;
+            
+            beaker.style.left = pourLeft;
+            beaker.style.bottom = '180px';
+            beaker.style.zIndex = '40';
+            await wait(600);
+
+            beaker.style.transform = `translateX(-50%) rotate(${pourAngle})`;
+            await wait(500);
+
+            liquid.style.height = '0%';
+            if (beaker === b1) b1Poured = true;
+            if (beaker === b2) b2Poured = true;
+
+            updateBeaker3Color();
+
+            let totalLiquidMass = 0;
+            if (b1Poured) totalLiquidMass += (MASS_B1 - GLASS_MASS_SMALL);
+            if (b2Poured) totalLiquidMass += (MASS_B2 - GLASS_MASS_SMALL);
+            
+            let fillLevel = (totalLiquidMass / 320) * 80;
+            liquid3.style.height = `${fillLevel}%`;
+            
+            await wait(1200);
+
+            beaker.style.transform = `translateX(-50%) rotate(0deg)`;
+            await wait(500);
+
+            beaker.style.left = baseLeft;
+            beaker.style.bottom = '32px';
+            beaker.style.zIndex = '20';
+            await wait(600);
+
+            isAnimating = false;
+            updateInstructions();
+        }
+
+        function setupDrag(beaker, baseLeft) {
+            let startX, startY;
+            const classesToToggle = ['transition-all', 'duration-500', 'ease-in-out'];
+
+            beaker.addEventListener('pointerdown', (e) => {
+                if (isAnimating) return;
+                e.preventDefault(); 
+                
+                redSlider.disabled = true;
+                blueSlider.disabled = true;
+                redSlider.classList.add('opacity-50', 'cursor-not-allowed');
+                blueSlider.classList.add('opacity-50', 'cursor-not-allowed');
+                
+                beaker.classList.remove(...classesToToggle);
+                beaker.style.zIndex = '50';
+                beaker.setPointerCapture(e.pointerId);
+                
+                startX = e.clientX;
+                startY = e.clientY;
+
+                if (itemOnScale === beaker) {
+                    itemOnScale = null;
+                    updateScale(0);
+                }
+            });
+
+            beaker.addEventListener('pointermove', (e) => {
+                if (!beaker.hasPointerCapture(e.pointerId)) return;
+                const currentX = e.clientX - startX;
+                const currentY = e.clientY - startY;
+                beaker.style.transform = `translate(calc(-50% + ${currentX}px), ${currentY}px) rotate(0deg)`;
+            });
+
+            beaker.addEventListener('pointerup', async (e) => {
+                if (!beaker.hasPointerCapture(e.pointerId)) return;
+                beaker.releasePointerCapture(e.pointerId);
+                
+                beaker.classList.add(...classesToToggle);
+                beaker.style.transform = `translateX(-50%) rotate(0deg)`;
+                beaker.style.zIndex = '20';
+
+                const rect = beaker.getBoundingClientRect();
+                const scaleRect = scalePan.getBoundingClientRect();
+                const b3Rect = b3.getBoundingClientRect();
+
+                if (isOverlapping(rect, scaleRect)) {
+                    beaker.style.left = '85%';
+                    beaker.style.bottom = '82px';
+                    itemOnScale = beaker;
+                    
+                    let currentMass = 0;
+                    if (beaker === b1) currentMass = b1Poured ? GLASS_MASS_SMALL : MASS_B1;
+                    else if (beaker === b2) currentMass = b2Poured ? GLASS_MASS_SMALL : MASS_B2;
+                    else if (beaker === b3) {
+                        currentMass = GLASS_MASS_LARGE;
+                        if (b1Poured) currentMass += (MASS_B1 - GLASS_MASS_SMALL);
+                        if (b2Poured) currentMass += (MASS_B2 - GLASS_MASS_SMALL);
+                    }
+
+                    updateScale(currentMass);
+                    logMeasurement(beaker, currentMass);
+                } else if (beaker !== b3 && isOverlapping(rect, b3Rect)) {
+                    if (!((beaker === b1 && b1Poured) || (beaker === b2 && b2Poured))) {
+                        await performPour(beaker, baseLeft);
+                    } else {
+                        beaker.style.left = baseLeft;
+                        beaker.style.bottom = '32px';
+                    }
+                } else {
+                    beaker.style.left = baseLeft;
+                    beaker.style.bottom = '32px';
+                }
+            });
+        }
+
+        async function resetLab() {
+            if (isAnimating) return;
+            isAnimating = true;
+            b1Poured = false; b2Poured = false;
+            loggedB1 = false; loggedB2 = false; loggedB3 = false;
+            itemOnScale = null;
+            redSlider.disabled = false;
+            blueSlider.disabled = false;
+            redSlider.classList.remove('opacity-50', 'cursor-not-allowed');
+            blueSlider.classList.remove('opacity-50', 'cursor-not-allowed');
+            updateScale(0);
+            b1.style.left = '20%'; b1.style.bottom = '32px'; b1.style.transform = 'translateX(-50%) rotate(0deg)';
+            b2.style.left = '40%'; b2.style.bottom = '32px'; b2.style.transform = 'translateX(-50%) rotate(0deg)';
+            b3.style.left = '60%'; b3.style.bottom = '32px'; b3.style.transform = 'translateX(-50%) rotate(0deg)';
+            liquid3.style.height = '0%';
+            document.getElementById('log-red').innerText = '-- g';
+            document.getElementById('log-blue').innerText = '-- g';
+            document.getElementById('log-reactants').innerText = '-- g';
+            document.getElementById('log-green').innerText = '-- g';
+            document.getElementById('log-products').innerText = '-- g';
+            if (!logContent.classList.contains('hidden')) toggleLog();
+            updateMassesFromSliders();
+            updateBeaker3Color();
+            updateInstructions();
+            await wait(600);
+            isAnimating = false;
+        }
+
+        function updateMassesFromSliders() {
+            MASS_B1 = parseFloat(redSlider.value);
+            MASS_B2 = parseFloat(blueSlider.value);
+            MASS_B3 = MASS_B1 + MASS_B2;
+            liquid1.style.height = `${((MASS_B1 - GLASS_MASS_SMALL) / 160) * 80}%`;
+            liquid2.style.height = `${((MASS_B2 - GLASS_MASS_SMALL) / 160) * 80}%`;
+        }
+
+        // QUIZ LOGIC
+        function openQuiz() {
+            document.getElementById('quiz-modal').classList.remove('hidden');
+            generateQuestion();
+        }
+
+        function closeQuiz() {
+            document.getElementById('quiz-modal').classList.add('hidden');
+        }
+
+        function generateQuestion() {
+            const quizFeedback = document.getElementById('quiz-feedback');
+            const quizNextBtn = document.getElementById('quiz-next-btn');
+            const quizSubmitBtn = document.getElementById('quiz-submit-btn');
+            const quizInput = document.getElementById('quiz-input');
+            
+            quizFeedback.classList.add('hidden');
+            quizNextBtn.classList.add('hidden');
+            quizSubmitBtn.classList.remove('hidden');
+            quizInput.value = '';
+            
+            // Randomly pick a scenario type (0: missing product, 1: missing reactant 1, 2: missing reactant 2)
+            const type = Math.floor(Math.random() * 3);
+            const r1 = (Math.random() * 100 + 10).toFixed(2);
+            const r2 = (Math.random() * 100 + 10).toFixed(2);
+            const p = (parseFloat(r1) + parseFloat(r2)).toFixed(2);
+
+            let questionText = "";
+            if (type === 0) {
+                questionText = `In a reaction, <strong>${r1}g</strong> of Reactant A mixes with <strong>${r2}g</strong> of Reactant B. <br><br>What is the total mass of the <strong>product</strong>?`;
+                currentAnswer = p;
+            } else if (type === 1) {
+                questionText = `You produce <strong>${p}g</strong> of a green product. If you started with <strong>${r2}g</strong> of Reactant B, <br><br>how many grams of <strong>Reactant A</strong> did you use?`;
+                currentAnswer = r1;
+            } else {
+                questionText = `A reaction uses <strong>${r1}g</strong> of Reactant A to produce <strong>${p}g</strong> of product. <br><br>How many grams of <strong>Reactant B</strong> were added?`;
+                currentAnswer = r2;
+            }
+
+            document.getElementById('quiz-question').innerHTML = questionText;
+        }
+
+        function checkQuizAnswer() {
+            const userInput = parseFloat(document.getElementById('quiz-input').value);
+            const quizFeedback = document.getElementById('quiz-feedback');
+            const quizNextBtn = document.getElementById('quiz-next-btn');
+            const quizSubmitBtn = document.getElementById('quiz-submit-btn');
+
+            if (isNaN(userInput)) return;
+
+            quizFeedback.classList.remove('hidden');
+            
+            // Allow for small rounding errors
+            if (Math.abs(userInput - parseFloat(currentAnswer)) < 0.05) {
+                quizFeedback.innerText = "Correct! Mass is conserved.";
+                quizFeedback.className = "text-sm font-bold text-center p-2 rounded-lg bg-emerald-100 text-emerald-700";
+                quizNextBtn.classList.remove('hidden');
+                quizSubmitBtn.classList.add('hidden');
+            } else {
+                quizFeedback.innerText = `Incorrect. Try again! Hint: Mass of Reactants = Mass of Products.`;
+                quizFeedback.className = "text-sm font-bold text-center p-2 rounded-lg bg-red-100 text-red-700";
+            }
+        }
+
+        // Initialize
+        setupDrag(b1, '20%');
+        setupDrag(b2, '40%');
+        setupDrag(b3, '60%');
+        redSlider.addEventListener('input', updateMassesFromSliders);
+        blueSlider.addEventListener('input', updateMassesFromSliders);
+        updateMassesFromSliders();
+        updateInstructions();
+    </script>
+</body>
+</html>
