@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Volume Builder</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #f3f4f6; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        #canvas-container { width: 100vw; height: 100vh; position: absolute; top: 0; left: 0; z-index: 1; }
+        #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10; }
+        .pointer-events-auto { pointer-events: auto; }
+        
+        /* 3D Label Styles */
+        .dim-label {
+            position: absolute;
+            background: rgba(255, 255, 255, 0.9);
+            border: 2px solid #1f2937;
+            color: #1f2937;
+            padding: 2px 8px;
+            border-radius: 8px;
+            font-weight: bold;
+            font-size: 14px;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            transition: opacity 0.2s;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            white-space: nowrap;
+        }
+
+        .dim-label.hidden-label {
+            opacity: 0;
+        }
+
+        /* Tooltip */
+        .tooltip .tooltip-text {
+            visibility: hidden;
+            width: 200px;
+            background-color: #333;
+            color: #fff;
+            text-align: center;
+            border-radius: 6px;
+            padding: 8px;
+            position: absolute;
+            z-index: 1;
+            bottom: 125%;
+            left: 50%;
+            margin-left: -100px;
+            opacity: 0;
+            transition: opacity 0.3s;
+            font-size: 0.875rem;
+            font-weight: normal;
+        }
+        .tooltip:hover .tooltip-text {
+            visibility: visible;
+            opacity: 1;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 3D Canvas -->
+    <div id="canvas-container"></div>
+
+    <!-- UI Overlay -->
+    <div id="ui-layer">
+        
+        <!-- Header / Stats Panel -->
+        <div class="pointer-events-auto absolute top-4 left-4 bg-white/90 backdrop-blur rounded-xl shadow-lg border border-gray-200 p-5 w-80">
+            <h1 class="text-xl font-extrabold text-gray-800 mb-2 flex items-center gap-2">
+                <i class="fa-solid fa-cubes text-blue-500"></i> Volume Builder
+            </h1>
+            <p class="text-xs text-gray-500 mb-4 border-b pb-3">
+                Click grid or blocks to build. <br>Hold <kbd class="bg-gray-200 px-1 rounded text-gray-700">Shift</kbd> + Click to remove.
+            </p>
+
+            <div class="space-y-3">
+                <div class="bg-blue-50 rounded-lg p-3 border border-blue-100">
+                    <div class="text-sm text-blue-600 font-semibold mb-1 uppercase tracking-wider">Total Volume</div>
+                    <div class="text-3xl font-black text-blue-700 flex items-baseline gap-1">
+                        <span id="stat-volume">0</span>
+                        <span class="text-sm font-medium text-blue-500">unit³</span>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-3 gap-2 text-center">
+                    <div class="bg-gray-50 rounded p-2 border border-gray-200">
+                        <div class="text-xs text-gray-500 font-bold">Length (L)</div>
+                        <div class="text-lg font-bold text-gray-800" id="stat-x">0</div>
+                    </div>
+                    <div class="bg-gray-50 rounded p-2 border border-gray-200">
+                        <div class="text-xs text-gray-500 font-bold">Height (H)</div>
+                        <div class="text-lg font-bold text-gray-800" id="stat-y">0</div>
+                    </div>
+                    <div class="bg-gray-50 rounded p-2 border border-gray-200">
+                        <div class="text-xs text-gray-500 font-bold">Width (W)</div>
+                        <div class="text-lg font-bold text-gray-800" id="stat-z">0</div>
+                    </div>
+                </div>
+                
+                <div class="text-center text-sm font-bold text-gray-600 pt-2 tooltip relative cursor-help">
+                    Formula Check <i class="fa-solid fa-circle-info text-gray-400"></i>
+                    <span class="tooltip-text">For a perfect rectangular prism, Volume = Length × Width × Height. Build one to test it!</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Controls Panel -->
+        <div class="pointer-events-auto absolute top-4 right-4 flex flex-col gap-3">
+            <button id="btn-mode" class="bg-white hover:bg-gray-50 text-gray-800 font-semibold py-3 px-4 rounded-xl shadow border border-gray-200 transition-all flex items-center justify-between w-48">
+                <span id="mode-text"><i class="fa-solid fa-plus text-green-500 mr-2"></i> Build Mode</span>
+                <i class="fa-solid fa-sync text-gray-400 text-xs"></i>
+            </button>
+            
+            <button id="btn-transparent" class="bg-white hover:bg-gray-50 text-gray-800 font-semibold py-3 px-4 rounded-xl shadow border border-gray-200 transition-all flex items-center justify-between w-48">
+                <span id="trans-text"><i class="fa-solid fa-eye-slash text-purple-500 mr-2"></i> Solid Blocks</span>
+                <div id="trans-toggle" class="w-8 h-4 bg-gray-300 rounded-full relative transition-colors">
+                    <div class="absolute left-1 top-0.5 w-3 h-3 bg-white rounded-full transition-transform"></div>
+                </div>
+            </button>
+
+            <button id="btn-clear" class="bg-red-50 hover:bg-red-100 text-red-600 font-semibold py-3 px-4 rounded-xl shadow border border-red-200 transition-all flex items-center justify-center w-48 mt-4">
+                <i class="fa-solid fa-trash mr-2"></i> Clear All
+            </button>
+
+            <!-- Quick Shape Sliders -->
+            <div class="bg-white/90 backdrop-blur rounded-xl shadow border border-gray-200 p-4 w-48 mt-2">
+                <h3 class="text-xs font-extrabold text-gray-700 mb-3 border-b pb-2 uppercase tracking-wide"><i class="fa-solid fa-cube text-blue-500"></i> Quick Prism</h3>
+                
+                <div class="mb-3">
+                    <label class="text-xs text-gray-500 font-bold flex justify-between mb-1"><span>Length</span> <span id="val-l" class="text-blue-600">0</span></label>
+                    <input type="range" id="slider-l" min="0" max="10" value="0" class="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-500">
+                </div>
+                
+                <div class="mb-3">
+                    <label class="text-xs text-gray-500 font-bold flex justify-between mb-1"><span>Height</span> <span id="val-h" class="text-blue-600">0</span></label>
+                    <input type="range" id="slider-h" min="0" max="10" value="0" class="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-500">
+                </div>
+                
+                <div class="mb-3">
+                    <label class="text-xs text-gray-500 font-bold flex justify-between mb-1"><span>Width</span> <span id="val-w" class="text-blue-600">0</span></label>
+                    <input type="range" id="slider-w" min="0" max="10" value="0" class="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-500">
+                </div>
+            </div>
+        </div>
+
+        <!-- Floating Labels -->
+        <div id="label-x" class="dim-label hidden-label">Length: 0</div>
+        <div id="label-y" class="dim-label hidden-label">Height: 0</div>
+        <div id="label-z" class="dim-label hidden-label">Width: 0</div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script>
+        window.onload = function() {
+            // --- STATE ---
+            let isDeleteMode = false;
+            let isTransparent = false;
+            let cubes = [];
+            let cubePositions = new Set();
+
+            // --- THREE.JS SETUP ---
+            const container = document.getElementById('canvas-container');
+            const scene = new THREE.Scene();
+            scene.background = new THREE.Color(0xf3f4f6); // Tailwind gray-100
+
+            const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+            // Position camera to see a nice isometric-like angle
+            camera.position.set(12, 12, 15);
+
+            const renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            container.appendChild(renderer.domElement);
+
+            const controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+            controls.maxPolarAngle = Math.PI / 2 - 0.01; // Don't allow camera below ground
+
+            // --- LIGHTING ---
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+            scene.add(ambientLight);
+
+            const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            dirLight.position.set(10, 20, 10);
+            dirLight.castShadow = true;
+            dirLight.shadow.camera.left = -15;
+            dirLight.shadow.camera.right = 15;
+            dirLight.shadow.camera.top = 15;
+            dirLight.shadow.camera.bottom = -15;
+            dirLight.shadow.mapSize.width = 2048;
+            dirLight.shadow.mapSize.height = 2048;
+            scene.add(dirLight);
+
+            // --- GRID & GROUND PLANE ---
+            const gridSize = 20;
+            const gridHelper = new THREE.GridHelper(gridSize, gridSize, 0x9ca3af, 0xd1d5db);
+            gridHelper.position.y = 0;
+            scene.add(gridHelper);
+
+            // Invisible plane for raycasting the base layer
+            const planeGeometry = new THREE.PlaneGeometry(gridSize, gridSize);
+            planeGeometry.rotateX(-Math.PI / 2);
+            const planeMaterial = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false });
+            const groundPlane = new THREE.Mesh(planeGeometry, planeMaterial);
+            scene.add(groundPlane);
+
+            // Array for raycasting (ground + all cubes)
+            let interactableObjects = [groundPlane];
+
+            // --- CUBE MATERIALS ---
+            const colorSolid = 0x3b82f6; // Blue-500
+            
+            function createCubeMaterial() {
+                return new THREE.MeshStandardMaterial({ 
+                    color: colorSolid,
+                    roughness: 0.4,
+                    metalness: 0.1,
+                    transparent: isTransparent,
+                    opacity: isTransparent ? 0.4 : 1.0,
+                    depthWrite: !isTransparent // Prevents weird sorting issues when transparent
+                });
+            }
+
+            const cubeGeo = new THREE.BoxGeometry(1, 1, 1);
+
+            // --- DIMENSION LINES ---
+            const lineGroup = new THREE.Group();
+            scene.add(lineGroup);
+
+            // --- RAYCASTING ---
+            const raycaster = new THREE.Raycaster();
+            const mouse = new THREE.Vector2();
+
+            // Preview cube (ghost block)
+            const previewMaterial = new THREE.MeshBasicMaterial({ 
+                color: 0x22c55e, 
+                transparent: true, 
+                opacity: 0.4,
+                depthTest: false
+            });
+            const previewCube = new THREE.Mesh(cubeGeo, previewMaterial);
+            previewCube.visible = false;
+            scene.add(previewCube);
+
+            // Helper to get position key
+            const getPosKey = (x, y, z) => `${Math.round(x*10)/10},${Math.round(y*10)/10},${Math.round(z*10)/10}`;
+
+            function onMouseMove(event) {
+                // Calculate mouse position in normalized device coordinates (-1 to +1)
+                mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+                mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+                raycaster.setFromCamera(mouse, camera);
+                const intersects = raycaster.intersectObjects(interactableObjects);
+
+                if (intersects.length > 0) {
+                    const intersect = intersects[0];
+                    
+                    if (isDeleteMode || event.shiftKey) {
+                        previewCube.visible = false;
+                        document.body.style.cursor = intersect.object === groundPlane ? 'default' : 'pointer';
+                    } else {
+                        // Calculate placement position
+                        const normal = intersect.face.normal.clone();
+                        normal.transformDirection(intersect.object.matrixWorld);
+                        
+                        let pos = intersect.point.clone().add(normal.multiplyScalar(0.5));
+                        pos.x = Math.floor(pos.x) + 0.5;
+                        pos.y = Math.floor(pos.y) + 0.5;
+                        pos.z = Math.floor(pos.z) + 0.5;
+
+                        if (pos.y < 0.5) pos.y = 0.5; // Prevent below ground
+                        
+                        // Bounds check (keep within grid)
+                        if (Math.abs(pos.x) <= gridSize/2 && Math.abs(pos.z) <= gridSize/2) {
+                            previewCube.position.copy(pos);
+                            
+                            // Color red if overlapping
+                            if (cubePositions.has(getPosKey(pos.x, pos.y, pos.z))) {
+                                previewCube.material.color.setHex(0xef4444); // Red
+                            } else {
+                                previewCube.material.color.setHex(0x22c55e); // Green
+                            }
+                            previewCube.visible = true;
+                            document.body.style.cursor = 'pointer';
+                        } else {
+                            previewCube.visible = false;
+                        }
+                    }
+                } else {
+                    previewCube.visible = false;
+                    document.body.style.cursor = 'default';
+                }
+            }
+
+            function onMouseClick(event) {
+                // Ignore UI clicks
+                if (event.target.tagName === 'BUTTON' || event.target.closest('button') || event.target.closest('#ui-layer > div')) return;
+
+                mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+                mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+                raycaster.setFromCamera(mouse, camera);
+                const intersects = raycaster.intersectObjects(interactableObjects);
+
+                if (intersects.length > 0) {
+                    const intersect = intersects[0];
+
+                    // Remove Mode (or Shift+Click)
+                    if (isDeleteMode || event.shiftKey) {
+                        if (intersect.object !== groundPlane) {
+                            removeCube(intersect.object);
+                        }
+                        return;
+                    }
+
+                    // Add Mode
+                    const normal = intersect.face.normal.clone();
+                    normal.transformDirection(intersect.object.matrixWorld);
+                    
+                    let pos = intersect.point.clone().add(normal.multiplyScalar(0.5));
+                    pos.x = Math.floor(pos.x) + 0.5;
+                    pos.y = Math.floor(pos.y) + 0.5;
+                    pos.z = Math.floor(pos.z) + 0.5;
+
+                    if (pos.y < 0.5) pos.y = 0.5;
+
+                    // Ensure within grid
+                    if (Math.abs(pos.x) > gridSize/2 || Math.abs(pos.z) > gridSize/2) return;
+
+                    const key = getPosKey(pos.x, pos.y, pos.z);
+                    if (!cubePositions.has(key)) {
+                        addCube(pos, key);
+                    }
+                }
+            }
+
+            window.addEventListener('mousemove', onMouseMove);
+            
+            let pointerDownPos = { x: 0, y: 0 };
+            window.addEventListener('pointerdown', (e) => {
+                pointerDownPos.x = e.clientX;
+                pointerDownPos.y = e.clientY;
+            });
+
+            window.addEventListener('pointerup', (e) => {
+                // Differentiate between a click and a drag (OrbitControls rotating)
+                const dist = Math.hypot(e.clientX - pointerDownPos.x, e.clientY - pointerDownPos.y);
+                if (dist < 5) {
+                    onMouseClick(e);
+                }
+            });
+            
+            // Re-eval preview on shift key toggle
+            window.addEventListener('keydown', (e) => { if(e.key === 'Shift') onMouseMove({clientX: mouse.x*window.innerWidth/2 + window.innerWidth/2, clientY: -(mouse.y - 1)*window.innerHeight/2}); });
+            window.addEventListener('keyup', (e) => { if(e.key === 'Shift') onMouseMove({clientX: mouse.x*window.innerWidth/2 + window.innerWidth/2, clientY: -(mouse.y - 1)*window.innerHeight/2}); });
+
+
+            // --- LOGIC FUNCTIONS ---
+
+            function addCube(pos, key, animate = true, update = true) {
+                const mesh = new THREE.Mesh(cubeGeo, createCubeMaterial());
+                mesh.position.copy(pos);
+                mesh.castShadow = true;
+                mesh.receiveShadow = true;
+                
+                // Add distinct black edges
+                const edges = new THREE.EdgesGeometry(cubeGeo);
+                const line = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0x1e3a8a, linewidth: 2 }));
+                mesh.add(line);
+
+                scene.add(mesh);
+                cubes.push(mesh);
+                interactableObjects.push(mesh);
+                cubePositions.add(key);
+
+                if (animate) {
+                    // Add pop animation
+                    mesh.scale.set(0.1, 0.1, 0.1);
+                    let scale = 0.1;
+                    const popAnim = setInterval(() => {
+                        scale += 0.2;
+                        if(scale >= 1) {
+                            mesh.scale.set(1, 1, 1);
+                            clearInterval(popAnim);
+                        } else {
+                            mesh.scale.set(scale, scale, scale);
+                        }
+                    }, 16);
+                }
+
+                if (update) {
+                    updateDimensions();
+                    onMouseMove({clientX: mouse.x*window.innerWidth/2 + window.innerWidth/2, clientY: -(mouse.y - 1)*window.innerHeight/2}); // update ghost
+                }
+            }
+
+            function removeCube(mesh, update = true) {
+                scene.remove(mesh);
+                cubes = cubes.filter(c => c !== mesh);
+                interactableObjects = interactableObjects.filter(o => o !== mesh);
+                const key = getPosKey(mesh.position.x, mesh.position.y, mesh.position.z);
+                cubePositions.delete(key);
+                
+                // Clean up materials
+                mesh.material.dispose();
+                mesh.geometry.dispose();
+
+                if (update) {
+                    updateDimensions();
+                    onMouseMove({clientX: mouse.x*window.innerWidth/2 + window.innerWidth/2, clientY: -(mouse.y - 1)*window.innerHeight/2});
+                }
+            }
+
+            let currentBounds = null;
+
+            function updateDimensions() {
+                // Update Volume stat
+                document.getElementById('stat-volume').innerText = cubes.length;
+
+                // Clear previous lines
+                while(lineGroup.children.length > 0){ 
+                    lineGroup.remove(lineGroup.children[0]); 
+                }
+
+                if (cubes.length === 0) {
+                    document.getElementById('stat-x').innerText = '0';
+                    document.getElementById('stat-y').innerText = '0';
+                    document.getElementById('stat-z').innerText = '0';
+                    currentBounds = null;
+                    return;
+                }
+
+                // Calculate Bounds
+                let minX = Infinity, maxX = -Infinity;
+                let minY = Infinity, maxY = -Infinity;
+                let minZ = Infinity, maxZ = -Infinity;
+
+                cubes.forEach(c => {
+                    minX = Math.min(minX, c.position.x);
+                    maxX = Math.max(maxX, c.position.x);
+                    minY = Math.min(minY, c.position.y);
+                    maxY = Math.max(maxY, c.position.y);
+                    minZ = Math.min(minZ, c.position.z);
+                    maxZ = Math.max(maxZ, c.position.z);
+                });
+
+                // Since positions are centers (e.g. 0.5), real edges are +/- 0.5
+                const left = minX - 0.5;
+                const right = maxX + 0.5;
+                const bottom = minY - 0.5;
+                const top = maxY + 0.5;
+                const back = minZ - 0.5;
+                const front = maxZ + 0.5;
+
+                const width = right - left;
+                const height = top - bottom;
+                const depth = front - back;
+
+                document.getElementById('stat-x').innerText = width;
+                document.getElementById('stat-y').innerText = height;
+                document.getElementById('stat-z').innerText = depth;
+
+                currentBounds = {
+                    left, right, bottom, top, back, front, width, height, depth,
+                    // Positions for the HTML Labels
+                    labelXPos: new THREE.Vector3((left + right) / 2, bottom, front + 0.5),
+                    labelYPos: new THREE.Vector3(right + 0.5, (bottom + top) / 2, front),
+                    labelZPos: new THREE.Vector3(right + 0.5, bottom, (front + back) / 2)
+                };
+
+                // Draw physical lines
+                const lineMat = new THREE.LineBasicMaterial({ color: 0x1f2937, depthTest: false }); // Dark gray
+                
+                // Draw X line (Width) at bottom front
+                const pointsX = [
+                    new THREE.Vector3(left, bottom, front + 0.5),
+                    new THREE.Vector3(right, bottom, front + 0.5)
+                ];
+                // Draw Y line (Height) at right front
+                const pointsY = [
+                    new THREE.Vector3(right + 0.5, bottom, front),
+                    new THREE.Vector3(right + 0.5, top, front)
+                ];
+                // Draw Z line (Depth) at bottom right
+                const pointsZ = [
+                    new THREE.Vector3(right + 0.5, bottom, back),
+                    new THREE.Vector3(right + 0.5, bottom, front)
+                ];
+
+                const drawLine = (points) => {
+                    const geo = new THREE.BufferGeometry().setFromPoints(points);
+                    const line = new THREE.Line(geo, lineMat);
+                    line.renderOrder = 999; // draw on top
+                    lineGroup.add(line);
+                    
+                    // Add endpoints (ticks)
+                    const tickMat = new THREE.LineBasicMaterial({ color: 0x1f2937, depthTest: false });
+                    const tSize = 0.2;
+                    points.forEach(p => {
+                        // simple cross
+                        const tGeo1 = new THREE.BufferGeometry().setFromPoints([
+                            new THREE.Vector3(p.x - tSize, p.y, p.z), new THREE.Vector3(p.x + tSize, p.y, p.z)
+                        ]);
+                        const tGeo2 = new THREE.BufferGeometry().setFromPoints([
+                            new THREE.Vector3(p.x, p.y - tSize, p.z), new THREE.Vector3(p.x, p.y + tSize, p.z)
+                        ]);
+                        const tGeo3 = new THREE.BufferGeometry().setFromPoints([
+                            new THREE.Vector3(p.x, p.y, p.z - tSize), new THREE.Vector3(p.x, p.y, p.z + tSize)
+                        ]);
+                        const t1=new THREE.Line(tGeo1, tickMat); t1.renderOrder=999; lineGroup.add(t1);
+                        const t2=new THREE.Line(tGeo2, tickMat); t2.renderOrder=999; lineGroup.add(t2);
+                        const t3=new THREE.Line(tGeo3, tickMat); t3.renderOrder=999; lineGroup.add(t3);
+                    });
+                };
+
+                drawLine(pointsX);
+                drawLine(pointsY);
+                drawLine(pointsZ);
+                
+                // Update text content
+                document.getElementById('label-x').innerText = `L: ${width}`;
+                document.getElementById('label-y').innerText = `H: ${height}`;
+                document.getElementById('label-z').innerText = `W: ${depth}`;
+            }
+
+            // --- UI HANDLERS ---
+            const btnMode = document.getElementById('btn-mode');
+            const modeText = document.getElementById('mode-text');
+            btnMode.addEventListener('click', () => {
+                isDeleteMode = !isDeleteMode;
+                if(isDeleteMode) {
+                    modeText.innerHTML = '<i class="fa-solid fa-minus text-red-500 mr-2"></i> Remove Mode';
+                    btnMode.classList.replace('hover:bg-gray-50', 'bg-red-50');
+                } else {
+                    modeText.innerHTML = '<i class="fa-solid fa-plus text-green-500 mr-2"></i> Build Mode';
+                    btnMode.classList.replace('bg-red-50', 'hover:bg-gray-50');
+                }
+            });
+
+            const btnTrans = document.getElementById('btn-transparent');
+            const transText = document.getElementById('trans-text');
+            const transToggle = document.getElementById('trans-toggle');
+            btnTrans.addEventListener('click', () => {
+                isTransparent = !isTransparent;
+                
+                // Update UI toggle
+                const toggleDot = transToggle.querySelector('div');
+                if(isTransparent) {
+                    transToggle.classList.replace('bg-gray-300', 'bg-purple-500');
+                    toggleDot.classList.add('translate-x-4');
+                    transText.innerHTML = '<i class="fa-solid fa-eye text-purple-500 mr-2"></i> X-Ray View';
+                } else {
+                    transToggle.classList.replace('bg-purple-500', 'bg-gray-300');
+                    toggleDot.classList.remove('translate-x-4');
+                    transText.innerHTML = '<i class="fa-solid fa-eye-slash text-purple-500 mr-2"></i> Solid Blocks';
+                }
+
+                // Update materials
+                cubes.forEach(cube => {
+                    cube.material.transparent = isTransparent;
+                    cube.material.opacity = isTransparent ? 0.4 : 1.0;
+                    cube.material.depthWrite = !isTransparent;
+                    cube.material.needsUpdate = true;
+                });
+            });
+
+            document.getElementById('btn-clear').addEventListener('click', () => {
+                [...cubes].forEach(c => removeCube(c, false));
+                updateDimensions();
+                
+                // Reset sliders
+                ['slider-l', 'slider-h', 'slider-w'].forEach(id => {
+                    document.getElementById(id).value = 0;
+                });
+                ['val-l', 'val-h', 'val-w'].forEach(id => {
+                    document.getElementById(id).innerText = '0';
+                });
+            });
+
+            // --- QUICK PRISM SLIDERS LOGIC ---
+            function buildPrism(e) {
+                let lElem = document.getElementById('slider-l');
+                let hElem = document.getElementById('slider-h');
+                let wElem = document.getElementById('slider-w');
+
+                let l = parseInt(lElem.value);
+                let h = parseInt(hElem.value);
+                let w = parseInt(wElem.value);
+
+                // Auto-fill other dimensions to 1 so the shape is visible immediately
+                if (e && parseInt(e.target.value) > 0) {
+                    if (l === 0) { l = 1; lElem.value = 1; }
+                    if (h === 0) { h = 1; hElem.value = 1; }
+                    if (w === 0) { w = 1; wElem.value = 1; }
+                }
+
+                document.getElementById('val-l').innerText = l;
+                document.getElementById('val-h').innerText = h;
+                document.getElementById('val-w').innerText = w;
+
+                // Fast clear
+                [...cubes].forEach(c => removeCube(c, false));
+
+                if (l > 0 && h > 0 && w > 0) {
+                    const startX = -Math.floor(l / 2);
+                    const startZ = -Math.floor(w / 2);
+
+                    for (let x = 0; x < l; x++) {
+                        for (let y = 0; y < h; y++) {
+                            for (let z = 0; z < w; z++) {
+                                const posX = startX + x + 0.5;
+                                const posY = y + 0.5;
+                                const posZ = startZ + z + 0.5;
+                                const key = getPosKey(posX, posY, posZ);
+                                addCube(new THREE.Vector3(posX, posY, posZ), key, false, false);
+                            }
+                        }
+                    }
+                }
+                updateDimensions();
+            }
+
+            ['slider-l', 'slider-h', 'slider-w'].forEach(id => {
+                document.getElementById(id).addEventListener('input', buildPrism);
+            });
+
+            // --- RENDER LOOP ---
+            function updateLabelsPosition() {
+                const lx = document.getElementById('label-x');
+                const ly = document.getElementById('label-y');
+                const lz = document.getElementById('label-z');
+
+                if (!currentBounds || cubes.length === 0) {
+                    lx.classList.add('hidden-label');
+                    ly.classList.add('hidden-label');
+                    lz.classList.add('hidden-label');
+                    return;
+                }
+
+                lx.classList.remove('hidden-label');
+                ly.classList.remove('hidden-label');
+                lz.classList.remove('hidden-label');
+
+                const widthHalf = window.innerWidth / 2;
+                const heightHalf = window.innerHeight / 2;
+
+                const projectVec = (vec3, elem) => {
+                    const pos = vec3.clone();
+                    pos.project(camera);
+                    
+                    // Hide if behind camera
+                    if (pos.z > 1) {
+                        elem.style.opacity = 0;
+                        return;
+                    }
+                    elem.style.opacity = 1;
+
+                    const x = (pos.x * widthHalf) + widthHalf;
+                    const y = -(pos.y * heightHalf) + heightHalf;
+                    
+                    elem.style.left = `${x}px`;
+                    elem.style.top = `${y}px`;
+                };
+
+                projectVec(currentBounds.labelXPos, lx);
+                projectVec(currentBounds.labelYPos, ly);
+                projectVec(currentBounds.labelZPos, lz);
+            }
+
+            function animate() {
+                requestAnimationFrame(animate);
+                controls.update();
+                renderer.render(scene, camera);
+                updateLabelsPosition();
+            }
+
+            // Handle resize
+            window.addEventListener('resize', onWindowResize, false);
+            function onWindowResize() {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            }
+
+            // Start loop
+            animate();
+        };
+    </script>
+</body>
+</html>
