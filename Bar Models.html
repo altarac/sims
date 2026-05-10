@@ -122,6 +122,7 @@
                 }
             ]);
             const [zoom, setZoom] = useState(1);
+            const [showClearConfirm, setShowClearConfirm] = useState(false);
 
             const addRow = () => {
                 setRows([...rows, {
@@ -177,9 +178,12 @@
             };
 
             const clearWorkspace = () => {
-                if(confirm("Clear the entire workspace?")) {
-                    setRows([]);
-                }
+                setShowClearConfirm(true);
+            };
+
+            const confirmClear = () => {
+                setRows([]);
+                setShowClearConfirm(false);
             };
 
             const handleBlockDrop = (sourceRowId, sourceBlockId, targetRowId, targetBlockId) => {
@@ -301,6 +305,7 @@
                                 <Icon name="plus" />
                                 <span>Add Row</span>
                             </button>
+                            {/* Added the clearWorkspace function to the onClick handler */}
                             <button onClick={clearWorkspace} className="bg-slate-700 hover:bg-red-600 px-4 py-2 rounded-md font-medium transition-colors">
                                 Clear
                             </button>
@@ -334,6 +339,20 @@
                             )}
                         </div>
                     </div>
+
+                    {/* Custom Confirmation Modal for Clearing Workspace */}
+                    {showClearConfirm && (
+                        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 transition-opacity">
+                            <div className="bg-white p-6 rounded-lg shadow-xl text-center max-w-sm">
+                                <h2 className="text-xl font-bold mb-4 text-gray-800">Clear Workspace?</h2>
+                                <p className="text-gray-600 mb-6">Are you sure you want to delete all rows? This action cannot be undone.</p>
+                                <div className="flex justify-center space-x-4">
+                                    <button onClick={() => setShowClearConfirm(false)} className="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-md text-gray-800 font-medium transition-colors">Cancel</button>
+                                    <button onClick={confirmClear} className="px-4 py-2 bg-red-600 hover:bg-red-700 rounded-md text-white font-medium transition-colors">Yes, Clear</button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </div>
             );
         };
