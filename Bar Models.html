@@ -80,8 +80,9 @@
                 minus: <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 12h-15" />,
                 trash: <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />,
                 split: <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" />,
-                palette: <path strokeLinecap="round" strokeLinejoin="round" d="M4.098 19.902a3.75 3.75 0 005.304 0l6.401-6.402M6.75 21A3.75 3.75 0 013 17.25l7.22-7.22a3.75 3.75 0 015.304 0l.44.44m-2.122 2.12a59.27 59.27 0 00-6.938-6.938m15.253 4.254a3.75 3.75 0 01-5.305 0l-7.22-7.22a3.75 3.75 0 010-5.304l.44-.44a3.75 3.75 0 015.304 0l7.22 7.22a3.75 3.75 0 010 5.304l-.44.44z" />,
-                bracket: <path strokeLinecap="round" strokeLinejoin="round" d="M17.25 6.75L22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3l-4.5 16.5" />
+                cursor: <path strokeLinecap="round" strokeLinejoin="round" d="M15.042 21.672L13.684 16.6m0 0l-2.51 2.225.569-9.47 5.227 7.917-3.286-.672zm-7.518-.267A8.25 8.25 0 1120.25 10.5M8.288 14.212A5.25 5.25 0 1117.25 10.5" />,
+                pencil: <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L6.832 19.82a4.5 4.5 0 01-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 011.13-1.897L16.863 4.487zm0 0L19.5 7.125" />,
+                eraser: <path strokeLinecap="round" strokeLinejoin="round" d="M12 9.75L14.25 12m0 0l2.25 2.25M14.25 12l2.25-2.25M14.25 12L12 14.25m-2.58 4.92l-6.375-6.375a1.125 1.125 0 010-1.59L9.42 4.83c.21-.211.497-.33.795-.33H19.5a2.25 2.25 0 012.25 2.25v10.5a2.25 2.25 0 01-2.25 2.25h-9.284c-.298 0-.585-.119-.795-.33z" />
             };
             return (
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" width={size} height={size} className={className}>
@@ -123,6 +124,98 @@
             ]);
             const [zoom, setZoom] = useState(1);
             const [showClearConfirm, setShowClearConfirm] = useState(false);
+            
+            // Ink & Drawing State
+            const [inkMode, setInkMode] = useState('interact'); // 'interact', 'pen', 'eraser'
+            const canvasRef = useRef(null);
+            const ctxRef = useRef(null);
+            const isDrawing = useRef(false);
+
+            // Setup and resize canvas
+            useEffect(() => {
+                const canvas = canvasRef.current;
+                if (!canvas) return;
+                
+                if (!ctxRef.current) {
+                    ctxRef.current = canvas.getContext('2d');
+                }
+
+                // Use ResizeObserver to keep canvas internal resolution perfectly matched to CSS size
+                const resizeObserver = new ResizeObserver((entries) => {
+                    for (let entry of entries) {
+                        const { width, height } = entry.contentRect;
+                        if (canvas.width !== width || canvas.height !== height) {
+                            // Save drawing data before resize clears it
+                            const imgData = canvas.width > 0 && canvas.height > 0 ? ctxRef.current.getImageData(0, 0, canvas.width, canvas.height) : null;
+                            
+                            canvas.width = width;
+                            canvas.height = height;
+                            
+                            // Re-apply styles
+                            ctxRef.current.lineCap = 'round';
+                            ctxRef.current.lineJoin = 'round';
+                            
+                            if (imgData) {
+                                ctxRef.current.putImageData(imgData, 0, 0);
+                            }
+                        }
+                    }
+                });
+
+                if (canvas.parentElement) {
+                    resizeObserver.observe(canvas.parentElement);
+                }
+
+                return () => resizeObserver.disconnect();
+            }, []);
+
+            // Drawing logic
+            const getCanvasCoordinates = (e) => {
+                const canvas = canvasRef.current;
+                const rect = canvas.getBoundingClientRect();
+                return {
+                    x: (e.clientX - rect.left) / zoom,
+                    y: (e.clientY - rect.top) / zoom
+                };
+            };
+
+            const startDrawing = (e) => {
+                if (inkMode === 'interact') return;
+                isDrawing.current = true;
+                const coords = getCanvasCoordinates(e);
+                
+                const ctx = ctxRef.current;
+                ctx.beginPath();
+                ctx.moveTo(coords.x, coords.y);
+                // Draw a dot just in case it's a tap and not a drag
+                ctx.lineTo(coords.x + 0.1, coords.y); 
+                
+                if (inkMode === 'eraser') {
+                    ctx.globalCompositeOperation = 'destination-out';
+                    ctx.lineWidth = 25;
+                } else {
+                    ctx.globalCompositeOperation = 'source-over';
+                    ctx.strokeStyle = '#2563eb'; // Blue ink
+                    ctx.lineWidth = 3;
+                }
+                ctx.stroke();
+            };
+
+            const draw = (e) => {
+                if (!isDrawing.current || inkMode === 'interact') return;
+                const coords = getCanvasCoordinates(e);
+                const ctx = ctxRef.current;
+                
+                ctx.lineTo(coords.x, coords.y);
+                ctx.stroke();
+            };
+
+            const stopDrawing = () => {
+                if (isDrawing.current) {
+                    ctxRef.current.closePath();
+                    isDrawing.current = false;
+                }
+            };
 
             const addRow = () => {
                 setRows([...rows, {
@@ -184,6 +277,10 @@
             const confirmClear = () => {
                 setRows([]);
                 setShowClearConfirm(false);
+                // Clear the ink canvas as well
+                if (ctxRef.current && canvasRef.current) {
+                    ctxRef.current.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+                }
             };
 
             const handleBlockDrop = (sourceRowId, sourceBlockId, targetRowId, targetBlockId) => {
@@ -285,28 +382,44 @@
             };
 
             return (
-                <div className="flex flex-col h-screen bg-white">
+                <div className="flex flex-col h-screen bg-white select-none">
                     {/* Header / Toolbar */}
                     <header className="bg-slate-800 text-white p-4 shadow-md flex justify-between items-center z-10">
                         <div className="flex items-center space-x-3">
                             <div className="bg-blue-500 p-2 rounded-lg">
                                 <Icon name="split" size={20} className="text-white" />
                             </div>
-                            <h1 className="text-xl font-bold tracking-wide">Math Bar Models</h1>
+                            <h1 className="text-xl font-bold tracking-wide hidden sm:block">Math Bar Models</h1>
                         </div>
-                        <div className="flex items-center space-x-4">
-                            <div className="flex items-center space-x-2 bg-slate-700 px-3 py-1 rounded-md">
-                                <span className="text-sm text-slate-300">Zoom:</span>
+                        <div className="flex items-center space-x-2 md:space-x-4">
+                            
+                            {/* Ink Mode Controls */}
+                            <div className="flex items-center bg-slate-700 rounded-md p-1 space-x-1">
+                                <button onClick={() => setInkMode('interact')} className={`p-1.5 md:p-2 rounded transition-colors ${inkMode === 'interact' ? 'bg-slate-500 text-white' : 'text-slate-300 hover:bg-slate-600'}`} title="Interact & Move">
+                                    <Icon name="cursor" size={18} />
+                                </button>
+                                <button onClick={() => setInkMode('pen')} className={`p-1.5 md:p-2 rounded transition-colors ${inkMode === 'pen' ? 'bg-blue-500 text-white' : 'text-slate-300 hover:bg-slate-600'}`} title="Draw (Pen)">
+                                    <Icon name="pencil" size={18} />
+                                </button>
+                                <button onClick={() => setInkMode('eraser')} className={`p-1.5 md:p-2 rounded transition-colors ${inkMode === 'eraser' ? 'bg-red-500 text-white' : 'text-slate-300 hover:bg-slate-600'}`} title="Erase Ink">
+                                    <Icon name="eraser" size={18} />
+                                </button>
+                            </div>
+
+                            <div className="h-6 w-px bg-slate-600 hidden md:block"></div>
+
+                            {/* Zoom Controls */}
+                            <div className="hidden md:flex items-center space-x-2 bg-slate-700 px-3 py-1 rounded-md">
                                 <button onClick={() => setZoom(Math.max(0.5, zoom - 0.1))} className="p-1 hover:text-blue-400"><Icon name="minus" /></button>
                                 <span className="w-8 text-center text-sm">{Math.round(zoom * 100)}%</span>
                                 <button onClick={() => setZoom(Math.min(2, zoom + 0.1))} className="p-1 hover:text-blue-400"><Icon name="plus" /></button>
                             </div>
-                            <button onClick={addRow} className="bg-blue-600 hover:bg-blue-500 px-4 py-2 rounded-md font-medium flex items-center space-x-2 transition-colors">
+
+                            <button onClick={addRow} className="bg-blue-600 hover:bg-blue-500 px-3 py-1.5 md:px-4 md:py-2 rounded-md font-medium flex items-center space-x-2 transition-colors text-sm md:text-base">
                                 <Icon name="plus" />
-                                <span>Add Row</span>
+                                <span className="hidden md:inline">Add Row</span>
                             </button>
-                            {/* Added the clearWorkspace function to the onClick handler */}
-                            <button onClick={clearWorkspace} className="bg-slate-700 hover:bg-red-600 px-4 py-2 rounded-md font-medium transition-colors">
+                            <button onClick={clearWorkspace} className="bg-slate-700 hover:bg-red-600 px-3 py-1.5 md:px-4 md:py-2 rounded-md font-medium transition-colors text-sm md:text-base">
                                 Clear
                             </button>
                         </div>
@@ -314,29 +427,49 @@
 
                     {/* Canvas Area */}
                     <div className="flex-1 overflow-auto bg-gray-50 p-8 relative" style={{ backgroundImage: 'radial-gradient(#e5e7eb 1px, transparent 1px)', backgroundSize: '20px 20px' }}>
-                        <div className="max-w-6xl mx-auto" style={{ transform: `scale(${zoom})`, transformOrigin: 'top left', transition: 'transform 0.2s' }}>
-                            {rows.length === 0 ? (
-                                <div className="text-center text-gray-400 mt-20 flex flex-col items-center">
-                                    <Icon name="split" size={48} className="mb-4 opacity-50" />
-                                    <p className="text-xl">Your workspace is empty.</p>
-                                    <p className="text-sm mt-2">Click "Add Row" to start building a model.</p>
-                                </div>
-                            ) : (
-                                <div className="space-y-12">
-                                    {rows.map(row => (
-                                        <Row 
-                                            key={row.id} 
-                                            row={row} 
-                                            updateRow={(updates) => updateRow(row.id, updates)}
-                                            deleteRow={() => deleteRow(row.id)}
-                                            addBlock={() => addBlock(row.id)}
-                                            updateBlock={(blockId, updates) => updateBlock(row.id, blockId, updates)}
-                                            deleteBlock={(blockId) => deleteBlock(row.id, blockId)}
-                                            handleBlockDrop={handleBlockDrop}
-                                        />
-                                    ))}
-                                </div>
-                            )}
+                        <div className="max-w-6xl mx-auto min-h-full relative" style={{ transform: `scale(${zoom})`, transformOrigin: 'top left', transition: 'transform 0.2s' }}>
+                            
+                            {/* The Digital Ink Layer */}
+                            <canvas 
+                                ref={canvasRef}
+                                onPointerDown={startDrawing}
+                                onPointerMove={draw}
+                                onPointerUp={stopDrawing}
+                                onPointerOut={stopDrawing}
+                                className="absolute inset-0 w-full h-full"
+                                style={{ 
+                                    pointerEvents: inkMode === 'interact' ? 'none' : 'auto',
+                                    touchAction: inkMode === 'interact' ? 'auto' : 'none', // Critical for preventing iPad scroll while drawing
+                                    zIndex: 40 
+                                }}
+                            />
+
+                            <div className="relative z-0 pt-4 pb-20">
+                                {rows.length === 0 ? (
+                                    <div className="text-center text-gray-400 mt-20 flex flex-col items-center">
+                                        <Icon name="split" size={48} className="mb-4 opacity-50" />
+                                        <p className="text-xl">Your workspace is empty.</p>
+                                        <p className="text-sm mt-2">Click "Add Row" to start building a model.</p>
+                                    </div>
+                                ) : (
+                                    <div className="space-y-12">
+                                        {rows.map(row => (
+                                            <Row 
+                                                key={row.id} 
+                                                row={row} 
+                                                updateRow={(updates) => updateRow(row.id, updates)}
+                                                deleteRow={() => deleteRow(row.id)}
+                                                addBlock={() => addBlock(row.id)}
+                                                updateBlock={(blockId, updates) => updateBlock(row.id, blockId, updates)}
+                                                deleteBlock={(blockId) => deleteBlock(row.id, blockId)}
+                                                handleBlockDrop={handleBlockDrop}
+                                                isDrawingMode={inkMode !== 'interact'}
+                                            />
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+
                         </div>
                     </div>
 
@@ -345,7 +478,7 @@
                         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 transition-opacity">
                             <div className="bg-white p-6 rounded-lg shadow-xl text-center max-w-sm">
                                 <h2 className="text-xl font-bold mb-4 text-gray-800">Clear Workspace?</h2>
-                                <p className="text-gray-600 mb-6">Are you sure you want to delete all rows? This action cannot be undone.</p>
+                                <p className="text-gray-600 mb-6">Are you sure you want to delete all rows and clear all digital ink? This action cannot be undone.</p>
                                 <div className="flex justify-center space-x-4">
                                     <button onClick={() => setShowClearConfirm(false)} className="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-md text-gray-800 font-medium transition-colors">Cancel</button>
                                     <button onClick={confirmClear} className="px-4 py-2 bg-red-600 hover:bg-red-700 rounded-md text-white font-medium transition-colors">Yes, Clear</button>
@@ -358,12 +491,12 @@
         };
 
         // --- Row Component ---
-        const Row = ({ row, updateRow, deleteRow, addBlock, updateBlock, deleteBlock, handleBlockDrop }) => {
+        const Row = ({ row, updateRow, deleteRow, addBlock, updateBlock, deleteBlock, handleBlockDrop, isDrawingMode }) => {
             // Calculate exactly how wide the combined blocks are to perfectly size the brackets
             const totalBlocksWidth = row.blocks.reduce((sum, block) => sum + block.size * BASE_UNIT_WIDTH, 0);
 
             return (
-                <div className="flex flex-row items-stretch group/row relative">
+                <div className={`flex flex-row items-stretch relative ${isDrawingMode ? '' : 'group/row'}`}>
                     {/* Row Label */}
                     <div className="flex items-center justify-end pr-4 w-40 flex-shrink-0">
                         <input 
@@ -386,9 +519,11 @@
                                     className="absolute -top-7 left-1/2 -translate-x-1/2 w-32 text-center text-sm font-bold bg-transparent outline-none text-gray-800 border-b border-transparent hover:border-gray-300 focus:bg-white"
                                     placeholder="Total?"
                                 />
-                                <button onClick={() => updateRow({ showTopBracket: false })} className="absolute -top-8 right-0 text-red-500 opacity-0 group-hover/bracket:opacity-100 hover:bg-red-50 rounded p-1">
-                                    <Icon name="trash" size={14} />
-                                </button>
+                                {!isDrawingMode && (
+                                    <button onClick={() => updateRow({ showTopBracket: false })} className="absolute -top-8 right-0 text-red-500 opacity-0 group-hover/bracket:opacity-100 hover:bg-red-50 rounded p-1">
+                                        <Icon name="trash" size={14} />
+                                    </button>
+                                )}
                             </div>
                         )}
 
@@ -402,17 +537,20 @@
                                     updateBlock={(updates) => updateBlock(block.id, updates)}
                                     deleteBlock={() => deleteBlock(block.id)}
                                     handleBlockDrop={handleBlockDrop}
+                                    isDrawingMode={isDrawingMode}
                                 />
                             ))}
                             
-                            {/* Inline Add Block Button - Fixed alignment */}
-                            <button 
-                                onClick={addBlock}
-                                className="ml-2 w-10 border-2 border-dashed border-gray-300 text-gray-400 hover:text-blue-500 hover:border-blue-500 hover:bg-blue-50 flex items-center justify-center rounded transition-colors h-14 mt-0 opacity-0 group-hover/row:opacity-100 flex-shrink-0"
-                                title="Add Block"
-                            >
-                                <Icon name="plus" />
-                            </button>
+                            {/* Inline Add Block Button - Hidden when drawing */}
+                            {!isDrawingMode && (
+                                <button 
+                                    onClick={addBlock}
+                                    className="ml-2 w-10 border-2 border-dashed border-gray-300 text-gray-400 hover:text-blue-500 hover:border-blue-500 hover:bg-blue-50 flex items-center justify-center rounded transition-colors h-14 mt-0 opacity-0 group-hover/row:opacity-100 flex-shrink-0"
+                                    title="Add Block"
+                                >
+                                    <Icon name="plus" />
+                                </button>
+                            )}
                         </div>
 
                         {/* Bottom Bracket */}
@@ -425,35 +563,39 @@
                                     className="absolute -bottom-7 left-1/2 -translate-x-1/2 w-32 text-center text-sm font-bold bg-transparent outline-none text-gray-800 border-b border-transparent hover:border-gray-300 focus:bg-white"
                                     placeholder="Total?"
                                 />
-                                <button onClick={() => updateRow({ showBottomBracket: false })} className="absolute -bottom-8 right-0 text-red-500 opacity-0 group-hover/bracket:opacity-100 hover:bg-red-50 rounded p-1">
-                                    <Icon name="trash" size={14} />
-                                </button>
+                                {!isDrawingMode && (
+                                    <button onClick={() => updateRow({ showBottomBracket: false })} className="absolute -bottom-8 right-0 text-red-500 opacity-0 group-hover/bracket:opacity-100 hover:bg-red-50 rounded p-1">
+                                        <Icon name="trash" size={14} />
+                                    </button>
+                                )}
                             </div>
                         )}
                     </div>
                     
-                    {/* Row Controls (Hover) */}
-                    <div className="flex flex-col justify-center ml-4 opacity-0 group-hover/row:opacity-100 transition-opacity space-y-1">
-                        {!row.showTopBracket && (
-                            <button onClick={() => updateRow({ showTopBracket: true })} className="text-xs text-gray-500 hover:text-blue-600 bg-white border border-gray-200 px-2 py-1 rounded shadow-sm" title="Add Top Bracket">
-                                + Top Bracket
+                    {/* Row Controls (Hover) - Hidden when drawing */}
+                    {!isDrawingMode && (
+                        <div className="flex flex-col justify-center ml-4 opacity-0 group-hover/row:opacity-100 transition-opacity space-y-1">
+                            {!row.showTopBracket && (
+                                <button onClick={() => updateRow({ showTopBracket: true })} className="text-xs text-gray-500 hover:text-blue-600 bg-white border border-gray-200 px-2 py-1 rounded shadow-sm" title="Add Top Bracket">
+                                    + Top Bracket
+                                </button>
+                            )}
+                            {!row.showBottomBracket && (
+                                <button onClick={() => updateRow({ showBottomBracket: true })} className="text-xs text-gray-500 hover:text-blue-600 bg-white border border-gray-200 px-2 py-1 rounded shadow-sm" title="Add Bottom Bracket">
+                                    + Bottom Bracket
+                                </button>
+                            )}
+                            <button onClick={deleteRow} className="text-xs text-red-500 hover:bg-red-50 border border-transparent hover:border-red-200 px-2 py-1 rounded transition-colors flex items-center" title="Delete Row">
+                                <Icon name="trash" size={12} className="mr-1"/> Delete Row
                             </button>
-                        )}
-                        {!row.showBottomBracket && (
-                            <button onClick={() => updateRow({ showBottomBracket: true })} className="text-xs text-gray-500 hover:text-blue-600 bg-white border border-gray-200 px-2 py-1 rounded shadow-sm" title="Add Bottom Bracket">
-                                + Bottom Bracket
-                            </button>
-                        )}
-                        <button onClick={deleteRow} className="text-xs text-red-500 hover:bg-red-50 border border-transparent hover:border-red-200 px-2 py-1 rounded transition-colors flex items-center" title="Delete Row">
-                            <Icon name="trash" size={12} className="mr-1"/> Delete Row
-                        </button>
-                    </div>
+                        </div>
+                    )}
                 </div>
             );
         };
 
         // --- Block Component ---
-        const Block = ({ rowId, block, updateBlock, deleteBlock, handleBlockDrop }) => {
+        const Block = ({ rowId, block, updateBlock, deleteBlock, handleBlockDrop, isDrawingMode }) => {
             const [isDragOver, setIsDragOver] = useState(false);
             
             const colorDef = COLORS.find(c => c.id === block.colorId) || COLORS[0];
@@ -469,6 +611,7 @@
             };
 
             const handleDragStart = (e) => {
+                if (isDrawingMode) { e.preventDefault(); return; }
                 e.dataTransfer.setData('application/json', JSON.stringify({
                     sourceRowId: rowId,
                     sourceBlockId: block.id
@@ -477,6 +620,7 @@
             };
 
             const handleDragOver = (e) => {
+                if (isDrawingMode) return;
                 e.preventDefault();
                 e.dataTransfer.dropEffect = 'copy';
                 if (!isDragOver) setIsDragOver(true);
@@ -487,6 +631,7 @@
             };
 
             const handleDrop = (e) => {
+                if (isDrawingMode) return;
                 e.preventDefault();
                 setIsDragOver(false);
                 try {
@@ -506,16 +651,16 @@
             const segments = Array.from({ length: block.segments });
 
             return (
-                <div className="relative group/block flex flex-col justify-center">
+                <div className={`relative flex flex-col justify-center ${isDrawingMode ? '' : 'group/block'}`}>
                     
                     {/* The Visual Bar */}
                     <div 
-                        draggable={true}
+                        draggable={!isDrawingMode}
                         onDragStart={handleDragStart}
                         onDragOver={handleDragOver}
                         onDragLeave={handleDragLeave}
                         onDrop={handleDrop}
-                        className={`h-14 flex ${colorDef.bg} ${colorDef.border} ${isDashed ? 'border-2' : 'border-2'} box-border cursor-grab active:cursor-grabbing transition-all duration-200 ${isDragOver ? 'ring-4 ring-blue-500 ring-opacity-50 scale-[1.02] z-10' : ''} ${block.isAnimating ? 'animate-divide' : ''}`}
+                        className={`h-14 flex ${colorDef.bg} ${colorDef.border} ${isDashed ? 'border-2' : 'border-2'} box-border ${isDrawingMode ? '' : 'cursor-grab active:cursor-grabbing'} transition-all duration-200 ${isDragOver ? 'ring-4 ring-blue-500 ring-opacity-50 scale-[1.02] z-10' : ''} ${block.isAnimating ? 'animate-divide' : ''}`}
                         style={{ width: `${width}px`, borderRightWidth: isDashed ? '2px' : '0px' }} // handle right borders carefully so adjacent blocks look connected unless dashed
                     >
                         {segments.map((_, i) => (
@@ -529,49 +674,53 @@
                                     className="w-full h-full bg-transparent text-center font-medium text-gray-800 outline-none focus:bg-white/50 cursor-text"
                                     placeholder={isDashed ? "?" : ""}
                                     onClick={(e) => e.stopPropagation()} // Prevent input clicks from initiating drag
+                                    readOnly={isDrawingMode}
+                                    tabIndex={isDrawingMode ? -1 : 0}
                                 />
                             </div>
                         ))}
                     </div>
 
                     {/* Block Controls Popup (Hover) - Fixed hover gap issue */}
-                    <div className="absolute top-full left-0 pt-2 z-20 opacity-0 group-hover/block:opacity-100 transition-opacity pointer-events-none group-hover/block:pointer-events-auto">
-                        <div className="bg-white border border-gray-200 rounded-md shadow-lg p-1.5 flex gap-1">
-                            {/* Width Controls */}
-                            <div className="flex flex-col items-center bg-gray-50 rounded p-1">
-                                <span className="text-[10px] text-gray-400 font-semibold mb-0.5 uppercase tracking-wider">Size</span>
-                                <div className="flex items-center space-x-1">
-                                    <button onClick={() => updateBlock({ size: Math.max(0.5, block.size - 0.5) })} className="p-1 hover:bg-gray-200 rounded text-gray-600"><Icon name="minus" size={12} /></button>
-                                    <span className="text-xs font-mono w-4 text-center">{block.size}</span>
-                                    <button onClick={() => updateBlock({ size: block.size + 0.5 })} className="p-1 hover:bg-gray-200 rounded text-gray-600"><Icon name="plus" size={12} /></button>
+                    {!isDrawingMode && (
+                        <div className="absolute top-full left-0 pt-2 z-20 opacity-0 group-hover/block:opacity-100 transition-opacity pointer-events-none group-hover/block:pointer-events-auto">
+                            <div className="bg-white border border-gray-200 rounded-md shadow-lg p-1.5 flex gap-1">
+                                {/* Width Controls */}
+                                <div className="flex flex-col items-center bg-gray-50 rounded p-1">
+                                    <span className="text-[10px] text-gray-400 font-semibold mb-0.5 uppercase tracking-wider">Size</span>
+                                    <div className="flex items-center space-x-1">
+                                        <button onClick={() => updateBlock({ size: Math.max(0.5, block.size - 0.5) })} className="p-1 hover:bg-gray-200 rounded text-gray-600"><Icon name="minus" size={12} /></button>
+                                        <span className="text-xs font-mono w-4 text-center">{block.size}</span>
+                                        <button onClick={() => updateBlock({ size: block.size + 0.5 })} className="p-1 hover:bg-gray-200 rounded text-gray-600"><Icon name="plus" size={12} /></button>
+                                    </div>
                                 </div>
-                            </div>
 
-                            <div className="w-px bg-gray-200 my-1"></div>
+                                <div className="w-px bg-gray-200 my-1"></div>
 
-                            {/* Split Controls */}
-                            <div className="flex flex-col items-center bg-gray-50 rounded p-1">
-                                <span className="text-[10px] text-gray-400 font-semibold mb-0.5 uppercase tracking-wider">Parts</span>
-                                <div className="flex items-center space-x-1">
-                                    <button onClick={() => updateBlock({ segments: Math.max(1, block.segments - 1) })} className="p-1 hover:bg-gray-200 rounded text-gray-600"><Icon name="minus" size={12} /></button>
-                                    <span className="text-xs font-mono w-4 text-center">{block.segments}</span>
-                                    <button onClick={() => updateBlock({ segments: block.segments + 1 })} className="p-1 hover:bg-gray-200 rounded text-gray-600"><Icon name="plus" size={12} /></button>
+                                {/* Split Controls */}
+                                <div className="flex flex-col items-center bg-gray-50 rounded p-1">
+                                    <span className="text-[10px] text-gray-400 font-semibold mb-0.5 uppercase tracking-wider">Parts</span>
+                                    <div className="flex items-center space-x-1">
+                                        <button onClick={() => updateBlock({ segments: Math.max(1, block.segments - 1) })} className="p-1 hover:bg-gray-200 rounded text-gray-600"><Icon name="minus" size={12} /></button>
+                                        <span className="text-xs font-mono w-4 text-center">{block.segments}</span>
+                                        <button onClick={() => updateBlock({ segments: block.segments + 1 })} className="p-1 hover:bg-gray-200 rounded text-gray-600"><Icon name="plus" size={12} /></button>
+                                    </div>
                                 </div>
-                            </div>
 
-                            <div className="w-px bg-gray-200 my-1"></div>
+                                <div className="w-px bg-gray-200 my-1"></div>
 
-                            {/* Action Buttons */}
-                            <div className="flex items-center space-x-1 px-1">
-                                <button onClick={cycleColor} className="p-1.5 hover:bg-gray-100 rounded flex flex-col items-center justify-center" title="Change Color">
-                                    <div className={`w-4 h-4 rounded-full border border-gray-300 ${colorDef.bg} ${isDashed ? 'border-dashed' : ''}`}></div>
-                                </button>
-                                <button onClick={deleteBlock} className="p-1.5 hover:bg-red-50 text-red-500 rounded flex items-center justify-center" title="Delete Block">
-                                    <Icon name="trash" size={14} />
-                                </button>
+                                {/* Action Buttons */}
+                                <div className="flex items-center space-x-1 px-1">
+                                    <button onClick={cycleColor} className="p-1.5 hover:bg-gray-100 rounded flex flex-col items-center justify-center" title="Change Color">
+                                        <div className={`w-4 h-4 rounded-full border border-gray-300 ${colorDef.bg} ${isDashed ? 'border-dashed' : ''}`}></div>
+                                    </button>
+                                    <button onClick={deleteBlock} className="p-1.5 hover:bg-red-50 text-red-500 rounded flex items-center justify-center" title="Delete Block">
+                                        <Icon name="trash" size={14} />
+                                    </button>
+                                </div>
                             </div>
                         </div>
-                    </div>
+                    )}
                 </div>
             );
         };
