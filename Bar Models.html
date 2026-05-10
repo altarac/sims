@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Math Bar Models Manipulative</title>
+    
+    <!-- React & ReactDOM -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    
+    <!-- Babel for in-browser JSX compilation -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <style>
+        body { font-family: system-ui, -apple-system, sans-serif; background-color: #f3f4f6; margin: 0; padding: 0; }
+        
+        /* Bracket Styles */
+        .bracket-top {
+            border-top: 2px solid #4b5563;
+            border-left: 2px solid #4b5563;
+            border-right: 2px solid #4b5563;
+            border-top-left-radius: 4px;
+            border-top-right-radius: 4px;
+            height: 12px;
+            position: relative;
+            margin-bottom: 4px;
+        }
+        .bracket-bottom {
+            border-bottom: 2px solid #4b5563;
+            border-left: 2px solid #4b5563;
+            border-right: 2px solid #4b5563;
+            border-bottom-left-radius: 4px;
+            border-bottom-right-radius: 4px;
+            height: 12px;
+            position: relative;
+            margin-top: 4px;
+        }
+        
+        /* Hide scrollbar for cleaner canvas */
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        
+        /* Custom input placeholder color */
+        input::placeholder { color: #9ca3af; }
+
+        /* Drag and Drop Animations */
+        @keyframes divide-pulse {
+            0% { transform: scale(1); filter: brightness(1); box-shadow: 0 0 0 rgba(74, 222, 128, 0); }
+            30% { transform: scale(1.03); filter: brightness(1.2); box-shadow: 0 0 15px rgba(74, 222, 128, 0.6); }
+            70% { transform: scale(1.03); filter: brightness(1.2); box-shadow: 0 0 15px rgba(74, 222, 128, 0.6); }
+            100% { transform: scale(1); filter: brightness(1); box-shadow: 0 0 0 rgba(74, 222, 128, 0); }
+        }
+        .animate-divide {
+            animation: divide-pulse 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: 10;
+        }
+        @keyframes fade-in-segment {
+            0% { opacity: 0; }
+            100% { opacity: 1; }
+        }
+        .segment-animate {
+            animation: fade-in-segment 0.5s ease-in;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        // --- Utility: Icons ---
+        const Icon = ({ name, size = 16, className = "" }) => {
+            const icons = {
+                plus: <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />,
+                minus: <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 12h-15" />,
+                trash: <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />,
+                split: <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" />,
+                palette: <path strokeLinecap="round" strokeLinejoin="round" d="M4.098 19.902a3.75 3.75 0 005.304 0l6.401-6.402M6.75 21A3.75 3.75 0 013 17.25l7.22-7.22a3.75 3.75 0 015.304 0l.44.44m-2.122 2.12a59.27 59.27 0 00-6.938-6.938m15.253 4.254a3.75 3.75 0 01-5.305 0l-7.22-7.22a3.75 3.75 0 010-5.304l.44-.44a3.75 3.75 0 015.304 0l7.22 7.22a3.75 3.75 0 010 5.304l-.44.44z" />,
+                bracket: <path strokeLinecap="round" strokeLinejoin="round" d="M17.25 6.75L22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3l-4.5 16.5" />
+            };
+            return (
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" width={size} height={size} className={className}>
+                    {icons[name]}
+                </svg>
+            );
+        };
+
+        // --- Constants & Colors ---
+        const BASE_UNIT_WIDTH = 50; 
+        const COLORS = [
+            { id: 'blue', bg: 'bg-blue-300', border: 'border-blue-500' },
+            { id: 'green', bg: 'bg-green-300', border: 'border-green-500' },
+            { id: 'yellow', bg: 'bg-yellow-300', border: 'border-yellow-500' },
+            { id: 'red', bg: 'bg-red-300', border: 'border-red-500' },
+            { id: 'purple', bg: 'bg-purple-300', border: 'border-purple-500' },
+            { id: 'orange', bg: 'bg-orange-300', border: 'border-orange-500' },
+            { id: 'gray', bg: 'bg-gray-200', border: 'border-gray-400' },
+            { id: 'dashed', bg: 'bg-transparent', border: 'border-gray-500 border-dashed' }
+        ];
+
+        const generateId = () => Date.now().toString(36) + Math.random().toString(36).substr(2);
+
+        // --- Main Application ---
+        const App = () => {
+            const [rows, setRows] = useState([
+                {
+                    id: generateId(),
+                    title: 'Quantity A',
+                    showTopBracket: false,
+                    topBracketLabel: 'Total',
+                    showBottomBracket: false,
+                    bottomBracketLabel: 'Total',
+                    blocks: [
+                        { id: generateId(), size: 4, segments: 1, colorId: 'blue', label: 'x' },
+                        { id: generateId(), size: 2, segments: 1, colorId: 'green', label: '50' }
+                    ]
+                }
+            ]);
+            const [zoom, setZoom] = useState(1);
+
+            const addRow = () => {
+                setRows([...rows, {
+                    id: generateId(),
+                    title: `Row ${rows.length + 1}`,
+                    showTopBracket: false,
+                    topBracketLabel: '',
+                    showBottomBracket: false,
+                    bottomBracketLabel: '',
+                    blocks: [{ id: generateId(), size: 3, segments: 1, colorId: 'yellow', label: '?' }]
+                }]);
+            };
+
+            const updateRow = (rowId, updates) => {
+                setRows(rows.map(r => r.id === rowId ? { ...r, ...updates } : r));
+            };
+
+            const deleteRow = (rowId) => {
+                setRows(rows.filter(r => r.id !== rowId));
+            };
+
+            const addBlock = (rowId) => {
+                setRows(rows.map(r => {
+                    if (r.id === rowId) {
+                        return {
+                            ...r,
+                            blocks: [...r.blocks, { id: generateId(), size: 2, segments: 1, colorId: 'gray', label: '' }]
+                        };
+                    }
+                    return r;
+                }));
+            };
+
+            const updateBlock = (rowId, blockId, updates) => {
+                setRows(rows.map(r => {
+                    if (r.id === rowId) {
+                        return {
+                            ...r,
+                            blocks: r.blocks.map(b => b.id === blockId ? { ...b, ...updates } : b)
+                        };
+                    }
+                    return r;
+                }));
+            };
+
+            const deleteBlock = (rowId, blockId) => {
+                setRows(rows.map(r => {
+                    if (r.id === rowId) {
+                        return { ...r, blocks: r.blocks.filter(b => b.id !== blockId) };
+                    }
+                    return r;
+                }));
+            };
+
+            const clearWorkspace = () => {
+                if(confirm("Clear the entire workspace?")) {
+                    setRows([]);
+                }
+            };
+
+            const handleBlockDrop = (sourceRowId, sourceBlockId, targetRowId, targetBlockId) => {
+                if (sourceBlockId === targetBlockId) return; // Dropped on itself
+
+                setRows(currentRows => {
+                    const srcRow = currentRows.find(r => r.id === sourceRowId);
+                    const srcBlock = srcRow?.blocks.find(b => b.id === sourceBlockId);
+                    const tgtRow = currentRows.find(r => r.id === targetRowId);
+                    const tgtBlock = tgtRow?.blocks.find(b => b.id === targetBlockId);
+
+                    if (!srcBlock || !tgtBlock) return currentRows;
+
+                    const numericValue = parseFloat(srcBlock.label);
+                    if (isNaN(numericValue)) return currentRows; // Not a known numerical value
+
+                    const tgtLabel = tgtBlock.label.trim();
+                    const isTargetUnknownLabel = tgtLabel !== '' && isNaN(parseFloat(tgtLabel));
+
+                    if (isTargetUnknownLabel) {
+                        // Algebraic substitution: calculate value of unknown based on the dropped total
+                        let sumOfKnownsInTargetRow = 0;
+                        tgtRow.blocks.forEach(b => {
+                            const bVal = parseFloat(b.label);
+                            // Add up any other blocks in the row that are numbers
+                            if (!isNaN(bVal) && b.label.trim() !== tgtLabel) {
+                                sumOfKnownsInTargetRow += bVal;
+                            }
+                        });
+
+                        // The remainder left for the unknown block(s)
+                        const remainder = numericValue - sumOfKnownsInTargetRow;
+                        
+                        let portions = 0;
+                        tgtRow.blocks.forEach(b => {
+                            if (b.label.trim() === tgtLabel) {
+                                portions += b.segments;
+                            }
+                        });
+
+                        if (portions > 0) {
+                            const newValue = +(remainder / portions).toFixed(2);
+                            
+                            return currentRows.map(r => {
+                                if (r.id === targetRowId) {
+                                    return {
+                                        ...r,
+                                        blocks: r.blocks.map(b => {
+                                            if (b.label.trim() === tgtLabel) {
+                                                return {
+                                                    ...b,
+                                                    label: newValue.toString(),
+                                                    isAnimating: true // Trigger animation on the newly solved block
+                                                };
+                                            }
+                                            return b;
+                                        })
+                                    };
+                                }
+                                return r;
+                            });
+                        }
+                    } else {
+                        // Direct fraction splitting if dropping onto a numeric block with multiple segments
+                        let portions = tgtBlock.segments;
+                        if (portions > 1) {
+                            const newValue = +(numericValue / portions).toFixed(2);
+                            
+                            return currentRows.map(r => {
+                                if (r.id === targetRowId) {
+                                    return {
+                                        ...r,
+                                        blocks: r.blocks.map(b => {
+                                            if (b.id === targetBlockId) {
+                                                return {
+                                                    ...b,
+                                                    label: newValue.toString(),
+                                                    isAnimating: true 
+                                                };
+                                            }
+                                            return b;
+                                        })
+                                    };
+                                }
+                                return r;
+                            });
+                        }
+                    }
+                    return currentRows;
+                });
+
+                // Clear animation flag for all blocks after animation completes
+                setTimeout(() => {
+                    setRows(currentRows => currentRows.map(r => ({
+                        ...r,
+                        blocks: r.blocks.map(b => ({ ...b, isAnimating: false }))
+                    })));
+                }, 600);
+            };
+
+            return (
+                <div className="flex flex-col h-screen bg-white">
+                    {/* Header / Toolbar */}
+                    <header className="bg-slate-800 text-white p-4 shadow-md flex justify-between items-center z-10">
+                        <div className="flex items-center space-x-3">
+                            <div className="bg-blue-500 p-2 rounded-lg">
+                                <Icon name="split" size={20} className="text-white" />
+                            </div>
+                            <h1 className="text-xl font-bold tracking-wide">Math Bar Models</h1>
+                        </div>
+                        <div className="flex items-center space-x-4">
+                            <div className="flex items-center space-x-2 bg-slate-700 px-3 py-1 rounded-md">
+                                <span className="text-sm text-slate-300">Zoom:</span>
+                                <button onClick={() => setZoom(Math.max(0.5, zoom - 0.1))} className="p-1 hover:text-blue-400"><Icon name="minus" /></button>
+                                <span className="w-8 text-center text-sm">{Math.round(zoom * 100)}%</span>
+                                <button onClick={() => setZoom(Math.min(2, zoom + 0.1))} className="p-1 hover:text-blue-400"><Icon name="plus" /></button>
+                            </div>
+                            <button onClick={addRow} className="bg-blue-600 hover:bg-blue-500 px-4 py-2 rounded-md font-medium flex items-center space-x-2 transition-colors">
+                                <Icon name="plus" />
+                                <span>Add Row</span>
+                            </button>
+                            <button onClick={clearWorkspace} className="bg-slate-700 hover:bg-red-600 px-4 py-2 rounded-md font-medium transition-colors">
+                                Clear
+                            </button>
+                        </div>
+                    </header>
+
+                    {/* Canvas Area */}
+                    <div className="flex-1 overflow-auto bg-gray-50 p-8 relative" style={{ backgroundImage: 'radial-gradient(#e5e7eb 1px, transparent 1px)', backgroundSize: '20px 20px' }}>
+                        <div className="max-w-6xl mx-auto" style={{ transform: `scale(${zoom})`, transformOrigin: 'top left', transition: 'transform 0.2s' }}>
+                            {rows.length === 0 ? (
+                                <div className="text-center text-gray-400 mt-20 flex flex-col items-center">
+                                    <Icon name="split" size={48} className="mb-4 opacity-50" />
+                                    <p className="text-xl">Your workspace is empty.</p>
+                                    <p className="text-sm mt-2">Click "Add Row" to start building a model.</p>
+                                </div>
+                            ) : (
+                                <div className="space-y-12">
+                                    {rows.map(row => (
+                                        <Row 
+                                            key={row.id} 
+                                            row={row} 
+                                            updateRow={(updates) => updateRow(row.id, updates)}
+                                            deleteRow={() => deleteRow(row.id)}
+                                            addBlock={() => addBlock(row.id)}
+                                            updateBlock={(blockId, updates) => updateBlock(row.id, blockId, updates)}
+                                            deleteBlock={(blockId) => deleteBlock(row.id, blockId)}
+                                            handleBlockDrop={handleBlockDrop}
+                                        />
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // --- Row Component ---
+        const Row = ({ row, updateRow, deleteRow, addBlock, updateBlock, deleteBlock, handleBlockDrop }) => {
+            // Calculate exactly how wide the combined blocks are to perfectly size the brackets
+            const totalBlocksWidth = row.blocks.reduce((sum, block) => sum + block.size * BASE_UNIT_WIDTH, 0);
+
+            return (
+                <div className="flex flex-row items-stretch group/row relative">
+                    {/* Row Label */}
+                    <div className="flex items-center justify-end pr-4 w-40 flex-shrink-0">
+                        <input 
+                            value={row.title}
+                            onChange={(e) => updateRow({ title: e.target.value })}
+                            className="w-full text-right font-semibold text-gray-700 bg-transparent border-b border-transparent hover:border-gray-300 focus:border-blue-500 outline-none px-1"
+                            placeholder="Label..."
+                        />
+                    </div>
+
+                    {/* Blocks Container */}
+                    <div className="flex flex-col relative w-max">
+                        {/* Top Bracket */}
+                        {row.showTopBracket && (
+                            <div className="relative mb-1 group/bracket" style={{ width: `${totalBlocksWidth}px` }}>
+                                <div className="bracket-top"></div>
+                                <input 
+                                    value={row.topBracketLabel}
+                                    onChange={(e) => updateRow({ topBracketLabel: e.target.value })}
+                                    className="absolute -top-7 left-1/2 -translate-x-1/2 w-32 text-center text-sm font-bold bg-transparent outline-none text-gray-800 border-b border-transparent hover:border-gray-300 focus:bg-white"
+                                    placeholder="Total?"
+                                />
+                                <button onClick={() => updateRow({ showTopBracket: false })} className="absolute -top-8 right-0 text-red-500 opacity-0 group-hover/bracket:opacity-100 hover:bg-red-50 rounded p-1">
+                                    <Icon name="trash" size={14} />
+                                </button>
+                            </div>
+                        )}
+
+                        {/* Actual Blocks */}
+                        <div className="flex flex-row items-stretch border-l-2 border-transparent">
+                            {row.blocks.map(block => (
+                                <Block 
+                                    key={block.id}
+                                    rowId={row.id}
+                                    block={block}
+                                    updateBlock={(updates) => updateBlock(block.id, updates)}
+                                    deleteBlock={() => deleteBlock(block.id)}
+                                    handleBlockDrop={handleBlockDrop}
+                                />
+                            ))}
+                            
+                            {/* Inline Add Block Button - Fixed alignment */}
+                            <button 
+                                onClick={addBlock}
+                                className="ml-2 w-10 border-2 border-dashed border-gray-300 text-gray-400 hover:text-blue-500 hover:border-blue-500 hover:bg-blue-50 flex items-center justify-center rounded transition-colors h-14 mt-0 opacity-0 group-hover/row:opacity-100 flex-shrink-0"
+                                title="Add Block"
+                            >
+                                <Icon name="plus" />
+                            </button>
+                        </div>
+
+                        {/* Bottom Bracket */}
+                        {row.showBottomBracket && (
+                            <div className="relative mt-1 group/bracket" style={{ width: `${totalBlocksWidth}px` }}>
+                                <div className="bracket-bottom"></div>
+                                <input 
+                                    value={row.bottomBracketLabel}
+                                    onChange={(e) => updateRow({ bottomBracketLabel: e.target.value })}
+                                    className="absolute -bottom-7 left-1/2 -translate-x-1/2 w-32 text-center text-sm font-bold bg-transparent outline-none text-gray-800 border-b border-transparent hover:border-gray-300 focus:bg-white"
+                                    placeholder="Total?"
+                                />
+                                <button onClick={() => updateRow({ showBottomBracket: false })} className="absolute -bottom-8 right-0 text-red-500 opacity-0 group-hover/bracket:opacity-100 hover:bg-red-50 rounded p-1">
+                                    <Icon name="trash" size={14} />
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                    
+                    {/* Row Controls (Hover) */}
+                    <div className="flex flex-col justify-center ml-4 opacity-0 group-hover/row:opacity-100 transition-opacity space-y-1">
+                        {!row.showTopBracket && (
+                            <button onClick={() => updateRow({ showTopBracket: true })} className="text-xs text-gray-500 hover:text-blue-600 bg-white border border-gray-200 px-2 py-1 rounded shadow-sm" title="Add Top Bracket">
+                                + Top Bracket
+                            </button>
+                        )}
+                        {!row.showBottomBracket && (
+                            <button onClick={() => updateRow({ showBottomBracket: true })} className="text-xs text-gray-500 hover:text-blue-600 bg-white border border-gray-200 px-2 py-1 rounded shadow-sm" title="Add Bottom Bracket">
+                                + Bottom Bracket
+                            </button>
+                        )}
+                        <button onClick={deleteRow} className="text-xs text-red-500 hover:bg-red-50 border border-transparent hover:border-red-200 px-2 py-1 rounded transition-colors flex items-center" title="Delete Row">
+                            <Icon name="trash" size={12} className="mr-1"/> Delete Row
+                        </button>
+                    </div>
+                </div>
+            );
+        };
+
+        // --- Block Component ---
+        const Block = ({ rowId, block, updateBlock, deleteBlock, handleBlockDrop }) => {
+            const [isDragOver, setIsDragOver] = useState(false);
+            
+            const colorDef = COLORS.find(c => c.id === block.colorId) || COLORS[0];
+            const isDashed = block.colorId === 'dashed';
+            
+            // Calculate pixel width based on base unit
+            const width = block.size * BASE_UNIT_WIDTH;
+
+            const cycleColor = () => {
+                const idx = COLORS.findIndex(c => c.id === block.colorId);
+                const nextIdx = (idx + 1) % COLORS.length;
+                updateBlock({ colorId: COLORS[nextIdx].id });
+            };
+
+            const handleDragStart = (e) => {
+                e.dataTransfer.setData('application/json', JSON.stringify({
+                    sourceRowId: rowId,
+                    sourceBlockId: block.id
+                }));
+                e.dataTransfer.effectAllowed = 'copyMove';
+            };
+
+            const handleDragOver = (e) => {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'copy';
+                if (!isDragOver) setIsDragOver(true);
+            };
+
+            const handleDragLeave = () => {
+                setIsDragOver(false);
+            };
+
+            const handleDrop = (e) => {
+                e.preventDefault();
+                setIsDragOver(false);
+                try {
+                    const dataStr = e.dataTransfer.getData('application/json');
+                    if (dataStr) {
+                        const data = JSON.parse(dataStr);
+                        if (data.sourceRowId && data.sourceBlockId && handleBlockDrop) {
+                            handleBlockDrop(data.sourceRowId, data.sourceBlockId, rowId, block.id);
+                        }
+                    }
+                } catch (err) {
+                    console.error("Drop error", err);
+                }
+            };
+
+            // Create array for segments
+            const segments = Array.from({ length: block.segments });
+
+            return (
+                <div className="relative group/block flex flex-col justify-center">
+                    
+                    {/* The Visual Bar */}
+                    <div 
+                        draggable={true}
+                        onDragStart={handleDragStart}
+                        onDragOver={handleDragOver}
+                        onDragLeave={handleDragLeave}
+                        onDrop={handleDrop}
+                        className={`h-14 flex ${colorDef.bg} ${colorDef.border} ${isDashed ? 'border-2' : 'border-2'} box-border cursor-grab active:cursor-grabbing transition-all duration-200 ${isDragOver ? 'ring-4 ring-blue-500 ring-opacity-50 scale-[1.02] z-10' : ''} ${block.isAnimating ? 'animate-divide' : ''}`}
+                        style={{ width: `${width}px`, borderRightWidth: isDashed ? '2px' : '0px' }} // handle right borders carefully so adjacent blocks look connected unless dashed
+                    >
+                        {segments.map((_, i) => (
+                            <div 
+                                key={i} 
+                                className={`flex-1 flex items-center justify-center ${i < segments.length - 1 ? (isDashed ? 'border-r-2 border-dashed border-gray-500' : 'border-r-2 border-gray-800/20') : ''} ${!isDashed && i === segments.length -1 ? 'border-r-2 ' + colorDef.border : ''} ${block.isAnimating ? 'segment-animate' : ''}`}
+                            >
+                                <input 
+                                    value={block.label}
+                                    onChange={(e) => updateBlock({ label: e.target.value })}
+                                    className="w-full h-full bg-transparent text-center font-medium text-gray-800 outline-none focus:bg-white/50 cursor-text"
+                                    placeholder={isDashed ? "?" : ""}
+                                    onClick={(e) => e.stopPropagation()} // Prevent input clicks from initiating drag
+                                />
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* Block Controls Popup (Hover) - Fixed hover gap issue */}
+                    <div className="absolute top-full left-0 pt-2 z-20 opacity-0 group-hover/block:opacity-100 transition-opacity pointer-events-none group-hover/block:pointer-events-auto">
+                        <div className="bg-white border border-gray-200 rounded-md shadow-lg p-1.5 flex gap-1">
+                            {/* Width Controls */}
+                            <div className="flex flex-col items-center bg-gray-50 rounded p-1">
+                                <span className="text-[10px] text-gray-400 font-semibold mb-0.5 uppercase tracking-wider">Size</span>
+                                <div className="flex items-center space-x-1">
+                                    <button onClick={() => updateBlock({ size: Math.max(0.5, block.size - 0.5) })} className="p-1 hover:bg-gray-200 rounded text-gray-600"><Icon name="minus" size={12} /></button>
+                                    <span className="text-xs font-mono w-4 text-center">{block.size}</span>
+                                    <button onClick={() => updateBlock({ size: block.size + 0.5 })} className="p-1 hover:bg-gray-200 rounded text-gray-600"><Icon name="plus" size={12} /></button>
+                                </div>
+                            </div>
+
+                            <div className="w-px bg-gray-200 my-1"></div>
+
+                            {/* Split Controls */}
+                            <div className="flex flex-col items-center bg-gray-50 rounded p-1">
+                                <span className="text-[10px] text-gray-400 font-semibold mb-0.5 uppercase tracking-wider">Parts</span>
+                                <div className="flex items-center space-x-1">
+                                    <button onClick={() => updateBlock({ segments: Math.max(1, block.segments - 1) })} className="p-1 hover:bg-gray-200 rounded text-gray-600"><Icon name="minus" size={12} /></button>
+                                    <span className="text-xs font-mono w-4 text-center">{block.segments}</span>
+                                    <button onClick={() => updateBlock({ segments: block.segments + 1 })} className="p-1 hover:bg-gray-200 rounded text-gray-600"><Icon name="plus" size={12} /></button>
+                                </div>
+                            </div>
+
+                            <div className="w-px bg-gray-200 my-1"></div>
+
+                            {/* Action Buttons */}
+                            <div className="flex items-center space-x-1 px-1">
+                                <button onClick={cycleColor} className="p-1.5 hover:bg-gray-100 rounded flex flex-col items-center justify-center" title="Change Color">
+                                    <div className={`w-4 h-4 rounded-full border border-gray-300 ${colorDef.bg} ${isDashed ? 'border-dashed' : ''}`}></div>
+                                </button>
+                                <button onClick={deleteBlock} className="p-1.5 hover:bg-red-50 text-red-500 rounded flex items-center justify-center" title="Delete Block">
+                                    <Icon name="trash" size={14} />
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
