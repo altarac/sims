@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Osmosis vs Diffusion Virtual Lab</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            background-color: #f8fafc;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+        canvas {
+            touch-action: none; /* Prevent scrolling when touching canvas */
+        }
+        /* Custom scrollbar for a cleaner look */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8; 
+        }
+    </style>
+</head>
+<body class="text-slate-800 antialiased min-h-screen flex flex-col items-center py-8 px-4">
+
+    <!-- Header Section -->
+    <div class="max-w-5xl w-full mb-8 text-center space-y-4">
+        <h1 class="text-4xl font-extrabold text-slate-900 tracking-tight">Membrane Dynamics Lab</h1>
+        <p class="text-lg text-slate-600 max-w-3xl mx-auto">
+            A common mistake is confusing how water moves with how particles move. 
+            Use this split-screen lab to observe the fundamental difference between <strong class="text-purple-600">Diffusion</strong> (particles moving) 
+            and <strong class="text-blue-600">Osmosis</strong> (water moving).
+        </p>
+    </div>
+
+    <!-- Main Lab Container -->
+    <div class="max-w-6xl w-full grid grid-cols-1 lg:grid-cols-2 gap-8">
+        
+        <!-- SIDE A: DIFFUSION -->
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
+            <div class="p-6 border-b border-slate-100 bg-purple-50/50">
+                <div class="flex justify-between items-center mb-2">
+                    <h2 class="text-2xl font-bold text-purple-900">Diffusion</h2>
+                    <span class="px-3 py-1 bg-purple-100 text-purple-800 text-xs font-semibold rounded-full uppercase tracking-wide">No Membrane</span>
+                </div>
+                <p class="text-sm text-purple-700 h-10">
+                    Watch the dye particles spread from an area of <b>high concentration</b> to <b>low concentration</b> until evenly distributed.
+                </p>
+            </div>
+            <div class="p-4 flex-grow flex flex-col items-center">
+                <div class="relative w-full aspect-[4/3] bg-slate-50 rounded-xl border-2 border-slate-200 overflow-hidden mb-6 shadow-inner">
+                    <canvas id="canvas-diffusion" class="absolute inset-0 w-full h-full"></canvas>
+                </div>
+                <div class="flex gap-3 w-full max-w-sm">
+                    <button id="btn-dye-left" class="flex-1 bg-purple-600 hover:bg-purple-700 text-white font-medium py-2.5 px-4 rounded-lg transition-colors shadow-sm">
+                        + Dye Left
+                    </button>
+                    <button id="btn-dye-right" class="flex-1 bg-purple-600 hover:bg-purple-700 text-white font-medium py-2.5 px-4 rounded-lg transition-colors shadow-sm">
+                        + Dye Right
+                    </button>
+                    <button id="btn-reset-diff" class="bg-slate-200 hover:bg-slate-300 text-slate-700 font-medium py-2.5 px-4 rounded-lg transition-colors">
+                        Reset
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- SIDE B: OSMOSIS -->
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
+            <div class="p-6 border-b border-slate-100 bg-blue-50/50">
+                <div class="flex justify-between items-center mb-2">
+                    <h2 class="text-2xl font-bold text-blue-900">Osmosis</h2>
+                    <span class="px-3 py-1 bg-blue-100 text-blue-800 text-xs font-semibold rounded-full uppercase tracking-wide">Semi-Permeable</span>
+                </div>
+                <p class="text-sm text-blue-700 h-10">
+                    Salt particles <b>cannot</b> cross the membrane. Instead, <b>water moves</b> to the saltier side to balance the concentration.
+                </p>
+            </div>
+            <div class="p-4 flex-grow flex flex-col items-center">
+                <div class="relative w-full aspect-[4/3] bg-slate-50 rounded-xl border-2 border-slate-200 overflow-hidden mb-6 shadow-inner">
+                    <canvas id="canvas-osmosis" class="absolute inset-0 w-full h-full"></canvas>
+                </div>
+                <div class="flex gap-3 w-full max-w-sm">
+                    <button id="btn-salt-left" class="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white font-medium py-2.5 px-4 rounded-lg transition-colors shadow-sm">
+                        + Salt Left
+                    </button>
+                    <button id="btn-salt-right" class="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white font-medium py-2.5 px-4 rounded-lg transition-colors shadow-sm">
+                        + Salt Right
+                    </button>
+                    <button id="btn-reset-osm" class="bg-slate-200 hover:bg-slate-300 text-slate-700 font-medium py-2.5 px-4 rounded-lg transition-colors">
+                        Reset
+                    </button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Educational Takeaway -->
+    <div class="max-w-4xl w-full mt-8 bg-amber-50 border-l-4 border-amber-400 p-6 rounded-r-xl shadow-sm flex flex-col md:flex-row justify-between items-center gap-6">
+        <div>
+            <h3 class="text-lg font-bold text-amber-900 mb-2">Key Takeaway</h3>
+            <p class="text-amber-800">
+                Notice how the total volume in the <strong>Diffusion</strong> tank never changes—only the particles move around. 
+                In the <strong>Osmosis</strong> tank, because the salt is blocked by the membrane, the water is forced to shift sides. 
+                <em>Osmosis is the diffusion of water!</em>
+            </p>
+        </div>
+        <button id="btn-open-quiz" class="shrink-0 bg-amber-500 hover:bg-amber-600 text-white font-bold py-3 px-6 rounded-xl shadow-sm transition-transform hover:scale-105">
+            📝 Test Yourself
+        </button>
+    </div>
+
+    <!-- Quiz Modal Overlay -->
+    <div id="quiz-modal" class="fixed inset-0 bg-slate-900/40 hidden items-center justify-center z-50 backdrop-blur-sm">
+        <div class="bg-white p-8 rounded-2xl shadow-2xl max-w-md w-full mx-4">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-bold text-slate-800">Test Your Knowledge</h2>
+                <button id="btn-close-quiz" class="text-slate-400 hover:text-slate-600 text-2xl font-bold leading-none">&times;</button>
+            </div>
+            <p id="quiz-question" class="text-lg text-slate-700 mb-6 font-medium min-h-[4rem]">Loading scenario...</p>
+            
+            <div class="flex gap-4 mb-6">
+                <button onclick="checkQuizAnswer('diffusion')" class="flex-1 bg-purple-50 hover:bg-purple-100 text-purple-800 font-semibold py-3 rounded-xl border-2 border-purple-200 hover:border-purple-300 transition-colors shadow-sm">
+                    Diffusion
+                </button>
+                <button onclick="checkQuizAnswer('osmosis')" class="flex-1 bg-blue-50 hover:bg-blue-100 text-blue-800 font-semibold py-3 rounded-xl border-2 border-blue-200 hover:border-blue-300 transition-colors shadow-sm">
+                    Osmosis
+                </button>
+            </div>
+
+            <div id="quiz-feedback" class="hidden p-4 rounded-lg mb-4 text-center font-medium"></div>
+            <button id="btn-next-quiz" class="w-full bg-slate-800 hover:bg-slate-900 text-white font-semibold py-3 rounded-xl hidden transition-colors shadow-sm">
+                Next Scenario
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // --- Shared Constants & Utilities ---
+        const CANVAS_WIDTH = 400;
+        const CANVAS_HEIGHT = 300;
+        const NUM_WATER_PARTICLES = 400;
+
+        function resizeCanvas(canvas) {
+            // Keep internal resolution fixed for consistent physics, 
+            // CSS handles the visual stretching/responsiveness
+            canvas.width = CANVAS_WIDTH;
+            canvas.height = CANVAS_HEIGHT;
+        }
+
+        // ==========================================
+        // SIMULATION A: DIFFUSION
+        // ==========================================
+        const canvasA = document.getElementById('canvas-diffusion');
+        const ctxA = canvasA.getContext('2d');
+        resizeCanvas(canvasA);
+
+        let dyeParticles = [];
+        let waterParticlesDiff = [];
+
+        function initDiffusionWater() {
+            waterParticlesDiff = [];
+            for(let i=0; i<NUM_WATER_PARTICLES; i++) {
+                waterParticlesDiff.push({
+                    x: Math.random() * CANVAS_WIDTH,
+                    y: Math.random() * CANVAS_HEIGHT,
+                    vx: (Math.random() - 0.5) * 2,
+                    vy: (Math.random() - 0.5) * 2
+                });
+            }
+        }
+        initDiffusionWater();
+
+        function spawnDye(side) {
+            const numParticles = 150;
+            const startX = side === 'left' ? CANVAS_WIDTH * 0.25 : CANVAS_WIDTH * 0.75;
+            const startY = CANVAS_HEIGHT / 2;
+            
+            // Random purple/magenta hues
+            const hue = 270 + Math.random() * 40; 
+            
+            for (let i = 0; i < numParticles; i++) {
+                dyeParticles.push({
+                    x: startX + (Math.random() - 0.5) * 40,
+                    y: startY + (Math.random() - 0.5) * 40,
+                    vx: (Math.random() - 0.5) * 2,
+                    vy: (Math.random() - 0.5) * 2,
+                    color: `hsla(${hue}, 80%, 55%, 0.8)`
+                });
+            }
+        }
+
+        function resetDiffusion() {
+            dyeParticles = [];
+            initDiffusionWater();
+        }
+
+        function updateDiffusion() {
+            // Fade out slightly to leave a neat trail effect (optional, set clearRect for no trails)
+            ctxA.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+            
+            // Draw a subtle background to represent water
+            ctxA.fillStyle = 'rgba(240, 248, 255, 0.5)';
+            ctxA.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+            // Update and draw water particles
+            ctxA.fillStyle = 'rgba(59, 130, 246, 0.3)';
+            waterParticlesDiff.forEach(p => {
+                p.vx += (Math.random() - 0.5) * 0.4;
+                p.vy += (Math.random() - 0.5) * 0.4;
+
+                // Gentle Repulsion from Walls (Prevents clumping/sticking to edges)
+                if (p.x < 15) p.vx += 0.05;
+                if (p.x > CANVAS_WIDTH - 15) p.vx -= 0.05;
+                if (p.y < 15) p.vy += 0.05;
+                if (p.y > CANVAS_HEIGHT - 15) p.vy -= 0.05;
+
+                p.vx *= 0.98;
+                p.vy *= 0.98;
+                p.x += p.vx;
+                p.y += p.vy;
+
+                // Hard boundary fallback
+                if (p.x < 2) { p.x = 2; p.vx *= -0.5; }
+                if (p.x > CANVAS_WIDTH - 2) { p.x = CANVAS_WIDTH - 2; p.vx *= -0.5; }
+                if (p.y < 2) { p.y = 2; p.vy *= -0.5; }
+                if (p.y > CANVAS_HEIGHT - 2) { p.y = CANVAS_HEIGHT - 2; p.vy *= -0.5; }
+
+                ctxA.beginPath();
+                ctxA.arc(p.x, p.y, 2, 0, Math.PI * 2);
+                ctxA.fill();
+            });
+
+            dyeParticles.forEach(p => {
+                // Brownian motion (random jiggling to simulate molecular collisions)
+                p.vx += (Math.random() - 0.5) * 0.4;
+                p.vy += (Math.random() - 0.5) * 0.4;
+                
+                // Friction/Drag (keeps them from accelerating infinitely)
+                p.vx *= 0.98;
+                p.vy *= 0.98;
+
+                p.x += p.vx;
+                p.y += p.vy;
+
+                // Bounce off walls
+                if (p.x < 3) { p.x = 3; p.vx *= -1; }
+                if (p.x > CANVAS_WIDTH - 3) { p.x = CANVAS_WIDTH - 3; p.vx *= -1; }
+                if (p.y < 3) { p.y = 3; p.vy *= -1; }
+                if (p.y > CANVAS_HEIGHT - 3) { p.y = CANVAS_HEIGHT - 3; p.vy *= -1; }
+
+                // Draw Particle
+                ctxA.beginPath();
+                ctxA.arc(p.x, p.y, 3, 0, Math.PI * 2);
+                ctxA.fillStyle = p.color;
+                ctxA.fill();
+            });
+
+            requestAnimationFrame(updateDiffusion);
+        }
+
+        // ==========================================
+        // SIMULATION B: OSMOSIS
+        // ==========================================
+        const canvasB = document.getElementById('canvas-osmosis');
+        const ctxB = canvasB.getContext('2d');
+        resizeCanvas(canvasB);
+
+        const MEMBRANE_X = CANVAS_WIDTH / 2;
+        const MEMBRANE_TOP = CANVAS_HEIGHT - 60; // The opening starts 60px from the bottom
+        const TOTAL_WATER_HEIGHT = 300; // sum of left + right heights
+        
+        let waterL = 150; // Initial water heights
+        let waterR = 150;
+        let saltL = [];
+        let saltR = [];
+        let waterParticlesOsm = [];
+
+        function initOsmosisWater() {
+            waterParticlesOsm = [];
+            for(let i=0; i<NUM_WATER_PARTICLES; i++) {
+                waterParticlesOsm.push({
+                    x: Math.random() * CANVAS_WIDTH,
+                    y: 150 + Math.random() * 140, // start below water level
+                    vx: (Math.random() - 0.5) * 2,
+                    vy: (Math.random() - 0.5) * 2
+                });
+            }
+        }
+        initOsmosisWater();
+
+        function spawnSalt(side) {
+            const numParticles = 25;
+            const arr = side === 'left' ? saltL : saltR;
+            const minX = side === 'left' ? 10 : MEMBRANE_X + 10;
+            const maxX = side === 'left' ? MEMBRANE_X - 10 : CANVAS_WIDTH - 10;
+            const currentWater = side === 'left' ? waterL : waterR;
+
+            for (let i = 0; i < numParticles; i++) {
+                arr.push({
+                    x: minX + Math.random() * (maxX - minX),
+                    y: CANVAS_HEIGHT - (Math.random() * currentWater * 0.8) - 10,
+                    vx: (Math.random() - 0.5) * 3,
+                    vy: (Math.random() - 0.5) * 3
+                });
+            }
+        }
+
+        function resetOsmosis() {
+            saltL = [];
+            saltR = [];
+            waterL = 150;
+            waterR = 150;
+            initOsmosisWater();
+        }
+
+        function updateOsmosis() {
+            ctxB.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+            // 1. Calculate Target Water Levels based on Concentration Equilibrium
+            // Goal: Equalize Salt/Water ratio on both sides.
+            const totalSalt = saltL.length + saltR.length;
+            let targetWaterL = TOTAL_WATER_HEIGHT / 2;
+            const minWaterHeight = CANVAS_HEIGHT - MEMBRANE_TOP; // Ensure it doesn't fall below solid wall opening
+
+            if (totalSalt > 0) {
+                let saltRatioL = saltL.length / totalSalt;
+                targetWaterL = TOTAL_WATER_HEIGHT * saltRatioL;
+                
+                // Cap the water level so one side never completely dries up and stays above the solid wall
+                targetWaterL = Math.max(minWaterHeight, Math.min(TOTAL_WATER_HEIGHT - minWaterHeight, targetWaterL));
+            }
+
+            // 2. Smoothly animate water towards the target
+            // REDUCED: Was 0.015, lowered to 0.006 to make the overall level change more gradual
+            const flowRate = (targetWaterL - waterL) * 0.006; 
+            waterL += flowRate;
+            waterR = TOTAL_WATER_HEIGHT - waterL;
+
+            // 3. Draw Water Blocks
+            ctxB.fillStyle = 'rgba(59, 130, 246, 0.25)'; // translucent blue
+            ctxB.fillRect(0, CANVAS_HEIGHT - waterL, MEMBRANE_X, waterL);
+            ctxB.fillRect(MEMBRANE_X, CANVAS_HEIGHT - waterR, MEMBRANE_X, waterR);
+
+            // Water surface lines
+            ctxB.beginPath();
+            ctxB.moveTo(0, CANVAS_HEIGHT - waterL);
+            ctxB.lineTo(MEMBRANE_X, CANVAS_HEIGHT - waterL);
+            ctxB.moveTo(MEMBRANE_X, CANVAS_HEIGHT - waterR);
+            ctxB.lineTo(CANVAS_WIDTH, CANVAS_HEIGHT - waterR);
+            ctxB.strokeStyle = 'rgba(59, 130, 246, 0.6)';
+            ctxB.lineWidth = 2;
+            ctxB.stroke();
+
+            // 4. Draw Center Divider (Solid Wall + Semi-Permeable Membrane at bottom)
+            
+            // Solid Wall (Impermeable)
+            ctxB.beginPath();
+            ctxB.moveTo(MEMBRANE_X, 0);
+            ctxB.lineTo(MEMBRANE_X, MEMBRANE_TOP);
+            ctxB.strokeStyle = '#64748b'; // Slate-500
+            ctxB.lineWidth = 6;
+            ctxB.stroke();
+
+            // Semi-Permeable Membrane (Opening at the bottom)
+            ctxB.beginPath();
+            ctxB.setLineDash([8, 6]); // Dashed to show permeability
+            ctxB.moveTo(MEMBRANE_X, MEMBRANE_TOP);
+            ctxB.lineTo(MEMBRANE_X, CANVAS_HEIGHT);
+            ctxB.strokeStyle = '#94a3b8'; // Slate-400
+            ctxB.lineWidth = 4;
+            ctxB.stroke();
+            ctxB.setLineDash([]); // Reset dash
+
+            // Update and Draw Water Particles
+            ctxB.fillStyle = 'rgba(59, 130, 246, 0.4)';
+            waterParticlesOsm.forEach(p => {
+                // Localized Flow Drift: Only apply pull to particles near the bottom membrane opening
+                if (flowRate !== 0) {
+                    let distToMembrane = Math.abs(p.x - MEMBRANE_X);
+                    if (distToMembrane < 80 && p.y > MEMBRANE_TOP - 20) {
+                        // Gently pull particles across, tapering off further away
+                        let drift = flowRate * 0.15 * (1 - distToMembrane / 80);
+                        p.vx -= drift; 
+                    }
+                }
+
+                // Brownian Motion
+                p.vx += (Math.random() - 0.5) * 0.4;
+                p.vy += (Math.random() - 0.5) * 0.4;
+
+                // Gentle Repulsion from Walls (Prevents clumping)
+                if (p.x < 15) p.vx += 0.05;
+                if (p.x > CANVAS_WIDTH - 15) p.vx -= 0.05;
+                if (p.y > CANVAS_HEIGHT - 15) p.vy -= 0.05;
+
+                p.vx *= 0.98;
+                p.vy *= 0.98;
+
+                let nextX = p.x + p.vx;
+                let nextY = p.y + p.vy;
+
+                // Restrict crossing the membrane/wall
+                if ((p.x <= MEMBRANE_X && nextX > MEMBRANE_X) || (p.x >= MEMBRANE_X && nextX < MEMBRANE_X)) {
+                    const destSurfaceY = nextX > MEMBRANE_X ? CANVAS_HEIGHT - waterR : CANVAS_HEIGHT - waterL;
+                    // Bounce if hitting the solid wall (above MEMBRANE_TOP), 
+                    // OR if destination level is too low, 
+                    // OR occasionally bounce just to simulate membrane resistance
+                    if (p.y < MEMBRANE_TOP || nextY < destSurfaceY || Math.random() < 0.1) {
+                        p.vx *= -1;
+                        nextX = p.x + p.vx;
+                    }
+                }
+
+                p.x = nextX;
+                p.y = nextY;
+
+                // Hard Wall Boundaries
+                if (p.x < 2) { p.x = 2; p.vx *= -0.5; }
+                if (p.x > CANVAS_WIDTH - 2) { p.x = CANVAS_WIDTH - 2; p.vx *= -0.5; }
+                if (p.y > CANVAS_HEIGHT - 2) { p.y = CANVAS_HEIGHT - 2; p.vy *= -0.5; }
+
+                // Surface physics
+                const surfaceY = p.x < MEMBRANE_X ? CANVAS_HEIGHT - waterL : CANVAS_HEIGHT - waterR;
+                if (p.y < surfaceY) {
+                    p.vy += 0.5; // Gravity if above water
+                } else {
+                    // Soft surface repulsion so they don't stick completely to the surface line
+                    if (p.y < surfaceY + 10) {
+                        p.vy += 0.05;
+                    }
+                    if (p.y < surfaceY + 2 && p.vy < 0) {
+                        p.y = surfaceY + 2;
+                        p.vy *= -0.5; // Soft bounce off the bottom of the surface
+                    }
+                }
+
+                ctxB.beginPath();
+                ctxB.arc(p.x, p.y, 2, 0, Math.PI * 2);
+                ctxB.fill();
+            });
+
+            // Draw "Water flow" indicator arrows if flow is significant
+            if (Math.abs(flowRate) > 0.1) {
+                const yPos = CANVAS_HEIGHT - 25; // Centered in the membrane opening
+                ctxB.fillStyle = 'rgba(37, 99, 235, 0.6)';
+                ctxB.font = '24px Arial';
+                ctxB.textAlign = 'center';
+                if (flowRate > 0) {
+                    // flowRate > 0 means waterL is increasing, so water moves LEFT
+                    ctxB.fillText('⬅ 💧', MEMBRANE_X, yPos);
+                } else {
+                    // flowRate < 0 means waterR is increasing, so water moves RIGHT
+                    ctxB.fillText('💧 ➡', MEMBRANE_X, yPos);
+                }
+            }
+
+            // 5. Update & Draw Salt Particles
+            const handleSalt = (particles, minX, maxX, waterH) => {
+                const surfaceY = CANVAS_HEIGHT - waterH;
+                
+                particles.forEach(p => {
+                    // Brownian motion + gravity/buoyancy settling
+                    p.vx += (Math.random() - 0.5) * 0.5;
+                    p.vy += (Math.random() - 0.5) * 0.5;
+                    p.vx *= 0.95;
+                    p.vy *= 0.95;
+
+                    p.x += p.vx;
+                    p.y += p.vy;
+
+                    // Walls & Membrane constraints (Salt CANNOT cross)
+                    if (p.x < minX + 5) { p.x = minX + 5; p.vx *= -1; }
+                    if (p.x > maxX - 5) { p.x = maxX - 5; p.vx *= -1; }
+                    
+                    // Keep salt submerged in the water
+                    if (p.y < surfaceY + 5) { 
+                        p.y = surfaceY + 5; 
+                        p.vy = Math.abs(p.vy); // Push down
+                    }
+                    if (p.y > CANVAS_HEIGHT - 5) { 
+                        p.y = CANVAS_HEIGHT - 5; 
+                        p.vy *= -1; 
+                    }
+
+                    // Draw Salt (Green blocks/circles)
+                    ctxB.beginPath();
+                    ctxB.arc(p.x, p.y, 4, 0, Math.PI * 2);
+                    ctxB.fillStyle = '#10b981'; // Emerald
+                    ctxB.fill();
+                    ctxB.strokeStyle = '#047857';
+                    ctxB.lineWidth = 1;
+                    ctxB.stroke();
+                });
+            };
+
+            handleSalt(saltL, 0, MEMBRANE_X, waterL);
+            handleSalt(saltR, MEMBRANE_X, CANVAS_WIDTH, waterR);
+
+            // 6. Draw Informational Text
+            ctxB.fillStyle = '#334155';
+            ctxB.font = 'bold 12px sans-serif';
+            ctxB.textAlign = 'center';
+            ctxB.fillText('Water Level', MEMBRANE_X / 2, CANVAS_HEIGHT - waterL - 10);
+            ctxB.fillText('Water Level', CANVAS_WIDTH - (MEMBRANE_X / 2), CANVAS_HEIGHT - waterR - 10);
+
+            requestAnimationFrame(updateOsmosis);
+        }
+
+        // ==========================================
+        // EVENT LISTENERS
+        // ==========================================
+        document.getElementById('btn-dye-left').addEventListener('click', () => spawnDye('left'));
+        document.getElementById('btn-dye-right').addEventListener('click', () => spawnDye('right'));
+        document.getElementById('btn-reset-diff').addEventListener('click', resetDiffusion);
+
+        document.getElementById('btn-salt-left').addEventListener('click', () => spawnSalt('left'));
+        document.getElementById('btn-salt-right').addEventListener('click', () => spawnSalt('right'));
+        document.getElementById('btn-reset-osm').addEventListener('click', resetOsmosis);
+
+        // ==========================================
+        // QUIZ LOGIC
+        // ==========================================
+        const quizScenarios = [
+            { text: "A plant wilts because strong fertilizer (salts) was poured on the soil around it.", answer: "osmosis", exp: "Water leaves the plant cells to balance the high salt concentration outside." },
+            { text: "Smelling perfume from across the room shortly after someone sprays it.", answer: "diffusion", exp: "Perfume particles spread out evenly through the air." },
+            { text: "A slug shrinks and dies when sprinkled with salt.", answer: "osmosis", exp: "Water is drawn out of the slug's cells towards the salt barrier." },
+            { text: "A single drop of food coloring slowly turns a whole glass of water red.", answer: "diffusion", exp: "The dye particles spread from high to low concentration." },
+            { text: "Your fingers get wrinkly and swollen after staying in a bath for too long.", answer: "osmosis", exp: "Water moves into your skin cells because they have a higher solute concentration than the bathwater." },
+            { text: "Oxygen moving from your lungs into your bloodstream.", answer: "diffusion", exp: "Oxygen molecules move across to where their concentration is lower." }
+        ];
+
+        let currentQuestionObj = null;
+
+        const modal = document.getElementById('quiz-modal');
+        const questionEl = document.getElementById('quiz-question');
+        const feedbackEl = document.getElementById('quiz-feedback');
+        const nextBtn = document.getElementById('btn-next-quiz');
+
+        function loadRandomQuestion() {
+            // Pick a random question
+            currentQuestionObj = quizScenarios[Math.floor(Math.random() * quizScenarios.length)];
+            questionEl.textContent = currentQuestionObj.text;
+            
+            // Reset UI
+            feedbackEl.classList.add('hidden');
+            feedbackEl.className = 'hidden p-4 rounded-lg mb-4 text-center font-medium'; // Reset colors
+            nextBtn.classList.add('hidden');
+        }
+
+        function checkQuizAnswer(selectedType) {
+            if (!currentQuestionObj) return;
+
+            const isCorrect = selectedType === currentQuestionObj.answer;
+            feedbackEl.classList.remove('hidden');
+            
+            if (isCorrect) {
+                feedbackEl.classList.add('bg-emerald-100', 'text-emerald-800', 'border', 'border-emerald-200');
+                feedbackEl.innerHTML = `<strong>Correct!</strong> It's ${currentQuestionObj.answer}.<br><span class="text-sm mt-1 block">${currentQuestionObj.exp}</span>`;
+            } else {
+                feedbackEl.classList.add('bg-red-100', 'text-red-800', 'border', 'border-red-200');
+                feedbackEl.innerHTML = `<strong>Not quite.</strong> This is an example of ${currentQuestionObj.answer}.<br><span class="text-sm mt-1 block">${currentQuestionObj.exp}</span>`;
+            }
+
+            nextBtn.classList.remove('hidden');
+        }
+
+        // Quiz Event Listeners
+        document.getElementById('btn-open-quiz').addEventListener('click', () => {
+            loadRandomQuestion();
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        });
+
+        document.getElementById('btn-close-quiz').addEventListener('click', () => {
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        });
+
+        document.getElementById('btn-next-quiz').addEventListener('click', loadRandomQuestion);
+
+        // Start animation loops
+        updateDiffusion();
+        updateOsmosis();
+
+    </script>
+</body>
+</html>
