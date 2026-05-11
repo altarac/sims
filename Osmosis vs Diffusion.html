@@ -29,44 +29,48 @@
         }
     </style>
 </head>
-<body class="text-slate-800 antialiased min-h-screen flex flex-col items-center py-8 px-4">
+<body class="text-slate-800 antialiased h-screen overflow-hidden flex flex-col items-center p-3 lg:p-4 bg-slate-50">
 
     <!-- Header Section -->
-    <div class="max-w-5xl w-full mb-8 text-center space-y-4">
-        <h1 class="text-4xl font-extrabold text-slate-900 tracking-tight">Membrane Dynamics Lab</h1>
-        <p class="text-lg text-slate-600 max-w-3xl mx-auto">
-            A common mistake is confusing how water moves with how particles move. 
-            Use this split-screen lab to observe the fundamental difference between <strong class="text-purple-600">Diffusion</strong> (particles moving) 
-            and <strong class="text-blue-600">Osmosis</strong> (water moving).
-        </p>
+    <div class="max-w-6xl w-full shrink-0 flex justify-between items-center gap-4 mb-3">
+        <div>
+            <h1 class="text-2xl lg:text-3xl font-extrabold text-slate-900 tracking-tight">Membrane Dynamics Lab</h1>
+            <p class="text-sm text-slate-600 max-w-2xl mt-1 hidden sm:block">
+                A common mistake is confusing how water moves with how particles move. 
+                Observe the difference between <strong class="text-purple-600">Diffusion</strong> and <strong class="text-blue-600">Osmosis</strong>.
+            </p>
+        </div>
+        <button id="btn-open-quiz" class="shrink-0 bg-amber-500 hover:bg-amber-600 text-white font-bold py-2 px-4 rounded-lg shadow-sm transition-transform hover:scale-105 text-sm">
+            📝 Test Yourself
+        </button>
     </div>
 
     <!-- Main Lab Container -->
-    <div class="max-w-6xl w-full grid grid-cols-1 lg:grid-cols-2 gap-8">
+    <div class="max-w-6xl w-full grid grid-cols-1 lg:grid-cols-2 gap-4 flex-grow min-h-0">
         
         <!-- SIDE A: DIFFUSION -->
-        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
-            <div class="p-6 border-b border-slate-100 bg-purple-50/50">
-                <div class="flex justify-between items-center mb-2">
-                    <h2 class="text-2xl font-bold text-purple-900">Diffusion</h2>
-                    <span class="px-3 py-1 bg-purple-100 text-purple-800 text-xs font-semibold rounded-full uppercase tracking-wide">No Membrane</span>
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col min-h-0">
+            <div class="px-4 py-2 border-b border-slate-100 bg-purple-50/50 shrink-0">
+                <div class="flex justify-between items-center mb-1">
+                    <h2 class="text-xl font-bold text-purple-900">Diffusion</h2>
+                    <span class="px-2 py-0.5 bg-purple-100 text-purple-800 text-[10px] font-semibold rounded-full uppercase tracking-wide">No Membrane</span>
                 </div>
-                <p class="text-sm text-purple-700 h-10">
-                    Watch the dye particles spread from an area of <b>high concentration</b> to <b>low concentration</b> until evenly distributed.
+                <p class="text-xs text-purple-700">
+                    Watch the dye particles spread from an area of <b>high concentration</b> to <b>low concentration</b>.
                 </p>
             </div>
-            <div class="p-4 flex-grow flex flex-col items-center">
-                <div class="relative w-full aspect-[4/3] bg-slate-50 rounded-xl border-2 border-slate-200 overflow-hidden mb-6 shadow-inner">
-                    <canvas id="canvas-diffusion" class="absolute inset-0 w-full h-full"></canvas>
+            <div class="p-3 flex-grow flex flex-col items-center min-h-0">
+                <div class="relative w-full flex-grow bg-slate-50 rounded-lg border-2 border-slate-200 overflow-hidden mb-3 shadow-inner min-h-0 flex items-center justify-center">
+                    <canvas id="canvas-diffusion" class="w-full h-full object-contain"></canvas>
                 </div>
-                <div class="flex gap-3 w-full max-w-sm">
-                    <button id="btn-dye-left" class="flex-1 bg-purple-600 hover:bg-purple-700 text-white font-medium py-2.5 px-4 rounded-lg transition-colors shadow-sm">
+                <div class="flex gap-2 w-full shrink-0">
+                    <button id="btn-dye-left" class="flex-1 bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium py-2 px-3 rounded-lg transition-colors shadow-sm">
                         + Dye Left
                     </button>
-                    <button id="btn-dye-right" class="flex-1 bg-purple-600 hover:bg-purple-700 text-white font-medium py-2.5 px-4 rounded-lg transition-colors shadow-sm">
+                    <button id="btn-dye-right" class="flex-1 bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium py-2 px-3 rounded-lg transition-colors shadow-sm">
                         + Dye Right
                     </button>
-                    <button id="btn-reset-diff" class="bg-slate-200 hover:bg-slate-300 text-slate-700 font-medium py-2.5 px-4 rounded-lg transition-colors">
+                    <button id="btn-reset-diff" class="bg-slate-200 hover:bg-slate-300 text-slate-700 text-sm font-medium py-2 px-3 rounded-lg transition-colors">
                         Reset
                     </button>
                 </div>
@@ -74,28 +78,28 @@
         </div>
 
         <!-- SIDE B: OSMOSIS -->
-        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
-            <div class="p-6 border-b border-slate-100 bg-blue-50/50">
-                <div class="flex justify-between items-center mb-2">
-                    <h2 class="text-2xl font-bold text-blue-900">Osmosis</h2>
-                    <span class="px-3 py-1 bg-blue-100 text-blue-800 text-xs font-semibold rounded-full uppercase tracking-wide">Semi-Permeable</span>
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col min-h-0">
+            <div class="px-4 py-2 border-b border-slate-100 bg-blue-50/50 shrink-0">
+                <div class="flex justify-between items-center mb-1">
+                    <h2 class="text-xl font-bold text-blue-900">Osmosis</h2>
+                    <span class="px-2 py-0.5 bg-blue-100 text-blue-800 text-[10px] font-semibold rounded-full uppercase tracking-wide">Semi-Permeable</span>
                 </div>
-                <p class="text-sm text-blue-700 h-10">
-                    Salt particles <b>cannot</b> cross the membrane. Instead, <b>water moves</b> to the saltier side to balance the concentration.
+                <p class="text-xs text-blue-700">
+                    Salt particles <b>cannot</b> cross the membrane. <b>Water moves</b> to the saltier side.
                 </p>
             </div>
-            <div class="p-4 flex-grow flex flex-col items-center">
-                <div class="relative w-full aspect-[4/3] bg-slate-50 rounded-xl border-2 border-slate-200 overflow-hidden mb-6 shadow-inner">
-                    <canvas id="canvas-osmosis" class="absolute inset-0 w-full h-full"></canvas>
+            <div class="p-3 flex-grow flex flex-col items-center min-h-0">
+                <div class="relative w-full flex-grow bg-slate-50 rounded-lg border-2 border-slate-200 overflow-hidden mb-3 shadow-inner min-h-0 flex items-center justify-center">
+                    <canvas id="canvas-osmosis" class="w-full h-full object-contain"></canvas>
                 </div>
-                <div class="flex gap-3 w-full max-w-sm">
-                    <button id="btn-salt-left" class="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white font-medium py-2.5 px-4 rounded-lg transition-colors shadow-sm">
+                <div class="flex gap-2 w-full shrink-0">
+                    <button id="btn-salt-left" class="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-medium py-2 px-3 rounded-lg transition-colors shadow-sm">
                         + Salt Left
                     </button>
-                    <button id="btn-salt-right" class="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white font-medium py-2.5 px-4 rounded-lg transition-colors shadow-sm">
+                    <button id="btn-salt-right" class="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-medium py-2 px-3 rounded-lg transition-colors shadow-sm">
                         + Salt Right
                     </button>
-                    <button id="btn-reset-osm" class="bg-slate-200 hover:bg-slate-300 text-slate-700 font-medium py-2.5 px-4 rounded-lg transition-colors">
+                    <button id="btn-reset-osm" class="bg-slate-200 hover:bg-slate-300 text-slate-700 text-sm font-medium py-2 px-3 rounded-lg transition-colors">
                         Reset
                     </button>
                 </div>
@@ -105,18 +109,12 @@
     </div>
 
     <!-- Educational Takeaway -->
-    <div class="max-w-4xl w-full mt-8 bg-amber-50 border-l-4 border-amber-400 p-6 rounded-r-xl shadow-sm flex flex-col md:flex-row justify-between items-center gap-6">
-        <div>
-            <h3 class="text-lg font-bold text-amber-900 mb-2">Key Takeaway</h3>
-            <p class="text-amber-800">
-                Notice how the total volume in the <strong>Diffusion</strong> tank never changes—only the particles move around. 
-                In the <strong>Osmosis</strong> tank, because the salt is blocked by the membrane, the water is forced to shift sides. 
-                <em>Osmosis is the diffusion of water!</em>
-            </p>
-        </div>
-        <button id="btn-open-quiz" class="shrink-0 bg-amber-500 hover:bg-amber-600 text-white font-bold py-3 px-6 rounded-xl shadow-sm transition-transform hover:scale-105">
-            📝 Test Yourself
-        </button>
+    <div class="max-w-6xl w-full shrink-0 mt-3 bg-amber-50 border-l-4 border-amber-400 p-3 rounded-r-lg shadow-sm">
+        <p class="text-amber-800 text-sm">
+            <strong class="text-amber-900">Key Takeaway:</strong> Volume in the <strong>Diffusion</strong> tank never changes. 
+            In the <strong>Osmosis</strong> tank, the membrane blocks salt, forcing water to shift sides. 
+            <em>Osmosis is the diffusion of water!</em>
+        </p>
     </div>
 
     <!-- Quiz Modal Overlay -->
