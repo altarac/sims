@@ -1,0 +1,848 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Solenoid Simulator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #0f172a; color: #f8fafc; font-family: system-ui, -apple-system, sans-serif; }
+        #canvas-container { position: relative; width: 100%; height: 100vh; display: flex; flex-direction: column; }
+        canvas { flex-grow: 1; cursor: crosshair; }
+        
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #1e293b; }
+        ::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #64748b; }
+
+        .glass-panel {
+            background: rgba(30, 41, 59, 0.85);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-right: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 16px;
+            width: 16px;
+            border-radius: 50%;
+            background: #3b82f6;
+            cursor: pointer;
+            margin-top: -6px;
+            box-shadow: 0 0 10px rgba(59, 130, 246, 0.5);
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            cursor: pointer;
+            background: #475569;
+            border-radius: 2px;
+        }
+        input[type=range]:disabled::-webkit-slider-thumb { background: #64748b; box-shadow: none; cursor: not-allowed; }
+        input[type=range]:focus { outline: none; }
+        
+        .fade-enter { opacity: 0; transform: translateY(-10px); transition: all 0.3s ease-out; }
+        .fade-enter-active { opacity: 1; transform: translateY(0); }
+        .fade-exit { opacity: 1; transform: translateY(0); transition: all 0.3s ease-in; }
+        .fade-exit-active { opacity: 0; transform: translateY(-10px); pointer-events: none; }
+    </style>
+</head>
+<body class="flex flex-col md:flex-row h-screen antialiased">
+
+    <!-- Controls Sidebar -->
+    <aside class="glass-panel w-full md:w-80 h-auto md:h-full p-6 flex flex-col gap-6 z-20 shadow-2xl shrink-0 overflow-y-auto">
+        <div class="border-b border-slate-700 pb-4">
+            <h1 class="text-2xl font-bold text-blue-400 flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v2a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-2z"/><path d="M6 12V8a6 6 0 0 1 12 0v4"/><path d="M12 2v2"/></svg>
+                Solenoid Sim
+            </h1>
+            <p class="text-xs text-slate-400 mt-1">Explore electromagnetism</p>
+        </div>
+
+        <!-- Controls -->
+        <div id="sidebarControls" class="flex flex-col gap-5 flex-grow transition-opacity duration-300">
+            
+            <!-- Current Slider -->
+            <div class="space-y-3">
+                <div class="flex justify-between items-center">
+                    <label for="currentSlider" class="text-sm font-medium text-slate-300">Current (I)</label>
+                    <span id="currentVal" class="text-sm font-mono text-blue-400 bg-slate-800 px-2 py-1 rounded">5 A</span>
+                </div>
+                <input type="range" id="currentSlider" min="-10" max="10" value="5" step="0.5">
+                <div class="flex justify-between text-xs text-slate-500 font-mono">
+                    <span>-10A</span>
+                    <span>0A</span>
+                    <span>+10A</span>
+                </div>
+            </div>
+
+            <!-- Coils Slider -->
+            <div class="space-y-3">
+                <div class="flex justify-between items-center">
+                    <label for="coilsSlider" class="text-sm font-medium text-slate-300">Number of Coils (N)</label>
+                    <span id="coilsVal" class="text-sm font-mono text-blue-400 bg-slate-800 px-2 py-1 rounded">15</span>
+                </div>
+                <input type="range" id="coilsSlider" min="5" max="40" value="15" step="1">
+                <div class="flex justify-between text-xs text-slate-500 font-mono">
+                    <span>5</span>
+                    <span>40</span>
+                </div>
+            </div>
+
+            <!-- Rotation Slider -->
+            <div class="space-y-3">
+                <div class="flex justify-between items-center">
+                    <label for="rotationSlider" class="text-sm font-medium text-slate-300">Rotation Angle</label>
+                    <span id="rotationVal" class="text-sm font-mono text-blue-400 bg-slate-800 px-2 py-1 rounded">0°</span>
+                </div>
+                <input type="range" id="rotationSlider" min="0" max="180" value="0" step="1">
+                <div class="flex justify-between text-xs text-slate-500 font-mono">
+                    <span>0°</span>
+                    <span>90°</span>
+                    <span>180°</span>
+                </div>
+            </div>
+
+            <!-- Core Material -->
+            <div class="space-y-2">
+                <label for="coreSelect" class="text-sm font-medium text-slate-300">Core Material</label>
+                <div class="relative">
+                    <select id="coreSelect" class="w-full bg-slate-800 border border-slate-700 text-slate-200 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5 appearance-none cursor-pointer">
+                        <option value="air" data-perm="1">Air (μr ≈ 1)</option>
+                        <option value="wood" data-perm="1">Wood (μr ≈ 1)</option>
+                        <option value="glass" data-perm="1">Glass (μr ≈ 1)</option>
+                        <option value="plastic" data-perm="1">Plastic (μr ≈ 1)</option>
+                        <option value="aluminium" data-perm="1">Aluminium (μr ≈ 1)</option>
+                        <option value="nickel" data-perm="100">Nickel (High μr)</option>
+                        <option value="iron" data-perm="200">Iron (Very High μr)</option>
+                        <option value="cobalt" data-perm="250">Cobalt (Highest μr)</option>
+                    </select>
+                    <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-slate-400">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-4 pt-4 border-t border-slate-700 flex flex-col gap-3">
+                <button id="reverseWindingBtn" class="w-full flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-300 py-2 px-4 rounded-lg transition-colors border border-slate-600 font-medium text-sm">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 16V4M7 4L3 8M7 4L11 8M17 8V20M17 20L21 16M17 20L13 16"/></svg>
+                    Reverse Winding
+                </button>
+                <button id="testModeBtn" class="w-full flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white py-2 px-4 rounded-lg transition-colors font-medium text-sm shadow-lg shadow-indigo-900/20">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+                    Test Yourself
+                </button>
+                <button id="toggleInfoBtn" class="w-full flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-300 py-2 px-4 rounded-lg transition-colors border border-slate-600 font-medium text-sm">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+                    Right Hand Rule Info
+                </button>
+            </div>
+        </div>
+        
+        <div class="text-xs text-slate-500 border-t border-slate-700 pt-4">
+            <p><strong>Note:</strong> The direction of the winding and current determines the magnetic poles according to the Right-Hand Rule.</p>
+        </div>
+    </aside>
+
+    <!-- Main Canvas Area -->
+    <main id="canvas-container" class="flex-grow bg-[#0f172a] relative overflow-hidden shadow-inner">
+        <canvas id="simCanvas"></canvas>
+
+        <!-- Dynamic Info Panel -->
+        <div id="infoPanel" class="absolute top-6 left-6 md:left-auto md:right-6 max-w-sm bg-slate-800/95 backdrop-blur border border-slate-600 p-5 rounded-xl shadow-2xl z-30 fade-exit hidden">
+            <div class="flex justify-between items-start mb-3">
+                <h3 class="text-lg font-bold text-amber-400">The Right-Hand Grip Rule</h3>
+                <button id="closeInfoBtn" class="text-slate-400 hover:text-white transition-colors">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                </button>
+            </div>
+            <p class="text-sm text-slate-300 leading-relaxed mb-4">
+                To determine the direction of the magnetic field in a solenoid:
+            </p>
+            <ol class="list-decimal pl-5 text-sm text-slate-300 space-y-2 mb-4">
+                <li>Imagine gripping the coil with your <strong>right hand</strong>.</li>
+                <li>Let your fingers curl around the coil in the direction of the <strong>conventional current</strong> (positive to negative, indicated by the arrows).</li>
+                <li>Your extended thumb will point in the direction of the magnetic field inside the coil, which is towards the <strong>North Pole (N)</strong>.</li>
+            </ol>
+            <div class="bg-slate-900 p-3 rounded text-xs text-blue-300 border border-slate-700">
+                <span id="dynamicRuleText">Adjust the current to see the effect!</span>
+            </div>
+        </div>
+
+        <!-- Legend -->
+        <div class="absolute bottom-6 right-6 bg-slate-900/80 backdrop-blur px-4 py-3 rounded-lg border border-slate-700 text-xs text-slate-300 z-10 pointer-events-none flex flex-col gap-2">
+            <div class="flex items-center gap-2"><span class="w-4 h-[2px] bg-blue-400 shadow-[0_0_5px_#60a5fa]"></span> Magnetic Field (B)</div>
+            <div class="flex items-center gap-2"><span class="w-4 h-[3px] bg-amber-500"></span> Copper Wire</div>
+            <div class="flex items-center gap-2"><span class="w-0 h-0 border-t-4 border-t-transparent border-l-[6px] border-l-red-500 border-b-4 border-b-transparent"></span> Current Direction (I)</div>
+        </div>
+
+        <!-- Test Panel Overlay -->
+        <div id="testPanel" class="absolute top-6 left-1/2 transform -translate-x-1/2 bg-slate-800/95 backdrop-blur border border-slate-600 p-6 rounded-xl shadow-2xl z-40 hidden flex-col items-center gap-5 text-center w-80">
+            <h3 class="text-xl font-bold text-indigo-400">Test Yourself!</h3>
+            <p class="text-sm text-slate-300">Look at the current direction (+/-) and the wire winding. Where is the North Pole?</p>
+            
+            <div id="testButtons" class="flex gap-4 w-full mt-2">
+                <button id="guessLeftBtn" class="flex-1 bg-blue-600 hover:bg-blue-500 text-white py-2 rounded-lg font-bold shadow-md transition-all active:scale-95">Left</button>
+                <button id="guessRightBtn" class="flex-1 bg-red-600 hover:bg-red-500 text-white py-2 rounded-lg font-bold shadow-md transition-all active:scale-95">Right</button>
+            </div>
+            
+            <div id="testResult" class="hidden flex-col items-center gap-4 w-full mt-2">
+                <div id="testFeedback" class="text-xl font-bold"></div>
+                <div class="flex gap-3 w-full">
+                    <button id="nextTestBtn" class="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white py-2 rounded shadow transition-all active:scale-95 text-sm font-bold">Next</button>
+                    <button id="exitTestBtn" class="flex-1 border border-slate-500 hover:bg-slate-700 text-slate-300 py-2 rounded transition-all active:scale-95 text-sm font-bold">Exit</button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d');
+        const container = document.getElementById('canvas-container');
+
+        // UI Elements
+        const ui = {
+            current: document.getElementById('currentSlider'),
+            coils: document.getElementById('coilsSlider'),
+            rotation: document.getElementById('rotationSlider'),
+            core: document.getElementById('coreSelect'),
+            currentVal: document.getElementById('currentVal'),
+            coilsVal: document.getElementById('coilsVal'),
+            rotationVal: document.getElementById('rotationVal'),
+            toggleInfoBtn: document.getElementById('toggleInfoBtn'),
+            closeInfoBtn: document.getElementById('closeInfoBtn'),
+            infoPanel: document.getElementById('infoPanel'),
+            dynamicRuleText: document.getElementById('dynamicRuleText')
+        };
+
+        // State
+        const state = {
+            current: parseFloat(ui.current.value),
+            coils: parseInt(ui.coils.value),
+            rotation: parseInt(ui.rotation.value),
+            coreType: ui.core.value,
+            permeability: parseInt(ui.core.options[ui.core.selectedIndex].dataset.perm),
+            infoVisible: false,
+            windingDirection: 1, // 1 for default, -1 for reversed
+            testMode: false,
+            testState: 'guessing'
+        };
+
+        // Simulation Constants
+        const SIM = {
+            coreWidthPercentage: 0.6,
+            coreHeight: 60,
+            coilExtrusionY: 15,
+            fieldLineBaseSpacing: 25
+        };
+
+        function resize() {
+            canvas.width = container.clientWidth;
+            canvas.height = container.clientHeight;
+            draw();
+        }
+        window.addEventListener('resize', resize);
+
+        // Update State & UI
+        function updateState(updateSliders = true) {
+            if (updateSliders && !state.testMode) {
+                state.current = parseFloat(ui.current.value);
+                state.coils = parseInt(ui.coils.value);
+                state.rotation = parseInt(ui.rotation.value);
+                state.coreType = ui.core.value;
+                state.permeability = parseInt(ui.core.options[ui.core.selectedIndex].dataset.perm);
+            }
+
+            ui.currentVal.textContent = state.current.toFixed(1) + ' A';
+            ui.coilsVal.textContent = state.coils;
+            ui.rotationVal.textContent = state.rotation + '°';
+
+            // Calculate exact Right Hand Rule directions based on 3D rotation
+            if (state.current === 0) {
+                ui.dynamicRuleText.textContent = "Current is 0. No magnetic field is generated.";
+            } else {
+                const isNorthLocalLeft = (state.current * state.windingDirection) > 0;
+                const rad = state.rotation * Math.PI / 180;
+                
+                // Vector calculations
+                const nx = (isNorthLocalLeft ? -1 : 1) * Math.cos(rad);
+                const ny = (isNorthLocalLeft ? -1 : 1) * Math.sin(rad); 
+                
+                let leftRight = "";
+                if (Math.abs(nx) > Math.abs(ny)) {
+                    leftRight = nx < 0 ? "LEFT" : "RIGHT";
+                } else {
+                    leftRight = ny < 0 ? "UP" : "DOWN"; // Y goes down in canvas
+                }
+
+                // Front loops flow logic
+                const isUpLocal = (state.current * state.windingDirection) > 0;
+                const fy = isUpLocal ? -1 : 1;
+                const worldFx = -fy * Math.sin(rad);
+                const worldFy = fy * Math.cos(rad);
+
+                let upDown = "";
+                if (Math.abs(worldFy) > Math.abs(worldFx)) {
+                    upDown = worldFy < 0 ? "UP" : "DOWN";
+                } else {
+                    upDown = worldFx < 0 ? "LEFT" : "RIGHT";
+                }
+
+                ui.dynamicRuleText.innerHTML = `Current flows <strong>${upDown}</strong> the front. Thumb points <strong>${leftRight}</strong> (North).`;
+            }
+
+            draw();
+        }
+
+        // Event Listeners
+        ui.current.addEventListener('input', () => updateState(true));
+        ui.coils.addEventListener('input', () => updateState(true));
+        ui.rotation.addEventListener('input', () => updateState(true));
+        ui.core.addEventListener('change', () => updateState(true));
+
+        function toggleInfo() {
+            state.infoVisible = !state.infoVisible;
+            if (state.infoVisible) {
+                ui.infoPanel.classList.remove('hidden', 'fade-exit', 'fade-exit-active');
+                void ui.infoPanel.offsetWidth;
+                ui.infoPanel.classList.add('fade-enter', 'fade-enter-active');
+            } else {
+                ui.infoPanel.classList.remove('fade-enter', 'fade-enter-active');
+                ui.infoPanel.classList.add('fade-exit');
+                setTimeout(() => {
+                    if(!state.infoVisible) ui.infoPanel.classList.add('hidden', 'fade-exit-active');
+                }, 300);
+            }
+        }
+
+        ui.toggleInfoBtn.addEventListener('click', toggleInfo);
+        ui.closeInfoBtn.addEventListener('click', toggleInfo);
+
+        document.getElementById('reverseWindingBtn').addEventListener('click', () => {
+            state.windingDirection *= -1;
+            updateState(true);
+        });
+
+        function toggleControls(disable) {
+            ui.current.disabled = disable;
+            ui.coils.disabled = disable;
+            ui.rotation.disabled = disable;
+            ui.core.disabled = disable;
+            document.getElementById('reverseWindingBtn').disabled = disable;
+            document.getElementById('toggleInfoBtn').disabled = disable;
+            
+            const controlsDiv = document.getElementById('sidebarControls');
+            if (disable) {
+                controlsDiv.classList.add('opacity-50', 'pointer-events-none');
+            } else {
+                controlsDiv.classList.remove('opacity-50', 'pointer-events-none');
+            }
+        }
+
+        function startTest() {
+            if (state.infoVisible) toggleInfo(); 
+            state.testMode = true;
+            toggleControls(true);
+            nextTest(false);
+        }
+
+        function nextTest(triggerUpdate = true) {
+            state.testState = 'guessing';
+            let newCurrent = 0;
+            while(newCurrent === 0) {
+                newCurrent = (Math.floor(Math.random() * 21) - 10);
+            }
+            state.current = newCurrent;
+            ui.current.value = newCurrent;
+            
+            // Randomize winding and rotation
+            state.windingDirection = Math.random() > 0.5 ? 1 : -1;
+            state.rotation = Math.floor(Math.random() * 13) * 15; // Random angle multiple of 15 up to 180
+            ui.rotation.value = state.rotation;
+            
+            let btn1 = "Left", btn2 = "Right";
+            if (state.rotation > 45 && state.rotation < 135) {
+                btn1 = "Top"; btn2 = "Bottom";
+            }
+            document.getElementById('guessLeftBtn').textContent = btn1;
+            document.getElementById('guessRightBtn').textContent = btn2;
+            
+            document.getElementById('testPanel').classList.remove('hidden');
+            document.getElementById('testPanel').classList.add('flex');
+            document.getElementById('testButtons').classList.remove('hidden');
+            document.getElementById('testButtons').classList.add('flex');
+            document.getElementById('testResult').classList.add('hidden');
+            document.getElementById('testResult').classList.remove('flex');
+            
+            updateState(false);
+        }
+
+        function guessPole(guessedIndex) { // 0 for btn1, 1 for btn2
+            const isNorthLocalLeft = (state.current * state.windingDirection) > 0;
+            const rad = state.rotation * Math.PI / 180;
+            const nx = (isNorthLocalLeft ? -1 : 1) * Math.cos(rad);
+            const ny = (isNorthLocalLeft ? -1 : 1) * Math.sin(rad);
+
+            let correctIndex = 0;
+            if (Math.abs(nx) > Math.abs(ny)) {
+                correctIndex = nx < 0 ? 0 : 1; 
+            } else {
+                correctIndex = ny < 0 ? 0 : 1;
+            }
+
+            const isCorrect = guessedIndex === correctIndex;
+            
+            state.testState = 'answered';
+            
+            document.getElementById('testButtons').classList.add('hidden');
+            document.getElementById('testButtons').classList.remove('flex');
+            document.getElementById('testResult').classList.remove('hidden');
+            document.getElementById('testResult').classList.add('flex');
+            
+            const feedbackEl = document.getElementById('testFeedback');
+            if (isCorrect) {
+                feedbackEl.textContent = "Correct! 🎉";
+                feedbackEl.className = "text-xl font-bold text-green-400";
+            } else {
+                feedbackEl.textContent = "Incorrect. Try again!";
+                feedbackEl.className = "text-xl font-bold text-red-400";
+            }
+            
+            draw();
+        }
+
+        function exitTest() {
+            state.testMode = false;
+            document.getElementById('testPanel').classList.add('hidden');
+            document.getElementById('testPanel').classList.remove('flex');
+            toggleControls(false);
+            updateState(true);
+        }
+
+        document.getElementById('testModeBtn').addEventListener('click', startTest);
+        document.getElementById('guessLeftBtn').addEventListener('click', () => guessPole(0));
+        document.getElementById('guessRightBtn').addEventListener('click', () => guessPole(1));
+        document.getElementById('nextTestBtn').addEventListener('click', nextTest);
+        document.getElementById('exitTestBtn').addEventListener('click', exitTest);
+
+        // --- DRAWING FUNCTIONS ---
+
+        function drawCore(cx, cy, width, height) {
+            ctx.save();
+            
+            if (state.coreType === 'air') {
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+                ctx.setLineDash([5, 5]);
+                ctx.lineWidth = 2;
+                ctx.strokeRect(cx - width/2, cy - height/2, width, height);
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.02)';
+                ctx.fillRect(cx - width/2, cy - height/2, width, height);
+            } else {
+                let gradient = ctx.createLinearGradient(cx, cy - height/2, cx, cy + height/2);
+                
+                if (state.coreType === 'iron') {
+                    gradient.addColorStop(0, '#3f3f46');
+                    gradient.addColorStop(0.5, '#71717a');
+                    gradient.addColorStop(1, '#27272a');
+                } else if (state.coreType === 'wood') {
+                    gradient.addColorStop(0, '#78350f');
+                    gradient.addColorStop(0.3, '#92400e');
+                    gradient.addColorStop(0.7, '#b45309');
+                    gradient.addColorStop(1, '#451a03');
+                } else if (state.coreType === 'glass') {
+                    gradient.addColorStop(0, 'rgba(255,255,255,0.4)');
+                    gradient.addColorStop(0.2, 'rgba(125,211,252,0.1)');
+                    gradient.addColorStop(0.8, 'rgba(125,211,252,0.1)');
+                    gradient.addColorStop(1, 'rgba(255,255,255,0.2)');
+                    ctx.fillStyle = gradient;
+                    ctx.fillRect(cx - width/2, cy - height/2, width, height);
+                    ctx.fillStyle = 'rgba(255,255,255,0.15)';
+                    ctx.fillRect(cx - width/2 + 5, cy - height/2 + 5, width - 10, height/3);
+                } else if (state.coreType === 'plastic') {
+                    gradient.addColorStop(0, '#f1f5f9');
+                    gradient.addColorStop(0.5, '#cbd5e1');
+                    gradient.addColorStop(1, '#94a3b8');
+                } else if (state.coreType === 'aluminium') {
+                    gradient.addColorStop(0, '#e2e8f0');
+                    gradient.addColorStop(0.3, '#ffffff');
+                    gradient.addColorStop(0.5, '#94a3b8');
+                    gradient.addColorStop(0.8, '#e2e8f0');
+                    gradient.addColorStop(1, '#64748b');
+                } else if (state.coreType === 'nickel') {
+                    gradient.addColorStop(0, '#a1a1aa');
+                    gradient.addColorStop(0.3, '#d4d4d8');
+                    gradient.addColorStop(0.7, '#71717a');
+                    gradient.addColorStop(1, '#52525b');
+                } else if (state.coreType === 'cobalt') {
+                    gradient.addColorStop(0, '#475569');
+                    gradient.addColorStop(0.3, '#64748b');
+                    gradient.addColorStop(0.7, '#334155');
+                    gradient.addColorStop(1, '#1e293b');
+                }
+                
+                if (state.coreType !== 'glass') {
+                    ctx.fillStyle = gradient;
+                    ctx.shadowColor = 'rgba(0,0,0,0.6)';
+                    ctx.shadowBlur = 12;
+                    ctx.shadowOffsetY = 6;
+                    ctx.fillRect(cx - width/2, cy - height/2, width, height);
+                }
+                
+                ctx.strokeStyle = state.coreType === 'glass' ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.1)';
+                ctx.lineWidth = 1;
+                ctx.setLineDash([]);
+                ctx.strokeRect(cx - width/2, cy - height/2, width, height);
+            }
+            ctx.restore();
+        }
+
+        function drawCoils(cx, cy, coreWidth, coreHeight, isFront) {
+            const numCoils = state.coils;
+            const coilHeightY = coreHeight / 2 + SIM.coilExtrusionY;
+            const startX = cx - coreWidth / 2 + 20;
+            const endX = cx + coreWidth / 2 - 20;
+            const pitch = (endX - startX) / numCoils;
+            const dx = pitch / 2;
+            const ctrlX = dx * 0.45; 
+            const dir = state.windingDirection; // 1 or -1
+
+            ctx.save();
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+
+            // Connectors (Drawn conditionally so they layer correctly over/under the core)
+            const leftConnectionIsFront = (dir === 1);
+            const rightConnectionIsFront = (dir === -1);
+
+            if (isFront === leftConnectionIsFront) {
+                ctx.beginPath();
+                ctx.moveTo(startX - 60, cy + coilHeightY + 40);
+                ctx.bezierCurveTo(
+                    startX - 60, cy + coilHeightY,
+                    startX - 30, cy + coilHeightY,
+                    startX, cy + coilHeightY
+                );
+                let leftWireGrad = ctx.createLinearGradient(startX - 60, 0, startX, 0);
+                leftWireGrad.addColorStop(0, '#f59e0b');
+                leftWireGrad.addColorStop(1, '#78350f'); 
+                ctx.strokeStyle = leftWireGrad;
+                ctx.lineWidth = 5;
+                ctx.shadowColor = 'rgba(0,0,0,0.5)';
+                ctx.shadowBlur = 4;
+                ctx.shadowOffsetY = 2;
+                ctx.stroke();
+
+                if (state.current !== 0) {
+                    const leftSign = state.current > 0 ? '+' : '-';
+                    const leftColor = state.current > 0 ? '#ef4444' : '#3b82f6';
+                    drawTerminal(startX - 60, cy + coilHeightY + 40, leftSign, leftColor);
+                }
+            }
+
+            if (isFront === rightConnectionIsFront) {
+                ctx.beginPath();
+                ctx.moveTo(endX, cy + coilHeightY);
+                ctx.bezierCurveTo(
+                    endX + 30, cy + coilHeightY,
+                    endX + 60, cy + coilHeightY,
+                    endX + 60, cy + coilHeightY + 40
+                );
+                let rightWireGrad = ctx.createLinearGradient(endX, 0, endX + 60, 0);
+                rightWireGrad.addColorStop(0, '#92400e'); 
+                rightWireGrad.addColorStop(1, '#f59e0b');
+                ctx.strokeStyle = rightWireGrad;
+                ctx.lineWidth = 5;
+                ctx.shadowColor = 'rgba(0,0,0,0.5)';
+                ctx.shadowBlur = 4;
+                ctx.shadowOffsetY = 2;
+                ctx.stroke();
+
+                if (state.current !== 0) {
+                    const rightSign = state.current > 0 ? '-' : '+';
+                    const rightColor = state.current > 0 ? '#3b82f6' : '#ef4444';
+                    drawTerminal(endX + 60, cy + coilHeightY + 40, rightSign, rightColor);
+                }
+            }
+
+            // Draw Helix Loops
+            for (let i = 0; i < numCoils; i++) {
+                const x = startX + i * pitch;
+                
+                if (isFront) {
+                    const isDir1Front = (dir === 1);
+                    const startPointX = x + (isDir1Front ? 0 : dx);
+                    const endPointX = x + (isDir1Front ? dx : pitch);
+                    const startPointY = cy + (isDir1Front ? coilHeightY : -coilHeightY);
+                    const endPointY = cy + (isDir1Front ? -coilHeightY : coilHeightY);
+
+                    ctx.beginPath();
+                    ctx.moveTo(startPointX, startPointY);
+                    ctx.bezierCurveTo(
+                        startPointX + ctrlX, startPointY,
+                        endPointX - ctrlX, endPointY,
+                        endPointX, endPointY
+                    );
+
+                    let copperGrad = ctx.createLinearGradient(startPointX, 0, endPointX, 0);
+                    copperGrad.addColorStop(0, '#78350f');   
+                    copperGrad.addColorStop(0.3, '#f59e0b'); 
+                    copperGrad.addColorStop(0.6, '#fcd34d'); 
+                    copperGrad.addColorStop(1, '#92400e');   
+
+                    ctx.strokeStyle = copperGrad;
+                    ctx.lineWidth = 5;
+                    ctx.shadowColor = 'rgba(0,0,0,0.6)';
+                    ctx.shadowBlur = 5;
+                    ctx.shadowOffsetX = 3;
+                    ctx.stroke();
+
+                    if (state.current !== 0) {
+                        const midX = startPointX + dx/2;
+                        const vy = endPointY - startPointY;
+                        const vx = endPointX - startPointX;
+                        const angle = Math.atan2(vy, vx);
+                        const flowsForward = (state.current > 0); 
+                        
+                        drawRotatedArrow(midX, cy, angle, flowsForward);
+                    }
+                } else {
+                    const isDir1Back = (dir === 1);
+                    const startPointX = x + (isDir1Back ? dx : 0);
+                    const endPointX = x + (isDir1Back ? pitch : dx);
+                    const startPointY = cy + (isDir1Back ? -coilHeightY : coilHeightY);
+                    const endPointY = cy + (isDir1Back ? coilHeightY : -coilHeightY);
+
+                    ctx.beginPath();
+                    ctx.moveTo(startPointX, startPointY);
+                    ctx.bezierCurveTo(
+                        startPointX + ctrlX, startPointY,
+                        endPointX - ctrlX, endPointY,
+                        endPointX, endPointY
+                    );
+
+                    let darkCopper = ctx.createLinearGradient(startPointX, 0, endPointX, 0);
+                    darkCopper.addColorStop(0, '#451a03');
+                    darkCopper.addColorStop(1, '#291002');
+                    
+                    ctx.strokeStyle = darkCopper;
+                    ctx.lineWidth = 4;
+                    ctx.stroke();
+                }
+            }
+            ctx.restore();
+        }
+
+        function drawTerminal(x, y, sign, color) {
+            ctx.save();
+            ctx.translate(x, y);
+            
+            ctx.beginPath();
+            ctx.arc(0, 0, 12, 0, 2 * Math.PI);
+            ctx.fillStyle = '#1e293b';
+            ctx.fill();
+            ctx.lineWidth = 2;
+            ctx.strokeStyle = color;
+            ctx.stroke();
+
+            // Unrotate text so it's always readable regardless of solenoid rotation
+            ctx.rotate(-state.rotation * Math.PI / 180);
+            
+            ctx.fillStyle = color;
+            ctx.font = 'bold 16px monospace';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(sign, 0, 1);
+            ctx.restore();
+        }
+
+        function drawRotatedArrow(x, y, angle, flowsForward) {
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.rotate(flowsForward ? angle : angle + Math.PI);
+            ctx.fillStyle = '#ef4444'; 
+            ctx.beginPath();
+            const size = 6;
+            ctx.moveTo(size, 0); 
+            ctx.lineTo(-size, size);
+            ctx.lineTo(-size, -size);
+            ctx.closePath();
+            ctx.fill();
+            ctx.restore();
+        }
+
+        function drawFieldLines(cx, cy, coreWidth) {
+            if (state.current === 0) return;
+
+            const intensity = Math.abs(state.current); 
+            const coilFactor = state.coils / 40; 
+            const permFactor = Math.log10(state.permeability * 10); 
+            
+            const strengthFactor = (intensity / 10) * coilFactor * permFactor;
+            
+            const baseLines = 2; 
+            const extraLines = Math.floor(strengthFactor * 8);
+            const totalLinesPerSide = Math.min(baseLines + extraLines, 14); 
+
+            const isNorthLeft = (state.current * state.windingDirection) > 0;
+            
+            ctx.save();
+            ctx.shadowBlur = 5 + (strengthFactor * 15);
+            ctx.shadowColor = '#60a5fa'; 
+            
+            const maxAlpha = Math.min(0.1 + (strengthFactor * 0.6), 0.9);
+            
+            const startX = cx - coreWidth / 2 - 10;
+            const endX = cx + coreWidth / 2 + 10;
+
+            drawSingleFieldLine(startX, cy, endX, cy, 0, isNorthLeft, maxAlpha, true);
+
+            for (let i = 1; i <= totalLinesPerSide; i++) {
+                const offsetY = i * SIM.fieldLineBaseSpacing;
+                const alpha = maxAlpha * (1 - (i / (totalLinesPerSide + 2)));
+                
+                drawSingleFieldLine(startX, cy - 10, endX, cy - 10, -offsetY * 2.5, isNorthLeft, alpha, false);
+                drawSingleFieldLine(startX, cy + 10, endX, cy + 10, offsetY * 2.5, isNorthLeft, alpha, false);
+            }
+
+            ctx.restore();
+        }
+
+        function drawSingleFieldLine(startX, startY, endX, endY, ctrlOffsetY, isNorthLeft, alpha, isStraight) {
+            ctx.beginPath();
+            ctx.strokeStyle = `rgba(96, 165, 250, ${alpha})`; 
+            ctx.lineWidth = 2;
+
+            if (isStraight) {
+                ctx.moveTo(startX - 200, startY);
+                ctx.lineTo(endX + 200, endY);
+                ctx.stroke();
+                
+                const arrowX = isNorthLeft ? (startX + endX)/2 - 20 : (startX + endX)/2 + 20;
+                drawFieldArrow(arrowX, startY, isNorthLeft ? Math.PI : 0, alpha);
+            } else {
+                const ptN_X = isNorthLeft ? startX : endX;
+                const ptS_X = isNorthLeft ? endX : startX;
+                
+                ctx.moveTo(ptN_X, startY);
+                
+                const cp1X = ptN_X + (isNorthLeft ? -150 : 150);
+                const cp1Y = startY + ctrlOffsetY;
+                
+                const cp2X = ptS_X + (isNorthLeft ? 150 : -150);
+                const cp2Y = startY + ctrlOffsetY;
+
+                ctx.bezierCurveTo(cp1X, cp1Y, cp2X, cp2Y, ptS_X, startY);
+                ctx.stroke();
+
+                const t = 0.5;
+                const midX = Math.pow(1-t, 3)*ptN_X + 3*Math.pow(1-t, 2)*t*cp1X + 3*(1-t)*t*t*cp2X + Math.pow(t, 3)*ptS_X;
+                const midY = Math.pow(1-t, 3)*startY + 3*Math.pow(1-t, 2)*t*cp1Y + 3*(1-t)*t*t*cp2Y + Math.pow(t, 3)*startY;
+                
+                const dt = 0.01;
+                const t2 = t + dt;
+                const nextX = Math.pow(1-t2, 3)*ptN_X + 3*Math.pow(1-t2, 2)*t2*cp1X + 3*(1-t2)*t2*t2*cp2X + Math.pow(t2, 3)*ptS_X;
+                const nextY = Math.pow(1-t2, 3)*startY + 3*Math.pow(1-t2, 2)*t2*cp1Y + 3*(1-t2)*t2*t2*cp2Y + Math.pow(t2, 3)*startY;
+                
+                const angle = Math.atan2(nextY - midY, nextX - midX);
+                drawFieldArrow(midX, midY, angle, alpha);
+            }
+        }
+
+        function drawFieldArrow(x, y, angle, alpha) {
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.rotate(angle);
+            ctx.fillStyle = `rgba(96, 165, 250, ${alpha + 0.2})`; 
+            ctx.shadowBlur = 0; 
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(-10, -5);
+            ctx.lineTo(-10, 5);
+            ctx.closePath();
+            ctx.fill();
+            ctx.restore();
+        }
+
+        function drawPoles(cx, cy, coreWidth, coreHeight) {
+            if (state.current === 0) return;
+
+            const isNorthLeft = (state.current * state.windingDirection) > 0;
+            const leftChar = isNorthLeft ? 'N' : 'S';
+            const rightChar = isNorthLeft ? 'S' : 'N';
+            const leftColor = isNorthLeft ? '#ef4444' : '#3b82f6'; 
+            const rightColor = isNorthLeft ? '#3b82f6' : '#ef4444';
+
+            const offset = coreWidth / 2 + 40;
+
+            ctx.save();
+            ctx.font = 'bold 32px system-ui, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.shadowColor = 'rgba(0,0,0,0.8)';
+            ctx.shadowBlur = 10;
+
+            // Left Pole Local
+            ctx.save();
+            ctx.translate(cx - offset, cy);
+            ctx.rotate(-state.rotation * Math.PI / 180); // Unrotate text
+            ctx.fillStyle = leftColor;
+            ctx.fillText(leftChar, 0, 0);
+            ctx.font = '12px system-ui, sans-serif';
+            ctx.fillStyle = 'rgba(255,255,255,0.7)';
+            ctx.fillText('Pole', 0, 25);
+            ctx.restore();
+
+            // Right Pole Local
+            ctx.save();
+            ctx.translate(cx + offset, cy);
+            ctx.rotate(-state.rotation * Math.PI / 180); // Unrotate text
+            ctx.fillStyle = rightColor;
+            ctx.fillText(rightChar, 0, 0);
+            ctx.font = '12px system-ui, sans-serif';
+            ctx.fillStyle = 'rgba(255,255,255,0.7)';
+            ctx.fillText('Pole', 0, 25);
+            ctx.restore();
+
+            ctx.restore();
+        }
+
+        // Main Render Loop
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            const cx = canvas.width / 2;
+            const cy = canvas.height / 2;
+            const coreWidth = canvas.width * SIM.coreWidthPercentage;
+
+            const showFields = !state.testMode || state.testState === 'answered';
+
+            ctx.save();
+            
+            // Apply absolute rotation to the entire solenoid view
+            ctx.translate(cx, cy);
+            ctx.rotate(state.rotation * Math.PI / 180);
+            ctx.translate(-cx, -cy);
+
+            if (showFields) drawFieldLines(cx, cy, coreWidth);
+            drawCoils(cx, cy, coreWidth, SIM.coreHeight, false);
+            drawCore(cx, cy, coreWidth, SIM.coreHeight);
+            drawCoils(cx, cy, coreWidth, SIM.coreHeight, true);
+            if (showFields) drawPoles(cx, cy, coreWidth, SIM.coreHeight);
+
+            ctx.restore();
+        }
+
+        // Initialize
+        resize(); 
+
+    </script>
+</body>
+</html>
