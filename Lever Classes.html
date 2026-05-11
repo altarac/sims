@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lever Classes Simulator & Quiz</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap');
+        
+        body {
+            font-family: 'Nunito', sans-serif;
+            background-color: #f3f4f6;
+        }
+
+        /* Lever Animation Styles */
+        #beam {
+            transition: transform 0.5s ease-in-out;
+            transform-origin: 50% 50%; /* Default, overwritten by JS */
+        }
+        
+        #load {
+            transition: transform 0.5s ease-in-out;
+            transform-origin: bottom center;
+        }
+
+        /* When the lever is active, rotate the beam, and counter-rotate the load so it stays upright */
+        #beam.active {
+            transform: rotate(var(--beam-rot));
+        }
+        
+        #beam.active #load {
+            transform: rotate(calc(-1 * var(--beam-rot)));
+        }
+
+        /* Effort arrow animation */
+        #effort svg {
+            transition: transform 0.2s ease-in-out;
+        }
+        #beam.active #effort svg {
+            transform: scaleY(0.7);
+        }
+
+        .tab-active {
+            border-bottom-width: 4px;
+            border-color: #3b82f6;
+            color: #1d4ed8;
+            font-weight: 700;
+        }
+        .tab-inactive {
+            color: #6b7280;
+            font-weight: 600;
+        }
+        .tab-inactive:hover {
+            color: #374151;
+            background-color: #f9fafb;
+        }
+    </style>
+</head>
+<body class="text-gray-800 antialiased min-h-screen flex flex-col items-center py-8 px-4">
+
+    <div class="w-full max-w-4xl bg-white rounded-2xl shadow-xl overflow-hidden">
+        
+        <!-- Header -->
+        <div class="bg-blue-600 text-white p-6 text-center">
+            <h1 class="text-3xl font-extrabold flex items-center justify-center gap-3">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                </svg>
+                Physics: Classes of Levers
+            </h1>
+            <p class="mt-2 text-blue-100 font-medium">Learn how forces multiply and test your knowledge!</p>
+        </div>
+
+        <!-- Navigation Tabs -->
+        <div class="flex border-b border-gray-200">
+            <button id="tab-learn" class="flex-1 py-4 text-lg tab-active focus:outline-none transition-colors" onclick="switchTab('learn')">
+                📖 Learn & Simulate
+            </button>
+            <button id="tab-quiz" class="flex-1 py-4 text-lg tab-inactive focus:outline-none transition-colors" onclick="switchTab('quiz')">
+                🧠 Test Yourself
+            </button>
+        </div>
+
+        <!-- ==================== LEARN & SIMULATE SECTION ==================== -->
+        <main id="view-learn" class="p-6 md:p-8">
+            
+            <div class="flex flex-col md:flex-row gap-4 justify-center mb-8">
+                <button onclick="setLeverClass(1)" id="btn-class1" class="px-6 py-2 rounded-full font-bold bg-blue-600 text-white shadow hover:bg-blue-700 transition">Class 1</button>
+                <button onclick="setLeverClass(2)" id="btn-class2" class="px-6 py-2 rounded-full font-bold bg-gray-200 text-gray-700 shadow hover:bg-gray-300 transition">Class 2</button>
+                <button onclick="setLeverClass(3)" id="btn-class3" class="px-6 py-2 rounded-full font-bold bg-gray-200 text-gray-700 shadow hover:bg-gray-300 transition">Class 3</button>
+            </div>
+
+            <!-- Physics Simulation Canvas -->
+            <div class="w-full bg-blue-50 border-2 border-blue-100 rounded-xl h-72 relative flex items-end justify-center pb-8 overflow-hidden shadow-inner">
+                
+                <!-- Base / Ground -->
+                <div class="absolute bottom-0 w-full h-8 bg-green-500 opacity-20"></div>
+
+                <div class="relative w-full max-w-2xl h-full mx-4">
+                    
+                    <!-- Fulcrum (Triangle) -->
+                    <div id="fulcrum" class="absolute bottom-4 transition-all duration-500 ease-in-out z-10" style="left: 50%; transform: translateX(-50%);">
+                        <svg width="40" height="40" viewBox="0 0 100 100">
+                            <polygon points="50,0 0,100 100,100" fill="#4B5563" />
+                        </svg>
+                        <div class="text-xs font-bold text-gray-700 text-center mt-1">Fulcrum</div>
+                    </div>
+
+                    <!-- Beam -->
+                    <div id="beam" class="absolute bottom-[56px] w-full h-4 bg-yellow-600 rounded-full shadow-md z-20">
+                        
+                        <!-- Load (Box) -->
+                        <div id="load" class="absolute w-14 h-14 bg-red-500 text-white border-b-4 border-red-700 rounded shadow-lg flex flex-col items-center justify-center font-bold" style="left: 10%; bottom: 100%; transform: translateX(-50%); margin-bottom: 2px;">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                            </svg>
+                            <span class="text-xs mt-1">Load</span>
+                        </div>
+
+                        <!-- Effort (Arrow) -->
+                        <div id="effort" class="absolute w-16 h-20 flex flex-col items-center font-bold text-blue-700" style="right: 10%; bottom: 100%; transform: translateX(50%);">
+                            <svg id="effort-arrow-down" class="w-8 h-12" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M16.707 10.293a1 1 0 010 1.414l-6 6a1 1 0 01-1.414 0l-6-6a1 1 0 111.414-1.414L9 14.586V3a1 1 0 012 0v11.586l4.293-4.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                            </svg>
+                            <span class="text-xs mt-1">Effort</span>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+
+            <!-- Controls -->
+            <div class="mt-6 text-center">
+                <button id="force-btn" class="px-8 py-3 bg-green-500 hover:bg-green-600 text-white text-lg font-bold rounded-lg shadow-lg transform transition active:scale-95" onmousedown="applyForce()" onmouseup="releaseForce()" onmouseleave="releaseForce()" ontouchstart="applyForce()" ontouchend="releaseForce()">
+                    ⬇️ Press & Hold to Apply Force
+                </button>
+            </div>
+
+            <!-- Info Panel -->
+            <div class="mt-8 bg-gray-50 border border-gray-200 rounded-xl p-6">
+                <h3 id="desc-title" class="text-xl font-bold text-gray-800 mb-2">Class 1 Lever</h3>
+                <p id="desc-text" class="text-gray-600 mb-4">The Fulcrum is in the middle. The Effort is applied on one side to move a Load on the other side.</p>
+                
+                <div class="flex items-start gap-4 p-4 bg-yellow-50 border-l-4 border-yellow-400 rounded-r-lg">
+                    <div class="text-2xl">💡</div>
+                    <div>
+                        <p class="font-bold text-yellow-800">Mnemonic Trick: FRE 123</p>
+                        <p class="text-yellow-700 text-sm mt-1">What is in the middle? <br>
+                        <strong>1</strong>st Class = <strong>F</strong>ulcrum is in the middle.<br>
+                        <strong>2</strong>nd Class = <strong>R</strong>esistance (Load) is in the middle.<br>
+                        <strong>3</strong>rd Class = <strong>E</strong>ffort is in the middle.</p>
+                    </div>
+                </div>
+
+                <div class="mt-4 p-4 bg-blue-50 rounded-lg">
+                    <p class="font-bold text-blue-800">Everyday Examples:</p>
+                    <p id="desc-examples" class="text-blue-700 mt-1">Seesaw, Scissors, Crowbar, Pliers.</p>
+                </div>
+            </div>
+
+        </main>
+
+        <!-- ==================== TEST YOURSELF SECTION ==================== -->
+        <main id="view-quiz" class="p-6 md:p-8 hidden">
+            
+            <div id="quiz-intro" class="text-center py-10">
+                <h2 class="text-2xl font-bold text-gray-800 mb-4">Ready to test your knowledge?</h2>
+                <p class="text-gray-600 mb-8 max-w-lg mx-auto">Read the real-world scenario carefully. Visualize where the fulcrum, effort, and load are located to determine the lever class.</p>
+                <button onclick="startQuiz()" class="px-8 py-3 bg-blue-600 text-white font-bold rounded-lg shadow-lg hover:bg-blue-700 transition">Start Quiz</button>
+            </div>
+
+            <div id="quiz-container" class="hidden">
+                <div class="flex justify-between items-center mb-6">
+                    <span id="quiz-progress" class="font-bold text-gray-500">Question 1 of 6</span>
+                    <span id="quiz-score" class="font-bold text-blue-600 bg-blue-100 px-3 py-1 rounded-full">Score: 0</span>
+                </div>
+
+                <!-- Scenario Card -->
+                <div class="bg-blue-50 border-2 border-blue-100 rounded-xl p-6 md:p-10 text-center mb-8 shadow-sm">
+                    <p class="text-sm font-bold text-blue-500 uppercase tracking-wider mb-2">Scenario</p>
+                    <p id="quiz-question" class="text-xl md:text-2xl font-bold text-gray-800 leading-relaxed"></p>
+                </div>
+
+                <!-- Options -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4" id="quiz-options">
+                    <button onclick="checkAnswer(1)" class="quiz-btn py-4 border-2 border-gray-300 rounded-xl font-bold text-lg text-gray-700 hover:bg-blue-50 hover:border-blue-400 transition">Class 1 Lever</button>
+                    <button onclick="checkAnswer(2)" class="quiz-btn py-4 border-2 border-gray-300 rounded-xl font-bold text-lg text-gray-700 hover:bg-blue-50 hover:border-blue-400 transition">Class 2 Lever</button>
+                    <button onclick="checkAnswer(3)" class="quiz-btn py-4 border-2 border-gray-300 rounded-xl font-bold text-lg text-gray-700 hover:bg-blue-50 hover:border-blue-400 transition">Class 3 Lever</button>
+                </div>
+
+                <!-- Feedback Area -->
+                <div id="quiz-feedback" class="mt-8 p-6 rounded-xl hidden">
+                    <h3 id="feedback-title" class="text-xl font-bold mb-2"></h3>
+                    <p id="feedback-text" class="text-gray-700"></p>
+                    <button id="next-btn" onclick="nextQuestion()" class="mt-6 px-6 py-2 bg-gray-800 text-white font-bold rounded shadow hover:bg-gray-900 transition">Next Question</button>
+                </div>
+            </div>
+
+            <!-- Quiz Results -->
+            <div id="quiz-results" class="hidden text-center py-10">
+                <div class="text-6xl mb-4">🏆</div>
+                <h2 class="text-3xl font-bold text-gray-800 mb-2">Quiz Complete!</h2>
+                <p id="final-score" class="text-xl text-gray-600 mb-8"></p>
+                <button onclick="startQuiz()" class="px-8 py-3 bg-blue-600 text-white font-bold rounded-lg shadow-lg hover:bg-blue-700 transition">Try Again</button>
+            </div>
+
+        </main>
+    </div>
+
+    <script>
+        // ==================== TABS LOGIC ====================
+        function switchTab(tab) {
+            const btnLearn = document.getElementById('tab-learn');
+            const btnQuiz = document.getElementById('tab-quiz');
+            const viewLearn = document.getElementById('view-learn');
+            const viewQuiz = document.getElementById('view-quiz');
+
+            if(tab === 'learn') {
+                btnLearn.className = "flex-1 py-4 text-lg tab-active focus:outline-none transition-colors";
+                btnQuiz.className = "flex-1 py-4 text-lg tab-inactive focus:outline-none transition-colors";
+                viewLearn.classList.remove('hidden');
+                viewQuiz.classList.add('hidden');
+            } else {
+                btnQuiz.className = "flex-1 py-4 text-lg tab-active focus:outline-none transition-colors";
+                btnLearn.className = "flex-1 py-4 text-lg tab-inactive focus:outline-none transition-colors";
+                viewQuiz.classList.remove('hidden');
+                viewLearn.classList.add('hidden');
+            }
+        }
+
+        // ==================== SIMULATION LOGIC ====================
+        const beam = document.getElementById('beam');
+        const fulcrum = document.getElementById('fulcrum');
+        const load = document.getElementById('load');
+        const effort = document.getElementById('effort');
+        
+        let currentClass = 1;
+
+        const downArrowSVG = `<svg class="w-8 h-10" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 10.293a1 1 0 010 1.414l-6 6a1 1 0 01-1.414 0l-6-6a1 1 0 111.414-1.414L9 14.586V3a1 1 0 012 0v11.586l4.293-4.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>`;
+        const upArrowSVG = `<svg class="w-8 h-10" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M3.293 9.707a1 1 0 010-1.414l6-6a1 1 0 011.414 0l6 6a1 1 0 01-1.414 1.414L11 5.414V17a1 1 0 11-2 0V5.414L4.707 9.707a1 1 0 01-1.414 0z" clip-rule="evenodd"/></svg>`;
+
+        const leverData = {
+            1: {
+                fulcrumLeft: "50%", beamOrigin: "50% 50%", beamRot: "15deg",
+                loadLeft: "10%", loadRight: "auto",
+                effortLeft: "auto", effortRight: "10%", effortTop: "auto", effortBottom: "100%",
+                effortHTML: `${downArrowSVG}<span class="text-xs mt-1">Effort</span>`,
+                title: "Class 1 Lever",
+                desc: "The <strong>Fulcrum</strong> is in the middle. The Effort is applied on one side to move a Load on the other side.",
+                examples: "Seesaw, Scissors, Crowbar, Pliers."
+            },
+            2: {
+                fulcrumLeft: "10%", beamOrigin: "10% 50%", beamRot: "-15deg",
+                loadLeft: "50%", loadRight: "auto",
+                effortLeft: "auto", effortRight: "10%", effortTop: "100%", effortBottom: "auto",
+                effortHTML: `<span class="text-xs mb-1">Effort</span>${upArrowSVG}`,
+                title: "Class 2 Lever",
+                desc: "The <strong>Load (Resistance)</strong> is in the middle. The Fulcrum is at one end, and the Effort is applied at the opposite end to lift the load.",
+                examples: "Wheelbarrow, Nutcracker, Bottle opener."
+            },
+            3: {
+                fulcrumLeft: "10%", beamOrigin: "10% 50%", beamRot: "-15deg",
+                loadLeft: "auto", loadRight: "10%",
+                effortLeft: "50%", effortRight: "auto", effortTop: "100%", effortBottom: "auto",
+                effortHTML: `<span class="text-xs mb-1">Effort</span>${upArrowSVG}`,
+                title: "Class 3 Lever",
+                desc: "The <strong>Effort</strong> is in the middle. The Fulcrum is at one end, and the Load is at the opposite end.",
+                examples: "Tweezers, Tongs, Fishing rod, Broom, Human forearm."
+            }
+        };
+
+        function setLeverClass(type) {
+            currentClass = type;
+            beam.classList.remove('active'); // reset animation
+
+            // Update Buttons
+            for(let i=1; i<=3; i++) {
+                const btn = document.getElementById(`btn-class${i}`);
+                if(i === type) {
+                    btn.className = "px-6 py-2 rounded-full font-bold bg-blue-600 text-white shadow hover:bg-blue-700 transition";
+                } else {
+                    btn.className = "px-6 py-2 rounded-full font-bold bg-gray-200 text-gray-700 shadow hover:bg-gray-300 transition";
+                }
+            }
+
+            const data = leverData[type];
+
+            // Apply layout changes
+            fulcrum.style.left = data.fulcrumLeft;
+            beam.style.transformOrigin = data.beamOrigin;
+            beam.style.setProperty('--beam-rot', data.beamRot);
+
+            load.style.left = data.loadLeft;
+            load.style.right = data.loadRight;
+            load.style.transform = `translateX(${data.loadLeft !== 'auto' ? '-50%' : '50%'})`;
+
+            effort.style.left = data.effortLeft;
+            effort.style.right = data.effortRight;
+            effort.style.top = data.effortTop;
+            effort.style.bottom = data.effortBottom;
+            effort.style.transform = `translateX(${data.effortLeft !== 'auto' ? '-50%' : '50%'})`;
+            effort.innerHTML = data.effortHTML;
+
+            // Update Text
+            document.getElementById('desc-title').innerHTML = data.title;
+            document.getElementById('desc-text').innerHTML = data.desc;
+            document.getElementById('desc-examples').innerHTML = data.examples;
+
+            // Update Action Button Text
+            const forceBtn = document.getElementById('force-btn');
+            if(type === 1) forceBtn.innerHTML = "⬇️ Press & Hold to Push Down";
+            else forceBtn.innerHTML = "⬆️ Press & Hold to Lift Up";
+        }
+
+        function applyForce() {
+            beam.classList.add('active');
+        }
+
+        function releaseForce() {
+            beam.classList.remove('active');
+        }
+
+        // ==================== QUIZ LOGIC ====================
+        const questions = [
+            {
+                scenario: "You use a <strong>wheelbarrow</strong> to move dirt. The wheel acts as the pivot at the front, the heavy dirt is in the bucket, and you lift the handles at the back.",
+                answer: 2,
+                explanation: "The Load (dirt) is in the middle, between the Fulcrum (wheel) and the Effort (your hands). Remember FRE 123: R (Resistance/Load) is in the middle for Class 2."
+            },
+            {
+                scenario: "You use <strong>scissors</strong> to cut paper. The blades cut the paper, the pivot screw is in the center, and your fingers apply force to the handles.",
+                answer: 1,
+                explanation: "The Fulcrum (pivot) is in the middle, between the Effort (your fingers) and the Load (the paper). Remember FRE 123: F is in the middle for Class 1."
+            },
+            {
+                scenario: "You use <strong>tweezers</strong> to pull a splinter. The joined end is at the top, you squeeze the middle with your fingers, and the tips grab the splinter.",
+                answer: 3,
+                explanation: "The Effort (your fingers squeezing) is in the middle, between the Fulcrum (joined end) and the Load (the splinter). Remember FRE 123: E is in the middle for Class 3."
+            },
+            {
+                scenario: "You use a <strong>crowbar</strong> to pry a nail out of a board. You pull back on the long handle, it pivots on the wood underneath it, and the short tip lifts the nail.",
+                answer: 1,
+                explanation: "The Fulcrum (where it rests on the wood) is between the Effort (your hands) and the Load (the nail). Class 1."
+            },
+            {
+                scenario: "You use a <strong>nutcracker</strong> to break a walnut. The hinge is at the far end, the nut is placed in the center, and you squeeze the handles on the other end.",
+                answer: 2,
+                explanation: "The Load (the nut) is in the middle, between the Fulcrum (the hinge) and the Effort (your hands). Class 2."
+            },
+            {
+                scenario: "You are sweeping with a <strong>broom</strong>. Your top hand acts as the pivot, your bottom hand pushes the middle of the broomstick, and the bristles move dirt at the bottom.",
+                answer: 3,
+                explanation: "The Effort (your bottom hand pushing) is in the middle, between the Fulcrum (your top hand) and the Load (the dirt). Class 3."
+            }
+        ];
+
+        let currentQuestion = 0;
+        let score = 0;
+        let answered = false;
+
+        function startQuiz() {
+            currentQuestion = 0;
+            score = 0;
+            document.getElementById('quiz-intro').classList.add('hidden');
+            document.getElementById('quiz-results').classList.add('hidden');
+            document.getElementById('quiz-container').classList.remove('hidden');
+            renderQuestion();
+        }
+
+        function renderQuestion() {
+            answered = false;
+            document.getElementById('quiz-progress').innerText = `Question ${currentQuestion + 1} of ${questions.length}`;
+            document.getElementById('quiz-score').innerText = `Score: ${score}`;
+            document.getElementById('quiz-question').innerHTML = questions[currentQuestion].scenario;
+            document.getElementById('quiz-feedback').classList.add('hidden');
+            
+            // Reset buttons
+            const btns = document.querySelectorAll('.quiz-btn');
+            btns.forEach(btn => {
+                btn.className = "quiz-btn py-4 border-2 border-gray-300 rounded-xl font-bold text-lg text-gray-700 hover:bg-blue-50 hover:border-blue-400 transition cursor-pointer";
+                btn.disabled = false;
+            });
+        }
+
+        function checkAnswer(selectedClass) {
+            if(answered) return;
+            answered = true;
+
+            const correctClass = questions[currentQuestion].answer;
+            const btns = document.querySelectorAll('.quiz-btn');
+            
+            // Disable all buttons
+            btns.forEach((btn, index) => {
+                btn.disabled = true;
+                btn.classList.remove('hover:bg-blue-50', 'hover:border-blue-400', 'cursor-pointer');
+                
+                if (index + 1 === correctClass) {
+                    // Highlight correct answer
+                    btn.classList.add('bg-green-100', 'border-green-500', 'text-green-800');
+                } else if (index + 1 === selectedClass && selectedClass !== correctClass) {
+                    // Highlight wrong answer if selected
+                    btn.classList.add('bg-red-100', 'border-red-500', 'text-red-800');
+                }
+            });
+
+            const feedbackArea = document.getElementById('quiz-feedback');
+            const feedbackTitle = document.getElementById('feedback-title');
+            const feedbackText = document.getElementById('feedback-text');
+
+            feedbackArea.classList.remove('hidden', 'bg-green-50', 'bg-red-50');
+
+            if(selectedClass === correctClass) {
+                score++;
+                document.getElementById('quiz-score').innerText = `Score: ${score}`;
+                feedbackArea.classList.add('bg-green-50', 'border', 'border-green-200');
+                feedbackTitle.innerHTML = "✅ Correct!";
+                feedbackTitle.className = "text-xl font-bold mb-2 text-green-700";
+            } else {
+                feedbackArea.classList.add('bg-red-50', 'border', 'border-red-200');
+                feedbackTitle.innerHTML = "❌ Incorrect";
+                feedbackTitle.className = "text-xl font-bold mb-2 text-red-700";
+            }
+
+            feedbackText.innerHTML = questions[currentQuestion].explanation;
+            
+            if(currentQuestion === questions.length - 1) {
+                document.getElementById('next-btn').innerText = "Finish Quiz";
+            } else {
+                document.getElementById('next-btn').innerText = "Next Question";
+            }
+        }
+
+        function nextQuestion() {
+            currentQuestion++;
+            if(currentQuestion >= questions.length) {
+                showResults();
+            } else {
+                renderQuestion();
+            }
+        }
+
+        function showResults() {
+            document.getElementById('quiz-container').classList.add('hidden');
+            document.getElementById('quiz-results').classList.remove('hidden');
+            
+            let message = "";
+            if(score === questions.length) message = "Perfect Score! You're a lever master! 🏅";
+            else if (score >= questions.length / 2) message = "Great job! Keep practicing to master it. 👍";
+            else message = "Good effort! Try the Learn section again and give it another shot! 📚";
+
+            document.getElementById('final-score').innerHTML = `You scored <strong>${score} out of ${questions.length}</strong>.<br><br>${message}`;
+        }
+
+        // Initialize
+        setLeverClass(1);
+
+    </script>
+</body>
+</html>
