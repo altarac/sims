@@ -6,6 +6,11 @@
     <title>Cartesian Coordinate Game</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
+        html, body {
+            height: 100%;
+            overflow: hidden;
+            margin: 0;
+        }
         body {
             font-family: 'Inter', sans-serif;
             background-color: #f3f4f6; /* Tailwind gray-100 */
@@ -24,32 +29,39 @@
         }
     </style>
 </head>
-<body class="min-h-screen flex flex-col items-center justify-center p-4">
+<body class="h-screen w-screen overflow-hidden flex items-center justify-center p-2 sm:p-4 bg-gray-100 box-border">
 
-    <div class="bg-white p-6 md:p-8 rounded-2xl shadow-xl max-w-4xl w-full flex flex-col items-center">
+    <div class="bg-white p-3 sm:p-6 rounded-2xl shadow-xl w-full h-full max-w-6xl flex flex-col md:flex-row gap-4 md:gap-6">
         
-        <h1 class="text-3xl font-bold text-gray-800 mb-6 text-center">Coordinate Quest</h1>
+        <!-- Left Side: Controls & Info -->
+        <div class="w-full md:w-72 shrink-0 flex flex-col items-center justify-center md:justify-start pt-0 md:pt-8">
+            <h1 class="text-2xl md:text-4xl font-bold text-gray-800 mb-2 md:mb-6">Coordinate Quest</h1>
+            
+            <div class="bg-blue-50 border border-blue-200 rounded-lg p-3 md:p-6 mb-4 md:mb-8 w-full text-center">
+                <p class="text-sm md:text-lg text-gray-700 mb-2">Can you find this point?</p>
+                <p id="target-coordinate" class="text-2xl md:text-4xl font-mono font-bold text-blue-600">(?, ?)</p>
+            </div>
 
-        <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6 w-full text-center">
-            <p class="text-lg text-gray-700 mb-2">Can you find this point?</p>
-            <p id="target-coordinate" class="text-2xl font-mono font-bold text-blue-600">(?, ?)</p>
+            <div class="flex flex-row md:flex-col gap-3 md:gap-4 w-full">
+                <button id="check-btn" class="px-4 py-3 md:py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl shadow-md transition duration-200 transform hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex-1">
+                    Check Answer
+                </button>
+                <button id="new-game-btn" class="px-4 py-3 md:py-4 bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold rounded-xl shadow-sm transition duration-200 flex-1">
+                    New Target
+                </button>
+            </div>
+
+            <div id="feedback-message" class="mt-4 md:mt-6 text-sm md:text-lg font-medium text-center h-12 w-full flex items-center justify-center opacity-0 transition-opacity duration-300">
+                <!-- Feedback will appear here -->
+            </div>
         </div>
 
-        <div class="canvas-container relative border-2 border-gray-300 rounded-lg overflow-hidden bg-white shadow-inner w-full max-w-[700px] aspect-square flex items-center justify-center">
-             <canvas id="cartesian-plane" class="w-full h-full block"></canvas>
-        </div>
-
-        <div class="flex flex-wrap gap-4 justify-center mt-6 w-full">
-            <button id="check-btn" class="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl shadow-md transition duration-200 transform hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed w-full sm:w-auto">
-                Check Answer
-            </button>
-            <button id="new-game-btn" class="px-6 py-3 bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold rounded-xl shadow-sm transition duration-200 w-full sm:w-auto">
-                New Target
-            </button>
-        </div>
-
-        <div id="feedback-message" class="mt-4 text-lg font-medium text-center h-8 opacity-0 transition-opacity duration-300">
-            <!-- Feedback will appear here -->
+        <!-- Right Side: Canvas Area -->
+        <div id="canvas-wrapper" class="flex-1 w-full h-full min-h-0 min-w-0 flex items-center justify-center relative">
+            <!-- Inner container sized perfectly by JS -->
+            <div id="canvas-inner-container" class="relative border-2 border-gray-300 rounded-lg overflow-hidden bg-white shadow-inner flex items-center justify-center">
+                 <canvas id="cartesian-plane" class="block"></canvas>
+            </div>
         </div>
 
     </div>
@@ -62,6 +74,8 @@
             const checkBtn = document.getElementById('check-btn');
             const newGameBtn = document.getElementById('new-game-btn');
             const feedbackElement = document.getElementById('feedback-message');
+            const canvasWrapper = document.getElementById('canvas-wrapper');
+            const canvasInner = document.getElementById('canvas-inner-container');
 
             const GRID_MIN = -15;
             const GRID_MAX = 15;
@@ -74,12 +88,16 @@
             let originPixelX, originPixelY;
 
             function resizeCanvas() {
-                // Get the computed size of the parent container
-                const rect = canvas.parentElement.getBoundingClientRect();
+                // Get the computed size of the dynamic flex-1 wrapper container
+                const rect = canvasWrapper.getBoundingClientRect();
                 
-                // Keep it square based on width
-                const size = Math.floor(rect.width);
+                // Determine the largest possible square that fits within the remaining space
+                const size = Math.floor(Math.min(rect.width, rect.height));
                 
+                // Apply exact dimensions to the inner wrapper
+                canvasInner.style.width = `${size}px`;
+                canvasInner.style.height = `${size}px`;
+
                 // Set actual canvas resolution (multiply by pixel ratio for sharpness)
                 const dpr = window.devicePixelRatio || 1;
                 canvas.width = size * dpr;
@@ -145,7 +163,7 @@
 
                 // Draw numbers
                 ctx.fillStyle = '#6b7280'; // Tailwind gray-500
-                ctx.font = 'bold 14px Inter, sans-serif';
+                ctx.font = 'bold 12px Inter, sans-serif'; // Reduced from 14px for better proportional fit
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'top';
 
@@ -154,13 +172,13 @@
                     
                     // X-axis labels (draw all)
                     const xPos = originPixelX + (i * unitSize);
-                    ctx.fillText(i, xPos, originPixelY + 8); // Increased offset for bigger text
+                    ctx.fillText(i, xPos, originPixelY + 5); // Tighter offset
                     
                     // Y-axis labels (draw all)
                     const yPos = originPixelY - (i * unitSize);
                     ctx.textAlign = 'right';
                     ctx.textBaseline = 'middle';
-                    ctx.fillText(i, originPixelX - 8, yPos); // Increased offset for bigger text
+                    ctx.fillText(i, originPixelX - 5, yPos); // Tighter offset
                     
                     // Reset alignment for next x-axis label
                     ctx.textAlign = 'center';
