@@ -103,6 +103,11 @@
                 canvas.width = size * dpr;
                 canvas.height = size * dpr;
                 
+                // CRITICAL FIX: Lock the CSS display size so high-DPR screens don't overflow the container.
+                // This forces the full -15 to +15 grid to squeeze into the visible box.
+                canvas.style.width = `${size}px`;
+                canvas.style.height = `${size}px`;
+                
                 // Scale context to match DPR
                 ctx.scale(dpr, dpr);
                 
@@ -121,11 +126,15 @@
                 const size = canvas.width / (window.devicePixelRatio || 1);
                 ctx.clearRect(0, 0, size, size);
 
+                // Calculate bounds to strictly keep the graph from -15 to +15
+                const minPixel = originPixelX + (GRID_MIN * unitSize);
+                const maxPixel = originPixelX + (GRID_MAX * unitSize);
+
                 // Draw grid lines
                 ctx.lineWidth = 1;
                 
-                // Extend grid line drawing by 1 unit on each side to fill the new padding area
-                for (let i = GRID_MIN - 1; i <= GRID_MAX + 1; i++) {
+                // Draw lines strictly from GRID_MIN to GRID_MAX
+                for (let i = GRID_MIN; i <= GRID_MAX; i++) {
                     const pos = originPixelX + (i * unitSize);
                     
                     // Minor grid lines
@@ -134,12 +143,12 @@
                         ctx.strokeStyle = '#e5e7eb'; // Tailwind gray-200
                         
                         // Vertical line
-                        ctx.moveTo(pos, 0);
-                        ctx.lineTo(pos, size);
+                        ctx.moveTo(pos, minPixel);
+                        ctx.lineTo(pos, maxPixel);
                         
                         // Horizontal line
-                        ctx.moveTo(0, pos);
-                        ctx.lineTo(size, pos);
+                        ctx.moveTo(minPixel, pos);
+                        ctx.lineTo(maxPixel, pos);
                         
                         ctx.stroke();
                     }
@@ -151,19 +160,19 @@
 
                 // X-axis
                 ctx.beginPath();
-                ctx.moveTo(0, originPixelY);
-                ctx.lineTo(size, originPixelY);
+                ctx.moveTo(minPixel, originPixelY);
+                ctx.lineTo(maxPixel, originPixelY);
                 ctx.stroke();
 
                 // Y-axis
                 ctx.beginPath();
-                ctx.moveTo(originPixelX, 0);
-                ctx.lineTo(originPixelX, size);
+                ctx.moveTo(originPixelX, minPixel);
+                ctx.lineTo(originPixelX, maxPixel);
                 ctx.stroke();
 
                 // Draw numbers
                 ctx.fillStyle = '#6b7280'; // Tailwind gray-500
-                ctx.font = 'bold 12px Inter, sans-serif'; // Reduced from 14px for better proportional fit
+                ctx.font = '10px Inter, sans-serif'; // Smaller font to fit all numbers without overlapping
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'top';
 
