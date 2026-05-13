@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cartesian Coordinate Game</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6; /* Tailwind gray-100 */
+        }
+        canvas {
+            cursor: crosshair;
+            touch-action: none; /* Prevent scrolling when touching canvas */
+        }
+        /* Hide scrollbar for the canvas container if needed, though we aim for it to fit */
+        .canvas-container::-webkit-scrollbar {
+            display: none;
+        }
+        .canvas-container {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-center p-4">
+
+    <div class="bg-white p-6 md:p-8 rounded-2xl shadow-xl max-w-4xl w-full flex flex-col items-center">
+        
+        <h1 class="text-3xl font-bold text-gray-800 mb-6 text-center">Coordinate Quest</h1>
+
+        <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6 w-full text-center">
+            <p class="text-lg text-gray-700 mb-2">Can you find this point?</p>
+            <p id="target-coordinate" class="text-2xl font-mono font-bold text-blue-600">(?, ?)</p>
+        </div>
+
+        <div class="canvas-container relative border-2 border-gray-300 rounded-lg overflow-hidden bg-white shadow-inner w-full max-w-[700px] aspect-square flex items-center justify-center">
+             <canvas id="cartesian-plane" class="w-full h-full block"></canvas>
+        </div>
+
+        <div class="flex flex-wrap gap-4 justify-center mt-6 w-full">
+            <button id="check-btn" class="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl shadow-md transition duration-200 transform hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed w-full sm:w-auto">
+                Check Answer
+            </button>
+            <button id="new-game-btn" class="px-6 py-3 bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold rounded-xl shadow-sm transition duration-200 w-full sm:w-auto">
+                New Target
+            </button>
+        </div>
+
+        <div id="feedback-message" class="mt-4 text-lg font-medium text-center h-8 opacity-0 transition-opacity duration-300">
+            <!-- Feedback will appear here -->
+        </div>
+
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const canvas = document.getElementById('cartesian-plane');
+            const ctx = canvas.getContext('2d');
+            const targetElement = document.getElementById('target-coordinate');
+            const checkBtn = document.getElementById('check-btn');
+            const newGameBtn = document.getElementById('new-game-btn');
+            const feedbackElement = document.getElementById('feedback-message');
+
+            const GRID_MIN = -15;
+            const GRID_MAX = 15;
+            // Add padding (2 extra units) so labels at the edges don't get cut off
+            const TOTAL_UNITS = (GRID_MAX - GRID_MIN) + 2; 
+            
+            let targetX, targetY;
+            let userPoint = null; // {x, y} in grid coordinates
+            let unitSize;
+            let originPixelX, originPixelY;
+
+            function resizeCanvas() {
+                // Get the computed size of the parent container
+                const rect = canvas.parentElement.getBoundingClientRect();
+                
+                // Keep it square based on width
+                const size = Math.floor(rect.width);
+                
+                // Set actual canvas resolution (multiply by pixel ratio for sharpness)
+                const dpr = window.devicePixelRatio || 1;
+                canvas.width = size * dpr;
+                canvas.height = size * dpr;
+                
+                // Scale context to match DPR
+                ctx.scale(dpr, dpr);
+                
+                // Calculate drawing metrics based on logical size
+                unitSize = size / TOTAL_UNITS;
+                
+                // Origin is in the middle
+                originPixelX = size / 2;
+                originPixelY = size / 2;
+
+                drawGraph();
+            }
+
+            function drawGraph() {
+                // Clear canvas
+                const size = canvas.width / (window.devicePixelRatio || 1);
+                ctx.clearRect(0, 0, size, size);
+
+                // Draw grid lines
+                ctx.lineWidth = 1;
+                
+                // Extend grid line drawing by 1 unit on each side to fill the new padding area
+                for (let i = GRID_MIN - 1; i <= GRID_MAX + 1; i++) {
+                    const pos = originPixelX + (i * unitSize);
+                    
+                    // Minor grid lines
+                    if (i !== 0) {
+                        ctx.beginPath();
+                        ctx.strokeStyle = '#e5e7eb'; // Tailwind gray-200
+                        
+                        // Vertical line
+                        ctx.moveTo(pos, 0);
+                        ctx.lineTo(pos, size);
+                        
+                        // Horizontal line
+                        ctx.moveTo(0, pos);
+                        ctx.lineTo(size, pos);
+                        
+                        ctx.stroke();
+                    }
+                }
+
+                // Draw Axes (thicker)
+                ctx.lineWidth = 2;
+                ctx.strokeStyle = '#4b5563'; // Tailwind gray-600
+
+                // X-axis
+                ctx.beginPath();
+                ctx.moveTo(0, originPixelY);
+                ctx.lineTo(size, originPixelY);
+                ctx.stroke();
+
+                // Y-axis
+                ctx.beginPath();
+                ctx.moveTo(originPixelX, 0);
+                ctx.lineTo(originPixelX, size);
+                ctx.stroke();
+
+                // Draw numbers
+                ctx.fillStyle = '#6b7280'; // Tailwind gray-500
+                ctx.font = 'bold 14px Inter, sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'top';
+
+                for (let i = GRID_MIN; i <= GRID_MAX; i++) {
+                    if (i === 0) continue; // Skip origin label to avoid clutter
+                    
+                    // X-axis labels (draw all)
+                    const xPos = originPixelX + (i * unitSize);
+                    ctx.fillText(i, xPos, originPixelY + 8); // Increased offset for bigger text
+                    
+                    // Y-axis labels (draw all)
+                    const yPos = originPixelY - (i * unitSize);
+                    ctx.textAlign = 'right';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(i, originPixelX - 8, yPos); // Increased offset for bigger text
+                    
+                    // Reset alignment for next x-axis label
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'top';
+                }
+
+                if (userPoint) {
+                    drawPoint(userPoint.x, userPoint.y, '#ef4444'); // Red point
+                }
+            }
+
+            function drawPoint(gridX, gridY, color) {
+                const pixelX = originPixelX + (gridX * unitSize);
+                const pixelY = originPixelY - (gridY * unitSize); // Y is inverted in canvas
+
+                ctx.beginPath();
+                ctx.arc(pixelX, pixelY, unitSize * 0.4, 0, 2 * Math.PI);
+                ctx.fillStyle = color;
+                ctx.fill();
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            }
+
+            function generateTarget() {
+                targetX = Math.floor(Math.random() * (GRID_MAX - GRID_MIN + 1)) + GRID_MIN;
+                targetY = Math.floor(Math.random() * (GRID_MAX - GRID_MIN + 1)) + GRID_MIN;
+                targetElement.textContent = `(${targetX}, ${targetY})`;
+                userPoint = null;
+                clearFeedback();
+                drawGraph();
+                checkBtn.disabled = true;
+            }
+
+            function handleCanvasInteraction(e) {
+                // Get click/touch position relative to canvas
+                const rect = canvas.getBoundingClientRect();
+                
+                let clientX, clientY;
+                
+                // Handle both mouse and touch events
+                if (e.type.includes('touch')) {
+                    // Prevent default scrolling on touch
+                    e.preventDefault(); 
+                    if (e.touches.length > 0) {
+                        clientX = e.touches[0].clientX;
+                        clientY = e.touches[0].clientY;
+                    } else {
+                        return; // Touch ended
+                    }
+                } else {
+                    clientX = e.clientX;
+                    clientY = e.clientY;
+                }
+
+                const clickX = clientX - rect.left;
+                const clickY = clientY - rect.top;
+
+                // Convert pixel coordinates to grid coordinates
+                // Add 0.5 to round to nearest integer grid intersection
+                let gridX = Math.round((clickX - originPixelX) / unitSize);
+                let gridY = Math.round((originPixelY - clickY) / unitSize);
+
+                // Clamp to boundaries
+                gridX = Math.max(GRID_MIN, Math.min(GRID_MAX, gridX));
+                gridY = Math.max(GRID_MIN, Math.min(GRID_MAX, gridY));
+
+                // Toggle point: if clicking on existing point, remove it
+                if (userPoint && userPoint.x === gridX && userPoint.y === gridY) {
+                    userPoint = null;
+                    checkBtn.disabled = true;
+                } else {
+                    userPoint = { x: gridX, y: gridY };
+                    checkBtn.disabled = false;
+                }
+
+                clearFeedback();
+                drawGraph();
+            }
+
+            function showFeedback(isCorrect) {
+                feedbackElement.classList.remove('opacity-0');
+                if (isCorrect) {
+                    feedbackElement.textContent = 'Correct! Great job! 🎉';
+                    feedbackElement.className = 'mt-4 text-lg font-bold text-center h-8 text-green-600 transition-opacity duration-300 opacity-100';
+                    // Show actual target just to reinforce
+                    drawPoint(targetX, targetY, '#10b981'); // Green
+                } else {
+                    feedbackElement.textContent = `Oops! You placed it at (${userPoint.x}, ${userPoint.y}). Try again!`;
+                    feedbackElement.className = 'mt-4 text-lg font-bold text-center h-8 text-red-600 transition-opacity duration-300 opacity-100';
+                }
+            }
+
+            function clearFeedback() {
+                feedbackElement.classList.add('opacity-0');
+                // Wait for transition before clearing text to avoid layout jump, though height is fixed
+                setTimeout(() => {
+                    if(feedbackElement.classList.contains('opacity-0')) {
+                        feedbackElement.textContent = '';
+                    }
+                }, 300);
+            }
+
+            window.addEventListener('resize', resizeCanvas);
+            
+            // Mouse events
+            canvas.addEventListener('click', handleCanvasInteraction);
+            
+            // Touch events
+            canvas.addEventListener('touchstart', handleCanvasInteraction, {passive: false});
+
+            checkBtn.addEventListener('click', () => {
+                if (!userPoint) return;
+                
+                if (userPoint.x === targetX && userPoint.y === targetY) {
+                    showFeedback(true);
+                } else {
+                    showFeedback(false);
+                }
+            });
+
+            newGameBtn.addEventListener('click', generateTarget);
+
+            // Initial setup
+            resizeCanvas(); // This sets sizes and draws
+            generateTarget(); // Starts the first round
+        });
+    </script>
+</body>
+</html>
