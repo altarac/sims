@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rapid-Fire Units</title>
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        appBg: '#1e293b',
+                        cardBg: '#222b3b',
+                        cardBorder: '#334155',
+                        brandPurple: '#a855f7',
+                        brandBlue: '#60a5fa',
+                        brandRed: '#f87171',
+                        brandGreen: '#4ade80'
+                    },
+                    animation: {
+                        'shake': 'shake 0.5s cubic-bezier(.36,.07,.19,.97) both',
+                        'flash-green': 'flashGreen 0.5s ease-out',
+                        'flash-red': 'flashRed 0.5s ease-out',
+                    },
+                    keyframes: {
+                        shake: {
+                            '10%, 90%': { transform: 'translate3d(-1px, 0, 0)' },
+                            '20%, 80%': { transform: 'translate3d(2px, 0, 0)' },
+                            '30%, 50%, 70%': { transform: 'translate3d(-4px, 0, 0)' },
+                            '40%, 60%': { transform: 'translate3d(4px, 0, 0)' }
+                        },
+                        flashGreen: {
+                            '0%': { backgroundColor: 'rgba(74, 222, 128, 0.2)' },
+                            '100%': { backgroundColor: 'transparent' }
+                        },
+                        flashRed: {
+                            '0%': { backgroundColor: 'rgba(248, 113, 113, 0.2)' },
+                            '100%': { backgroundColor: 'transparent' }
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Hide number input arrows */
+        input[type="number"]::-webkit-inner-spin-button,
+        input[type="number"]::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        input[type="number"] {
+            -moz-appearance: textfield;
+        }
+    </style>
+</head>
+<body class="bg-appBg text-white min-h-screen flex items-center justify-center font-sans p-4">
+
+    <!-- Main Application Container -->
+    <div id="app" class="w-full max-w-lg bg-cardBg border border-cardBorder rounded-xl shadow-2xl overflow-hidden transition-all duration-300 relative">
+        
+        <!-- Flash Overlay (for correct/incorrect feedback) -->
+        <div id="flash-overlay" class="absolute inset-0 pointer-events-none z-10 rounded-xl"></div>
+
+        <!-- Start Screen -->
+        <div id="start-screen" class="p-8 text-center space-y-6">
+            <div class="flex items-center justify-center space-x-3 text-brandPurple mb-2">
+                <i data-lucide="rotate-cw" class="w-8 h-8"></i>
+                <h1 class="text-3xl font-bold text-white">Rapid-fire units</h1>
+            </div>
+            
+            <div class="bg-slate-800/50 p-6 rounded-lg border border-slate-700 text-left space-y-4">
+                <div>
+                    <div class="flex items-center space-x-2 text-brandBlue font-bold text-sm tracking-wider mb-2 uppercase">
+                        <i data-lucide="book-open" class="w-4 h-4"></i>
+                        <span>Teacher Action / Instructions</span>
+                    </div>
+                    <p class="text-slate-300 text-sm leading-relaxed">
+                        Values will flash on the screen (e.g., '500 mL'). You must instantly type the converted value (e.g., '0.5') for the requested target unit.
+                    </p>
+                </div>
+                
+                <div class="pt-4 border-t border-slate-700">
+                    <p class="text-slate-400 text-sm font-semibold mb-1">Goal:</p>
+                    <p class="text-slate-300 text-sm">Reach automaticity to prevent cognitive overload. You have 60 seconds. Get as many correct as possible!</p>
+                </div>
+            </div>
+
+            <div class="space-y-4 pt-2">
+                <!-- Time Selection -->
+                <div class="flex items-center space-x-3 bg-slate-800/50 p-4 rounded-lg border border-slate-700">
+                    <label for="time-select" class="text-slate-300 font-semibold whitespace-nowrap">Time Limit:</label>
+                    <div class="relative w-full">
+                        <select id="time-select" class="w-full appearance-none bg-slate-800 border border-slate-600 text-white rounded-lg py-3 pl-4 pr-10 font-bold focus:outline-none focus:border-brandPurple transition-colors shadow-inner cursor-pointer">
+                            <option value="60">1 Minute</option>
+                            <option value="120">2 Minutes</option>
+                            <option value="180">3 Minutes</option>
+                            <option value="300">5 Minutes</option>
+                        </select>
+                        <i data-lucide="chevron-down" class="w-5 h-5 text-slate-400 absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none"></i>
+                    </div>
+                </div>
+
+                <!-- Game Mode Buttons -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <button onclick="startSoloGame()" class="w-full py-4 bg-brandPurple hover:bg-purple-500 text-white font-bold rounded-lg transition-colors text-lg shadow-lg flex items-center justify-center space-x-2">
+                        <i data-lucide="user" class="w-5 h-5"></i>
+                        <span>Play Solo</span>
+                    </button>
+
+                    <button onclick="startClassGame()" class="w-full py-4 bg-brandBlue hover:bg-blue-500 text-white font-bold rounded-lg transition-colors text-lg shadow-lg flex items-center justify-center space-x-2">
+                        <i data-lucide="users" class="w-5 h-5"></i>
+                        <span>Play as Class</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Game Screen -->
+        <div id="game-screen" class="hidden flex flex-col h-[500px]">
+            <!-- Header Status Bar -->
+            <div class="flex justify-between items-center p-4 border-b border-cardBorder bg-slate-800/30">
+                <div class="flex items-center space-x-2">
+                    <i data-lucide="timer" class="w-5 h-5 text-brandBlue"></i>
+                    <span id="timer-display" class="font-mono text-xl font-bold">60s</span>
+                </div>
+                <div id="score-container" class="flex items-center space-x-2">
+                    <i data-lucide="award" class="w-5 h-5 text-yellow-400"></i>
+                    <span id="score-display" class="font-mono text-xl font-bold">0</span>
+                </div>
+            </div>
+
+            <!-- Question Area -->
+            <div class="flex-grow flex flex-col items-center justify-center p-8 space-y-8">
+                <div class="text-center space-y-2">
+                    <p class="text-slate-400 font-medium uppercase tracking-wider text-sm">Convert this value</p>
+                    <div id="question-display" class="text-5xl md:text-6xl font-black tracking-tight text-white drop-shadow-md">
+                        500 <span class="text-brandBlue text-4xl">mL</span>
+                    </div>
+                </div>
+
+                <i data-lucide="arrow-down" class="w-8 h-8 text-slate-500"></i>
+
+                <div class="w-full max-w-xs relative">
+                    <p class="text-center text-slate-400 font-medium uppercase tracking-wider text-sm mb-2">Into <span id="target-unit-label" class="text-brandPurple font-bold">Liters (L)</span></p>
+                    
+                    <!-- Solo Mode Input -->
+                    <div id="solo-input-area" class="relative flex items-center">
+                        <input type="number" id="answer-input" step="any" 
+                            class="w-full bg-slate-900 border-2 border-slate-600 rounded-lg py-4 px-6 text-2xl font-bold text-center text-white focus:outline-none focus:border-brandPurple focus:ring-1 focus:ring-brandPurple transition-colors shadow-inner"
+                            placeholder="Type value..." autocomplete="off">
+                        <span id="target-unit-display" class="absolute right-6 text-xl font-bold text-slate-400 pointer-events-none">L</span>
+                    </div>
+                    <p id="solo-instructions" class="text-center text-xs text-slate-500 mt-2">Press Enter to submit</p>
+
+                    <!-- Class Mode Display -->
+                    <div id="class-control-area" class="hidden flex-col items-center space-y-4 w-full mt-2">
+                        <div class="w-full bg-slate-900 border-2 border-slate-600 rounded-lg py-4 px-6 text-3xl font-bold text-center text-white shadow-inner min-h-[72px] flex items-center justify-center">
+                            <span id="revealed-answer" class="text-brandGreen hidden"></span>
+                            <span id="hidden-answer-placeholder" class="text-slate-500">?</span>
+                        </div>
+                        
+                        <button id="btn-show-answer" onclick="showClassAnswer()" class="w-full py-3 bg-brandPurple hover:bg-purple-500 rounded-lg font-bold text-white transition-colors shadow-lg">Show Answer</button>
+                        <button id="btn-next-question" onclick="nextClassQuestion()" class="hidden w-full py-3 bg-brandBlue hover:bg-blue-500 rounded-lg font-bold text-white transition-colors shadow-lg flex items-center justify-center space-x-2">
+                            <span>Next Question</span>
+                            <i data-lucide="arrow-right" class="w-5 h-5"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Misconception Warning (Hidden by default) -->
+            <div id="warning-box" class="hidden mx-4 mb-4 bg-slate-800/80 border border-brandRed/30 p-4 rounded-lg">
+                <div class="flex items-start space-x-3">
+                    <i data-lucide="triangle-alert" class="w-5 h-5 text-brandRed flex-shrink-0 mt-0.5"></i>
+                    <div>
+                        <h4 class="text-brandRed font-bold text-xs tracking-wider uppercase mb-1">Watch Out / Misconception</h4>
+                        <p id="warning-text" class="text-slate-300 text-sm">
+                            Moving the decimal the wrong way. Provide the anchor: 'A liter is a big bottle. 500 little drops (mL) is only half a bottle.'
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- End Screen -->
+        <div id="end-screen" class="hidden p-8 text-center space-y-6">
+            <div class="flex items-center justify-center space-x-3 text-brandGreen mb-2">
+                <i data-lucide="check-circle" class="w-10 h-10"></i>
+                <h2 class="text-3xl font-bold text-white">Time's Up!</h2>
+            </div>
+            
+            <div id="solo-stats" class="bg-slate-800 p-6 rounded-lg border border-slate-700 shadow-inner">
+                <p class="text-slate-400 mb-1 uppercase tracking-wider text-sm font-semibold">Final Score</p>
+                <p class="text-6xl font-black text-white mb-4"><span id="final-score">0</span></p>
+                <div class="flex justify-between text-sm text-slate-300 border-t border-slate-700 pt-4">
+                    <span>Questions Attempted: <span id="total-attempted" class="font-bold text-white">0</span></span>
+                    <span>Accuracy: <span id="accuracy" class="font-bold text-white">0%</span></span>
+                </div>
+            </div>
+
+            <div id="class-stats" class="hidden bg-slate-800 p-6 rounded-lg border border-slate-700 shadow-inner">
+                <p class="text-slate-400 mb-1 uppercase tracking-wider text-sm font-semibold">Questions Practiced</p>
+                <p class="text-6xl font-black text-white mb-4"><span id="class-questions-shown">0</span></p>
+                <p class="text-sm text-slate-300 border-t border-slate-700 pt-4">Great job reviewing as a class!</p>
+            </div>
+
+            <button onclick="resetGame()" class="w-full py-4 bg-slate-700 hover:bg-slate-600 text-white font-bold rounded-lg transition-colors text-lg shadow-md flex items-center justify-center space-x-2">
+                <i data-lucide="rotate-cw" class="w-5 h-5"></i>
+                <span>Play Again</span>
+            </button>
+        </div>
+
+    </div>
+
+    <script>
+        // Initialize Icons
+        lucide.createIcons();
+
+        // Game Configuration and Data
+        const GAME_DURATION = 60; // seconds
+        
+        const conversionRules = [
+            { 
+                from: 'mL', to: 'L', 
+                labelTo: 'Liters',
+                factor: 0.001, 
+                warning: "Did you move the decimal the wrong way? Remember the anchor: 'A liter is a big bottle. 500 little drops (mL) is only half a bottle.'" 
+            },
+            { 
+                from: 'L', to: 'mL', 
+                labelTo: 'Milliliters',
+                factor: 1000, 
+                warning: "Remember: 1 Liter is made up of 1,000 little drops (mL)." 
+            },
+            { 
+                from: 'g', to: 'kg', 
+                labelTo: 'Kilograms',
+                factor: 0.001, 
+                warning: "1 kilogram is a heavy block! 1,000 tiny grams fit inside 1 kg." 
+            },
+            { 
+                from: 'kg', to: 'g', 
+                labelTo: 'Grams',
+                factor: 1000, 
+                warning: "A kilogram is big. It takes 1,000 tiny grams to equal 1 kilogram." 
+            },
+            { 
+                from: 'cm', to: 'm', 
+                labelTo: 'Meters',
+                factor: 0.01, 
+                warning: "There are 100 centimeters on a meter stick. You divide by 100!" 
+            },
+            { 
+                from: 'm', to: 'cm', 
+                labelTo: 'Centimeters',
+                factor: 100, 
+                warning: "1 meter equals exactly 100 centimeters. Multiply by 100!" 
+            }
+        ];
+
+        // Base numbers to pull from to ensure realistic math problems
+        const baseNumbers = [1, 2, 5, 10, 25, 50, 100, 250, 500, 750, 1000, 1500, 2500, 5000];
+
+        // State Variables
+        let state = {
+            mode: 'solo', // 'solo' or 'class'
+            score: 0,
+            attempts: 0,
+            timeLeft: GAME_DURATION,
+            timerInterval: null,
+            currentRule: null,
+            currentValue: 0,
+            correctAnswer: 0
+        };
+
+        // DOM Elements
+        const screens = {
+            start: document.getElementById('start-screen'),
+            game: document.getElementById('game-screen'),
+            end: document.getElementById('end-screen')
+        };
+        const elements = {
+            timer: document.getElementById('timer-display'),
+            score: document.getElementById('score-display'),
+            question: document.getElementById('question-display'),
+            targetLabel: document.getElementById('target-unit-label'),
+            targetUnit: document.getElementById('target-unit-display'),
+            input: document.getElementById('answer-input'),
+            warningBox: document.getElementById('warning-box'),
+            warningText: document.getElementById('warning-text'),
+            flashOverlay: document.getElementById('flash-overlay'),
+            appContainer: document.getElementById('app')
+        };
+
+        // Input Event Listener
+        elements.input.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                checkAnswer();
+            }
+        });
+
+        function switchScreen(screenName) {
+            Object.values(screens).forEach(s => s.classList.add('hidden'));
+            screens[screenName].classList.remove('hidden');
+        }
+
+        function startSoloGame() {
+            state.mode = 'solo';
+            const timeSelect = document.getElementById('time-select');
+            state.timeLeft = parseInt(timeSelect.value, 10);
+            startGame();
+        }
+
+        function startClassGame() {
+            state.mode = 'class';
+            const timeSelect = document.getElementById('time-select');
+            state.timeLeft = parseInt(timeSelect.value, 10);
+            startGame();
+        }
+
+        function startGame() {
+            state.score = 0;
+            state.attempts = 0;
+            updateHUD();
+            switchScreen('game');
+            
+            // Toggle UI based on mode
+            if (state.mode === 'solo') {
+                document.getElementById('solo-input-area').classList.remove('hidden');
+                document.getElementById('solo-instructions').classList.remove('hidden');
+                document.getElementById('class-control-area').classList.add('hidden');
+                document.getElementById('class-control-area').classList.remove('flex');
+                document.getElementById('score-container').classList.remove('hidden');
+            } else {
+                document.getElementById('solo-input-area').classList.add('hidden');
+                document.getElementById('solo-instructions').classList.add('hidden');
+                document.getElementById('class-control-area').classList.remove('hidden');
+                document.getElementById('class-control-area').classList.add('flex');
+                document.getElementById('score-container').classList.add('hidden');
+            }
+
+            generateQuestion();
+            if (state.mode === 'solo') {
+                elements.input.focus();
+            }
+            
+            state.timerInterval = setInterval(() => {
+                state.timeLeft--;
+                updateHUD();
+                if (state.timeLeft <= 0) {
+                    endGame();
+                }
+            }, 1000);
+        }
+
+        function showClassAnswer() {
+            document.getElementById('revealed-answer').innerText = `${state.correctAnswer} ${state.currentRule.to}`;
+            document.getElementById('revealed-answer').classList.remove('hidden');
+            document.getElementById('hidden-answer-placeholder').classList.add('hidden');
+            
+            document.getElementById('btn-show-answer').classList.add('hidden');
+            document.getElementById('btn-next-question').classList.remove('hidden');
+        }
+
+        function nextClassQuestion() {
+            state.attempts++;
+            generateQuestion();
+        }
+
+        // Global keydown for class mode hotkeys (Space / Enter)
+        document.addEventListener('keydown', function(e) {
+            if (state.mode === 'class' && !screens.game.classList.contains('hidden')) {
+                if (e.key === ' ' || e.key === 'Enter') {
+                    e.preventDefault();
+                    const showBtn = document.getElementById('btn-show-answer');
+                    const nextBtn = document.getElementById('btn-next-question');
+                    if (!showBtn.classList.contains('hidden')) {
+                        showClassAnswer();
+                    } else if (!nextBtn.classList.contains('hidden')) {
+                        nextClassQuestion();
+                    }
+                }
+            }
+        });
+
+        function endGame() {
+            clearInterval(state.timerInterval);
+            switchScreen('end');
+            
+            if (state.mode === 'solo') {
+                document.getElementById('solo-stats').classList.remove('hidden');
+                document.getElementById('class-stats').classList.add('hidden');
+                document.getElementById('final-score').innerText = state.score;
+                document.getElementById('total-attempted').innerText = state.attempts;
+                
+                const accuracy = state.attempts === 0 ? 0 : Math.round((state.score / state.attempts) * 100);
+                document.getElementById('accuracy').innerText = `${accuracy}%`;
+            } else {
+                document.getElementById('solo-stats').classList.add('hidden');
+                document.getElementById('class-stats').classList.remove('hidden');
+                // The +1 accounts for the question they were currently viewing when time ran out
+                document.getElementById('class-questions-shown').innerText = state.attempts + 1;
+            }
+        }
+
+        function resetGame() {
+            switchScreen('start');
+        }
+
+        function generateQuestion() {
+            // Hide previous warnings
+            elements.warningBox.classList.add('hidden');
+            elements.input.value = '';
+            elements.input.focus();
+
+            // Pick random rule
+            state.currentRule = conversionRules[Math.floor(Math.random() * conversionRules.length)];
+            
+            // Pick random base number (sometimes adjust decimal place for variety)
+            let base = baseNumbers[Math.floor(Math.random() * baseNumbers.length)];
+            
+            // 20% chance to make it a decimal number itself (e.g. 0.5, 1.5)
+            if (Math.random() < 0.2) {
+                base = base / 10;
+            }
+
+            state.currentValue = base;
+            state.correctAnswer = base * state.currentRule.factor;
+
+            // Update UI
+            elements.question.innerHTML = `${state.currentValue} <span class="text-brandBlue text-4xl">${state.currentRule.from}</span>`;
+            elements.targetLabel.innerText = `${state.currentRule.labelTo} (${state.currentRule.to})`;
+            elements.targetUnit.innerText = state.currentRule.to;
+
+            // Reset Class Mode UI
+            if (state.mode === 'class') {
+                document.getElementById('revealed-answer').classList.add('hidden');
+                document.getElementById('hidden-answer-placeholder').classList.remove('hidden');
+                document.getElementById('btn-show-answer').classList.remove('hidden');
+                document.getElementById('btn-next-question').classList.add('hidden');
+            }
+        }
+
+        function checkAnswer() {
+            const userInput = elements.input.value.trim();
+            if (userInput === '') return;
+
+            const parsedInput = parseFloat(userInput);
+            state.attempts++;
+
+            // Check if correct (accounting for floating point precision issues)
+            if (Math.abs(parsedInput - state.correctAnswer) < 0.000001) {
+                handleCorrect();
+            } else {
+                handleIncorrect(parsedInput);
+            }
+        }
+
+        function handleCorrect() {
+            state.score++;
+            updateHUD();
+            
+            // Visual feedback
+            elements.flashOverlay.classList.remove('animate-flash-green');
+            void elements.flashOverlay.offsetWidth; // trigger reflow
+            elements.flashOverlay.classList.add('animate-flash-green');
+            
+            generateQuestion();
+        }
+
+        function handleIncorrect(userInput) {
+            // Visual feedback
+            elements.flashOverlay.classList.remove('animate-flash-red');
+            elements.appContainer.classList.remove('animate-shake');
+            void elements.flashOverlay.offsetWidth; // trigger reflow
+            
+            elements.flashOverlay.classList.add('animate-flash-red');
+            elements.appContainer.classList.add('animate-shake');
+
+            // Detect specific "Moved decimal wrong way" misconception
+            // If they multiplied instead of divided or vice versa (e.g. 1000 vs 0.001)
+            const wrongWayAnswer = state.currentValue * (1 / state.currentRule.factor);
+            
+            elements.warningBox.classList.remove('hidden');
+            
+            if (Math.abs(userInput - wrongWayAnswer) < 0.000001 || 
+               (userInput === state.currentValue * 10) || 
+               (userInput === state.currentValue / 10)) {
+                // They moved the decimal the wrong way!
+                elements.warningText.innerText = "Careful! You moved the decimal the wrong way. \n" + state.currentRule.warning;
+            } else {
+                elements.warningText.innerText = "Incorrect conversion. Try again! \n" + state.currentRule.warning;
+            }
+
+            elements.input.value = '';
+            elements.input.focus();
+        }
+
+        function updateHUD() {
+            elements.score.innerText = state.score;
+            elements.timer.innerText = state.timeLeft + 's';
+            
+            if (state.timeLeft <= 10) {
+                elements.timer.classList.add('text-brandRed');
+                elements.timer.classList.remove('text-brandBlue');
+            } else {
+                elements.timer.classList.remove('text-brandRed');
+                elements.timer.classList.add('text-brandBlue');
+            }
+        }
+    </script>
+</body>
+</html>
