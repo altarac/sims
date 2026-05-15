@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Worm Gear Simulation</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #f3f4f6; color: #1f2937; font-family: 'Inter', sans-serif; }
+        canvas { display: block; width: 100vw; height: 100vh; cursor: grab; }
+        canvas:active { cursor: grabbing; }
+        #ui-container {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(255, 255, 255, 0.9);
+            padding: 1rem 2rem;
+            border-radius: 1rem;
+            backdrop-filter: blur(8px);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            z-index: 10;
+            border: 1px solid rgba(0, 0, 0, 0.1);
+        }
+        input[type="range"] {
+            accent-color: #4b5563;
+        }
+    </style>
+</head>
+<body>
+    <div id="warning-message" class="hidden absolute top-12 left-1/2 transform -translate-x-1/2 bg-red-600/95 backdrop-blur-sm text-white px-8 py-4 rounded-xl text-2xl font-bold uppercase shadow-[0_0_40px_rgba(220,38,38,0.8)] border-2 border-red-400 z-50 tracking-wider transition-opacity duration-200 pointer-events-none">
+        ⚠️ Irreversible System
+        <div class="text-sm normal-case font-medium text-red-100 mt-1 text-center">Motor is locked and overheating!</div>
+    </div>
+
+    <div id="ui-container">
+        <div class="flex items-center justify-between gap-4 w-full">
+            <label for="speed-slider" class="text-sm font-medium text-gray-700 whitespace-nowrap">Motor Speed:</label>
+            <input type="range" id="speed-slider" min="-5" max="5" step="0.1" value="1.0" class="w-48">
+            <span id="speed-value" class="text-sm font-mono w-8 text-right font-bold">1.0</span>
+        </div>
+        <div class="flex items-center justify-between gap-4 w-full border-t border-gray-200 pt-3">
+            <label for="drive-source" class="text-sm font-medium text-gray-700 whitespace-nowrap">Attach Motor To:</label>
+            <select id="drive-source" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2 outline-none cursor-pointer font-medium">
+                <option value="none">Disconnected</option>
+                <option value="worm">Worm (Input)</option>
+                <option value="gear">Gear (Output)</option>
+            </select>
+        </div>
+    </div>
+
+    <script>
+        let scene, camera, renderer;
+        let worm, wormGear, motor;
+        let motorMaterial;
+        let rotationSpeed = 1.0;
+        let isDragging = false;
+        let previousMousePosition = { x: 0, y: 0 };
+        let driveSource = 'none';
+        let overheatIntensity = 0;
+        
+        // Mechanical Parameters
+        const numTeeth = 36;
+        const R_gear = 10.0;
+        const R_worm = 2.0;
+        const toothDepth = 1.2;
+        const pitch = (2 * Math.PI * R_gear) / numTeeth; // Matches gear circumference
+        
+        const wormCore = R_worm - toothDepth / 2;
+        const gearCore = R_gear - toothDepth / 2;
+        const gearThickness = 2.5;
+        const wormLength = 14.0;
+        
+        // Orbit center (lowered so the mechanism appears higher up on screen)
+        const orbitCenter = new THREE.Vector3(0, 2, 0);
+
+        // Materials (Grayscale metallic to match illustration)
+        const steelMaterial = new THREE.MeshStandardMaterial({
+            color: 0xe5e7eb,
+            metalness: 0.5,
+            roughness: 0.4,
+            side: THREE.DoubleSide
+        });
+        
+        const darkSteelMaterial = new THREE.MeshStandardMaterial({
+            color: 0x9ca3af,
+            metalness: 0.6,
+            roughness: 0.5,
+            side: THREE.DoubleSide
+        });
+
+        init();
+        animate();
+
+        function init() {
+            // Scene Setup
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0xf3f4f6);
+            
+            // Camera Setup
+            camera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(0, orbitCenter.y, 48); // Front face view, backed out slightly
+            camera.lookAt(orbitCenter);
+
+            // Renderer Setup
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            document.body.appendChild(renderer.domElement);
+
+            // Lighting setup for technical illustration look
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+            scene.add(ambientLight);
+
+            const mainLight = new THREE.DirectionalLight(0xffffff, 0.7);
+            mainLight.position.set(-10, 20, 20);
+            mainLight.castShadow = true;
+            mainLight.shadow.mapSize.width = 2048;
+            mainLight.shadow.mapSize.height = 2048;
+            mainLight.shadow.camera.left = -15;
+            mainLight.shadow.camera.right = 15;
+            mainLight.shadow.camera.top = 15;
+            mainLight.shadow.camera.bottom = -15;
+            scene.add(mainLight);
+
+            const rimLight = new THREE.DirectionalLight(0xffffff, 0.4);
+            rimLight.position.set(10, -10, -10);
+            scene.add(rimLight);
+
+            createWorm();
+            createWormGear();
+            createMotor();
+
+            // Event Listeners for UI
+            window.addEventListener('resize', onWindowResize);
+            
+            const speedSlider = document.getElementById('speed-slider');
+            const speedValue = document.getElementById('speed-value');
+            const driveSourceSelect = document.getElementById('drive-source');
+            
+            speedSlider.addEventListener('input', (e) => {
+                rotationSpeed = parseFloat(e.target.value);
+                speedValue.textContent = rotationSpeed.toFixed(1);
+            });
+
+            driveSourceSelect.addEventListener('change', (e) => {
+                driveSource = e.target.value;
+                updateMotorPosition();
+            });
+
+            // Camera Zoom Controls (Mouse Wheel)
+            document.addEventListener('wheel', (e) => {
+                const offset = new THREE.Vector3().subVectors(camera.position, orbitCenter);
+                let radius = offset.length();
+                // Adjust zoom speed
+                radius += e.deltaY * 0.05;
+                // Clamp zoom bounds
+                radius = Math.max(15, Math.min(120, radius)); 
+                
+                offset.normalize().multiplyScalar(radius);
+                camera.position.copy(orbitCenter).add(offset);
+            }, { passive: false });
+
+            // Camera Orbit Controls
+            document.addEventListener('mousedown', (e) => {
+                if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'SELECT') isDragging = true;
+            });
+            document.addEventListener('mouseup', () => isDragging = false);
+            document.addEventListener('mousemove', (e) => {
+                if (isDragging) {
+                    const deltaMove = {
+                        x: e.offsetX - previousMousePosition.x,
+                        y: e.offsetY - previousMousePosition.y
+                    };
+
+                    const offset = new THREE.Vector3().subVectors(camera.position, orbitCenter);
+                    const radius = offset.length();
+                    
+                    let theta = Math.atan2(offset.x, offset.z);
+                    let phi = Math.acos(offset.y / radius);
+
+                    theta -= deltaMove.x * 0.01;
+                    phi -= deltaMove.y * 0.01;
+
+                    // Constrain vertical rotation
+                    phi = Math.max(0.1, Math.min(Math.PI - 0.1, phi));
+
+                    offset.x = radius * Math.sin(phi) * Math.sin(theta);
+                    offset.y = radius * Math.cos(phi);
+                    offset.z = radius * Math.sin(phi) * Math.cos(theta);
+                    
+                    camera.position.copy(orbitCenter).add(offset);
+                    camera.lookAt(orbitCenter);
+                }
+                previousMousePosition = { x: e.offsetX, y: e.offsetY };
+            });
+        }
+
+        function createWorm() {
+            worm = new THREE.Group();
+            
+            // Use high-res cylinder and displace vertices to form exact threads
+            const geo = new THREE.CylinderGeometry(wormCore, wormCore, wormLength, 128, 128);
+            const pos = geo.attributes.position;
+            
+            for (let i = 0; i < pos.count; i++) {
+                let x = pos.getX(i);
+                let y = pos.getY(i);
+                let z = pos.getZ(i);
+                
+                let currentR = Math.sqrt(x*x + z*z);
+                
+                // Only displace outer shell vertices
+                if (currentR > 0.1) {
+                    let theta = Math.atan2(z, x);
+                    // Calculate thread phase
+                    let phase = (y / pitch - theta / (Math.PI * 2));
+                    phase = phase - Math.floor(phase);
+                    if (phase < 0) phase += 1;
+
+                    // Trapezoidal thread profile
+                    let h = 0;
+                    if (phase < 0.33) h = toothDepth;
+                    else if (phase < 0.5) h = toothDepth * (1 - (phase - 0.33) / 0.17);
+                    else if (phase < 0.83) h = 0;
+                    else h = toothDepth * ((phase - 0.83) / 0.17);
+
+                    // Taper ends to smoothly merge thread into core
+                    let edgeDist = Math.max(0, Math.abs(y) - (wormLength/2 - pitch));
+                    if (edgeDist > 0) h *= Math.max(0, 1 - edgeDist/pitch);
+
+                    let newR = wormCore + h;
+                    pos.setX(i, Math.cos(theta) * newR);
+                    pos.setZ(i, Math.sin(theta) * newR);
+                }
+            }
+            geo.computeVertexNormals();
+
+            const threadMesh = new THREE.Mesh(geo, steelMaterial);
+            threadMesh.castShadow = true;
+            threadMesh.receiveShadow = true;
+            worm.add(threadMesh);
+            
+            // Add central shaft extending out
+            const shaftGeo = new THREE.CylinderGeometry(0.8, 0.8, wormLength + 4, 32);
+            const shaftMesh = new THREE.Mesh(shaftGeo, darkSteelMaterial);
+            worm.add(shaftMesh);
+
+            // Add bearings at ends
+            const bearingGeo = new THREE.CylinderGeometry(1.2, 1.2, 1.5, 32);
+            const bearing1 = new THREE.Mesh(bearingGeo, steelMaterial);
+            bearing1.position.y = wormLength / 2 + 1;
+            bearing1.castShadow = true;
+            worm.add(bearing1);
+            
+            const bearing2 = new THREE.Mesh(bearingGeo, steelMaterial);
+            bearing2.position.y = -wormLength / 2 - 1;
+            bearing2.castShadow = true;
+            worm.add(bearing2);
+
+            // Orient the worm horizontally along the X axis
+            worm.rotation.z = -Math.PI / 2;
+            
+            // Position above the gear
+            worm.position.set(0, R_gear + R_worm, 0);
+            scene.add(worm);
+        }
+
+        function createWormGear() {
+            wormGear = new THREE.Group();
+            
+            // Use cylinder and displace vertices to form teeth
+            const geo = new THREE.CylinderGeometry(gearCore, gearCore, gearThickness, 360, 16);
+            const pos = geo.attributes.position;
+            
+            const slantFactor = 0.08; // Helix angle slant to interlock with worm
+            
+            for (let i = 0; i < pos.count; i++) {
+                let x = pos.getX(i);
+                let y = pos.getY(i);
+                let z = pos.getZ(i);
+
+                let currentR = Math.sqrt(x*x + z*z);
+                
+                if (currentR > 0.1) {
+                    let theta = Math.atan2(z, x);
+                    let phase = (theta * numTeeth / (Math.PI * 2));
+                    
+                    // Apply slant to match worm thread
+                    phase -= y * slantFactor; 
+                    phase = phase - Math.floor(phase);
+                    if (phase < 0) phase += 1;
+
+                    // Root profile to accept worm crest
+                    let h = 0;
+                    if (phase < 0.33) h = 0;
+                    else if (phase < 0.5) h = toothDepth * ((phase - 0.33) / 0.17);
+                    else if (phase < 0.83) h = toothDepth;
+                    else h = toothDepth * (1 - (phase - 0.83) / 0.17);
+
+                    // Add enveloping effect (concave hollow to hug the worm)
+                    let envelope = Math.abs(y) / (gearThickness / 2);
+                    h += envelope * 0.3; 
+
+                    let newR = gearCore + h;
+                    pos.setX(i, Math.cos(theta) * newR);
+                    pos.setZ(i, Math.sin(theta) * newR);
+                }
+            }
+            geo.computeVertexNormals();
+
+            const gearMesh = new THREE.Mesh(geo, darkSteelMaterial);
+            gearMesh.castShadow = true;
+            gearMesh.receiveShadow = true;
+            wormGear.add(gearMesh);
+            
+            // Central Hub Details
+            const hubGeo = new THREE.CylinderGeometry(1.8, 1.8, gearThickness + 0.2, 32);
+            const hubMesh = new THREE.Mesh(hubGeo, steelMaterial);
+            wormGear.add(hubMesh);
+
+            const pinGeo = new THREE.SphereGeometry(1.0, 32, 16);
+            const pinMesh = new THREE.Mesh(pinGeo, steelMaterial);
+            pinMesh.scale.set(1, 0.4, 1);
+            pinMesh.position.y = gearThickness / 2 + 0.1;
+            wormGear.add(pinMesh);
+
+            const pinMesh2 = pinMesh.clone();
+            pinMesh2.position.y = -gearThickness / 2 - 0.1;
+            wormGear.add(pinMesh2);
+
+            // Orient the gear to stand upright (Face on XY plane)
+            wormGear.rotation.x = Math.PI / 2;
+            wormGear.position.set(0, 0, 0);
+            
+            scene.add(wormGear);
+        }
+
+        function createMotor() {
+            motor = new THREE.Group();
+            motorMaterial = new THREE.MeshStandardMaterial({ 
+                color: 0x3b82f6, // Blue
+                metalness: 0.3, 
+                roughness: 0.6,
+                emissive: 0x000000,
+                emissiveIntensity: 0
+            });
+            
+            // Main motor body
+            const bodyGeo = new THREE.CylinderGeometry(2.5, 2.5, 6, 32);
+            const bodyMesh = new THREE.Mesh(bodyGeo, motorMaterial);
+            bodyMesh.rotation.x = Math.PI / 2; // Orient length along local Z
+            bodyMesh.castShadow = true;
+            motor.add(bodyMesh);
+
+            // Cooling fins / Details
+            const detailsGeo = new THREE.CylinderGeometry(2.6, 2.6, 0.4, 32);
+            for(let i=0; i<5; i++) {
+                const detail = new THREE.Mesh(detailsGeo, darkSteelMaterial);
+                detail.position.z = -2 + i;
+                detail.rotation.x = Math.PI / 2;
+                detail.castShadow = true;
+                motor.add(detail);
+            }
+
+            scene.add(motor);
+            updateMotorPosition();
+        }
+
+        function updateMotorPosition() {
+            // Reset overheats
+            overheatIntensity = 0;
+            motorMaterial.color.setHex(0x3b82f6); // Reset to blue
+            motorMaterial.emissive.setHex(0x000000);
+            document.getElementById('warning-message').classList.add('hidden');
+            motor.position.set(0, 0, 0);
+            motor.rotation.set(0, 0, 0);
+
+            if (driveSource === 'worm') {
+                motor.visible = true;
+                // Attach to right side of worm along X axis
+                motor.position.set(11, R_gear + R_worm, 0);
+                motor.rotation.set(0, Math.PI / 2, 0); // Point Z along global X
+            } else if (driveSource === 'gear') {
+                motor.visible = true;
+                // Attach to front of gear along Z axis
+                motor.position.set(0, 0, 4.5);
+                // Already pointing along Z
+            } else {
+                // Disconnected
+                motor.visible = false;
+            }
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            if (worm && wormGear && motor) {
+                if (driveSource === 'worm') {
+                    const dW = rotationSpeed * 0.05;
+                    
+                    // Rotate worm around its local Y axis (which is world X)
+                    worm.rotateY(dW);
+                    
+                    // Gear reduction: 1 rotation of worm = 1 tooth of gear
+                    // Rotate gear around its local Y axis (which is world Z)
+                    wormGear.rotateY(-dW / numTeeth);
+                    
+                    // Rotate motor
+                    motor.rotateZ(-dW);
+                } else if (driveSource === 'gear') {
+                    // System is locked. Motor cannot back-drive the worm due to self-locking.
+                    if (Math.abs(rotationSpeed) > 0.1) {
+                        overheatIntensity += 0.015;
+                        if (overheatIntensity > 1) overheatIntensity = 1;
+
+                        // Show warning UI
+                        document.getElementById('warning-message').classList.remove('hidden');
+
+                        // Visual overheating (turning red & glowing)
+                        motorMaterial.color.setHex(0xff3333); 
+                        motorMaterial.emissive.setHex(0xff0000);
+                        motorMaterial.emissiveIntensity = overheatIntensity * 0.8;
+
+                        // Motor struggling/shaking (local offset)
+                        const shakeAmt = overheatIntensity * 0.15;
+                        motor.position.set(
+                            (Math.random() - 0.5) * shakeAmt,
+                            (Math.random() - 0.5) * shakeAmt,
+                            4.5 + (Math.random() - 0.5) * shakeAmt
+                        );
+                    } else {
+                        // Cooldown if motor speed is reduced to near 0
+                        overheatIntensity -= 0.05;
+                        if (overheatIntensity <= 0) {
+                            overheatIntensity = 0;
+                            document.getElementById('warning-message').classList.add('hidden');
+                            motorMaterial.color.setHex(0x3b82f6); // Back to blue
+                            motorMaterial.emissiveIntensity = 0;
+                            motor.position.set(0, 0, 4.5); // Reset position perfectly
+                        } else {
+                            motorMaterial.emissiveIntensity = overheatIntensity * 0.8;
+                            motor.position.set(0, 0, 4.5); // Stop shaking but stay glowing during cooldown
+                        }
+                    }
+                }
+            }
+
+            renderer.render(scene, camera);
+        }
+    </script>
+</body>
+</html>
