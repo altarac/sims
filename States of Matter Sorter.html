@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>States of Matter Sorting</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600&display=swap');
+        
+        body {
+            font-family: 'Fredoka', sans-serif;
+            background-color: #f0fdfa;
+            /* Smooth background pattern */
+            background-image: radial-gradient(#cbd5e1 1px, transparent 1px);
+            background-size: 24px 24px;
+        }
+
+        /* Animations */
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px) rotate(-5deg); }
+            50% { transform: translateX(5px) rotate(5deg); }
+            75% { transform: translateX(-5px) rotate(-5deg); }
+        }
+        
+        @keyframes popIn {
+            0% { transform: scale(0.8); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        .shake { animation: shake 0.4s ease-in-out; }
+        .pop-in { animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+        
+        /* Drag styles */
+        .item {
+            cursor: grab;
+            transition: all 0.2s ease;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        
+        .item:active {
+            cursor: grabbing;
+        }
+        
+        .item.dragging {
+            opacity: 0.5;
+            transform: scale(1.05);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+        }
+
+        .item.selected {
+            ring: 4px;
+            ring-color: #3b82f6;
+            transform: scale(1.1);
+            z-index: 10;
+            box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.5);
+        }
+
+        .dropzone {
+            transition: all 0.3s ease;
+        }
+
+        .dropzone.dragover {
+            background-color: rgba(255, 255, 255, 0.8);
+            border-color: #3b82f6;
+            transform: scale(1.02);
+        }
+        
+        /* Custom Scrollbar for columns */
+        .custom-scroll::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scroll::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .custom-scroll::-webkit-scrollbar-thumb {
+            background-color: #cbd5e1;
+            border-radius: 20px;
+        }
+    </style>
+</head>
+<body class="min-h-screen text-slate-800 flex flex-col p-4 md:p-8">
+
+    <!-- Header & Progress -->
+    <header class="w-full max-w-5xl mx-auto mb-6 text-center">
+        <h1 class="text-4xl md:text-5xl font-bold text-teal-800 mb-2 drop-shadow-sm">State of Matter Sorter</h1>
+        <p class="text-lg text-teal-600 font-medium mb-4">Drag and drop the items into the correct categories!</p>
+        
+        <div class="bg-white rounded-full p-1 max-w-md mx-auto shadow-sm border border-teal-100 flex items-center relative h-8">
+            <div id="progress-bar" class="bg-teal-500 h-full rounded-full transition-all duration-500 w-0"></div>
+            <div class="absolute w-full text-center text-sm font-semibold text-slate-700" id="progress-text">0 / 12 Sorted</div>
+        </div>
+    </header>
+
+    <!-- Item Bank -->
+    <section class="w-full max-w-5xl mx-auto mb-8 relative z-10">
+        <div class="bg-white/80 backdrop-blur-sm border-2 border-dashed border-teal-300 rounded-2xl p-4 md:p-6 min-h-[140px] flex flex-wrap justify-center items-center gap-3 md:gap-4 shadow-sm" id="item-bank">
+            <!-- Items injected by JS -->
+        </div>
+        <p class="text-center text-sm text-slate-500 mt-2 font-medium hidden md:block">Drag items from here to the columns below.</p>
+        <p class="text-center text-sm text-slate-500 mt-2 font-medium md:hidden">Tap an item, then tap a column to place it.</p>
+    </section>
+
+    <!-- Drop Zones -->
+    <section class="w-full max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-6 flex-grow">
+        
+        <!-- Solid Column -->
+        <div class="flex flex-col bg-amber-50/90 backdrop-blur border-4 border-amber-200 rounded-3xl overflow-hidden shadow-sm">
+            <div class="bg-amber-200/50 py-3 text-center border-b border-amber-200">
+                <h2 class="text-2xl font-bold text-amber-800">🧱 Solid</h2>
+                <p class="text-xs text-amber-700 font-medium mt-1">Keeps its shape</p>
+            </div>
+            <div class="dropzone p-4 flex-grow flex flex-col gap-3 custom-scroll overflow-y-auto min-h-[250px]" data-category="solid" id="zone-solid">
+                <!-- Sorted items go here -->
+            </div>
+        </div>
+
+        <!-- Liquid Column -->
+        <div class="flex flex-col bg-blue-50/90 backdrop-blur border-4 border-blue-200 rounded-3xl overflow-hidden shadow-sm">
+            <div class="bg-blue-200/50 py-3 text-center border-b border-blue-200">
+                <h2 class="text-2xl font-bold text-blue-800">💧 Liquid</h2>
+                <p class="text-xs text-blue-700 font-medium mt-1">Takes shape of container</p>
+            </div>
+            <div class="dropzone p-4 flex-grow flex flex-col gap-3 custom-scroll overflow-y-auto min-h-[250px]" data-category="liquid" id="zone-liquid">
+                <!-- Sorted items go here -->
+            </div>
+        </div>
+
+        <!-- Gas Column -->
+        <div class="flex flex-col bg-slate-100/90 backdrop-blur border-4 border-slate-300 rounded-3xl overflow-hidden shadow-sm">
+            <div class="bg-slate-200/50 py-3 text-center border-b border-slate-300">
+                <h2 class="text-2xl font-bold text-slate-700">💨 Gas</h2>
+                <p class="text-xs text-slate-600 font-medium mt-1">Fills the whole space</p>
+            </div>
+            <div class="dropzone p-4 flex-grow flex flex-col gap-3 custom-scroll overflow-y-auto min-h-[250px]" data-category="gas" id="zone-gas">
+                <!-- Sorted items go here -->
+            </div>
+        </div>
+
+    </section>
+
+    <!-- Success Modal -->
+    <div id="success-modal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 hidden flex justify-center items-center p-4">
+        <div class="bg-white rounded-3xl p-8 max-w-sm w-full text-center shadow-2xl transform scale-90 transition-transform duration-300" id="modal-content">
+            <div class="text-6xl mb-4">🏆</div>
+            <h2 class="text-3xl font-bold text-teal-800 mb-2">Great Job!</h2>
+            <p class="text-slate-600 mb-6 font-medium">You successfully categorized all the states of matter!</p>
+            <button onclick="resetGame()" class="bg-teal-500 hover:bg-teal-600 text-white font-bold py-3 px-8 rounded-xl transition-colors w-full shadow-md hover:shadow-lg transform active:scale-95">
+                Play Again
+            </button>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script>
+        // Item Data
+        const itemsData = [
+            { id: 'item-wood', name: 'Wood', category: 'solid', icon: '🪵' },
+            { id: 'item-sand', name: 'Sand', category: 'solid', icon: '🏖️' },
+            { id: 'item-ice', name: 'Ice Cube', category: 'solid', icon: '🧊' },
+            { id: 'item-rock', name: 'Rock', category: 'solid', icon: '🪨' },
+            { id: 'item-juice', name: 'Juice', category: 'liquid', icon: '🧃' },
+            { id: 'item-water', name: 'Water', category: 'liquid', icon: '💧' },
+            { id: 'item-milk', name: 'Milk', category: 'liquid', icon: '🥛' },
+            { id: 'item-oil', name: 'Oil', category: 'liquid', icon: '🛢️' },
+            { id: 'item-steam', name: 'Steam', category: 'gas', icon: '♨️' },
+            { id: 'item-air', name: 'Air', category: 'gas', icon: '🌬️' },
+            { id: 'item-helium', name: 'Helium', category: 'gas', icon: '🎈' },
+            { id: 'item-clouds', name: 'Clouds', category: 'gas', icon: '☁️' }
+        ];
+
+        let sortedCount = 0;
+        const totalItems = itemsData.length;
+        let selectedElement = null; // For click-to-move functionality (Mobile)
+
+        // DOM Elements
+        const bank = document.getElementById('item-bank');
+        const dropzones = document.querySelectorAll('.dropzone');
+        const progressBar = document.getElementById('progress-bar');
+        const progressText = document.getElementById('progress-text');
+        const modal = document.getElementById('success-modal');
+        const modalContent = document.getElementById('modal-content');
+
+        // Initialize Game
+        function initGame() {
+            bank.innerHTML = '';
+            document.querySelectorAll('.dropzone').forEach(zone => zone.innerHTML = '');
+            sortedCount = 0;
+            updateProgress();
+            
+            // Shuffle items randomly
+            const shuffled = [...itemsData].sort(() => Math.random() - 0.5);
+            
+            shuffled.forEach((data, index) => {
+                const el = document.createElement('div');
+                el.className = 'item pop-in bg-white border-2 border-slate-200 rounded-xl px-4 py-3 flex items-center gap-3 shadow-sm hover:shadow-md hover:border-teal-400';
+                el.style.animationDelay = `${index * 0.05}s`;
+                el.draggable = true;
+                el.id = data.id;
+                el.dataset.category = data.category;
+                
+                el.innerHTML = `
+                    <span class="text-3xl">${data.icon}</span>
+                    <span class="font-semibold text-slate-700">${data.name}</span>
+                `;
+
+                // Drag Events (Desktop)
+                el.addEventListener('dragstart', handleDragStart);
+                el.addEventListener('dragend', handleDragEnd);
+                
+                // Click Events (Mobile/Accessible Fallback)
+                el.addEventListener('click', handleItemClick);
+
+                bank.appendChild(el);
+            });
+        }
+
+        // --- Drag and Drop Logic ---
+
+        function handleDragStart(e) {
+            e.dataTransfer.setData('text/plain', e.target.id);
+            e.dataTransfer.effectAllowed = 'move';
+            // Slight delay so the visually dragged element doesn't look instantly transparent
+            setTimeout(() => e.target.classList.add('dragging'), 0);
+            
+            // Clear any click selections
+            if (selectedElement) {
+                selectedElement.classList.remove('selected');
+                selectedElement = null;
+            }
+        }
+
+        function handleDragEnd(e) {
+            e.target.classList.remove('dragging');
+            dropzones.forEach(z => z.classList.remove('dragover'));
+        }
+
+        // Setup Dropzones
+        dropzones.forEach(zone => {
+            zone.addEventListener('dragover', e => {
+                e.preventDefault(); // Allows dropping
+                e.dataTransfer.dropEffect = 'move';
+                zone.classList.add('dragover');
+            });
+
+            zone.addEventListener('dragleave', e => {
+                zone.classList.remove('dragover');
+            });
+
+            zone.addEventListener('drop', e => {
+                e.preventDefault();
+                zone.classList.remove('dragover');
+                const id = e.dataTransfer.getData('text/plain');
+                const el = document.getElementById(id);
+                if (el) {
+                    processPlacement(el, zone);
+                }
+            });
+
+            // Click-to-place (Mobile)
+            zone.addEventListener('click', () => {
+                if (selectedElement) {
+                    processPlacement(selectedElement, zone);
+                }
+            });
+        });
+
+        // --- Click to Move Logic (Mobile Fallback) ---
+        
+        function handleItemClick(e) {
+            const el = e.currentTarget;
+            // If already solved, do nothing
+            if (el.parentElement !== bank) return;
+
+            // Deselect previous
+            if (selectedElement && selectedElement !== el) {
+                selectedElement.classList.remove('selected');
+            }
+
+            if (selectedElement === el) {
+                // Toggle off
+                el.classList.remove('selected');
+                selectedElement = null;
+            } else {
+                // Select
+                el.classList.add('selected');
+                selectedElement = el;
+            }
+        }
+
+        // --- Core Validation Logic ---
+
+        function processPlacement(el, zone) {
+            const expectedCategory = zone.dataset.category;
+            const actualCategory = el.dataset.category;
+
+            if (expectedCategory === actualCategory) {
+                // Correct Category
+                handleCorrect(el, zone);
+            } else {
+                // Incorrect Category
+                handleIncorrect(el);
+            }
+            
+            // Clear selection
+            if (selectedElement) {
+                selectedElement.classList.remove('selected');
+                selectedElement = null;
+            }
+        }
+
+        function handleCorrect(el, zone) {
+            // Remove styles for bank & make it un-draggable
+            el.draggable = false;
+            el.classList.remove('hover:border-teal-400', 'hover:shadow-md', 'cursor-grab', 'selected');
+            el.classList.add('bg-white/60', 'border-transparent', 'shadow-none', 'cursor-default');
+            
+            // Style adjustment for list view
+            el.innerHTML += `<span class="ml-auto text-green-500 font-bold">✓</span>`;
+            
+            // Move element
+            zone.appendChild(el);
+            
+            // Update Progress
+            sortedCount++;
+            updateProgress();
+
+            if (sortedCount === totalItems) {
+                setTimeout(showSuccess, 300);
+            }
+        }
+
+        function handleIncorrect(el) {
+            // Apply shake effect
+            el.classList.remove('shake');
+            void el.offsetWidth; // trigger reflow to restart animation
+            el.classList.add('shake');
+            
+            // Flash red briefly
+            const originalBorder = el.className.match(/border-[\w-]+/)?.[0] || 'border-slate-200';
+            el.classList.remove(originalBorder);
+            el.classList.add('border-red-500');
+            
+            setTimeout(() => {
+                el.classList.remove('border-red-500', 'shake');
+                el.classList.add(originalBorder);
+            }, 500);
+        }
+
+        function updateProgress() {
+            const percentage = (sortedCount / totalItems) * 100;
+            progressBar.style.width = `${percentage}%`;
+            progressText.innerText = `${sortedCount} / ${totalItems} Sorted`;
+            
+            if(percentage > 50) {
+                progressText.classList.add('text-white');
+                progressText.classList.remove('text-slate-700');
+            } else {
+                progressText.classList.remove('text-white');
+                progressText.classList.add('text-slate-700');
+            }
+        }
+
+        function showSuccess() {
+            // Fire Confetti
+            confetti({
+                particleCount: 150,
+                spread: 70,
+                origin: { y: 0.6 },
+                colors: ['#14b8a6', '#0ea5e9', '#f59e0b', '#3b82f6']
+            });
+            
+            // Show Modal
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                modalContent.classList.remove('scale-90');
+                modalContent.classList.add('scale-100');
+            }, 10);
+        }
+
+        function resetGame() {
+            modalContent.classList.remove('scale-100');
+            modalContent.classList.add('scale-90');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+                initGame();
+            }, 200);
+        }
+
+        // Start game on load
+        window.onload = initGame;
+    </script>
+</body>
+</html>
