@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Rack and Pinion</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #ffffff;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: #333333;
+        }
+        #canvas-container {
+            width: 100vw;
+            height: 100vh;
+            display: block;
+        }
+        #ui-panel {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(30, 30, 35, 0.85);
+            padding: 20px 40px;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            backdrop-filter: blur(5px);
+            border: 1px solid rgba(255,255,255,0.1);
+            text-align: center;
+            min-width: 300px;
+        }
+        h2 {
+            margin: 0 0 15px 0;
+            font-size: 1.2rem;
+            font-weight: 500;
+            letter-spacing: 1px;
+            color: #ffffff;
+        }
+        .control-group {
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        label {
+            font-size: 0.9rem;
+            margin-right: 15px;
+        }
+        input[type=range] {
+            flex-grow: 1;
+            cursor: pointer;
+            accent-color: #555566;
+        }
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            cursor: pointer;
+            margin-top: 5px;
+        }
+        .checkbox-group input {
+            cursor: pointer;
+            width: 18px;
+            height: 18px;
+            accent-color: #888899;
+        }
+        .btn {
+            margin-top: 15px;
+            padding: 10px 15px;
+            border-radius: 6px;
+            border: none;
+            background: #555566;
+            color: white;
+            cursor: pointer;
+            font-weight: bold;
+            width: 100%;
+            transition: background 0.3s;
+        }
+        .btn:hover { background: #666677; }
+        #loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 1.5rem;
+            pointer-events: none;
+            transition: opacity 0.5s ease;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="loading">Generating Geometry...</div>
+    <div id="canvas-container"></div>
+    
+    <div id="ui-panel">
+        <h2>RACK & PINION</h2>
+        <div class="control-group">
+            <label for="driveSlider">Position</label>
+            <input type="range" id="driveSlider" min="-6" max="6" step="0.01" value="0">
+        </div>
+        <label class="checkbox-group">
+            <input type="checkbox" id="autoPlay" checked>
+            <span>Auto-Animate</span>
+        </label>
+        <button id="toggleDriveBtn" class="btn">📏 Force: Pushing Rack</button>
+    </div>
+
+    <!-- Three.js Library & OrbitControls -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+
+    <script>
+        // --- Mechanism Parameters ---
+        const module = 0.4;             // Gear module (determines tooth size)
+        const pinionTeeth = 32;         // Number of teeth on the gear
+        const rackTeeth = 60;           // Number of teeth on the rack
+        const thickness = 2.0;          // Thickness of the gear and rack
+        const pressureAngle = 20;       // Standard gear pressure angle (degrees)
+        
+        // Calculated Properties
+        const pitchRadius = (pinionTeeth * module) / 2;
+        const pitch = Math.PI * module;
+        const addendum = module;
+        const dedendum = 1.25 * module;
+        
+        let autoPlay = true;
+        let time = 0;
+        const baseRackX = - (rackTeeth * pitch) / 2;
+
+        let driveMode = 0; // 0: Rack driven, 1: Pinion driven
+        const driveModeLabels = ["📏 Force: Pushing Rack", "🔄 Force: Turning Pinion"];
+
+        // --- Emoji Sprite Generator ---
+        function createEmojiTexture(emoji) {
+            const canvas = document.createElement('canvas');
+            canvas.width = 128;
+            canvas.height = 128;
+            const ctx = canvas.getContext('2d');
+            ctx.font = '80px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            // Add a slight glow for visibility
+            ctx.shadowColor = 'rgba(255, 255, 255, 0.8)';
+            ctx.shadowBlur = 15;
+            ctx.fillText(emoji, 64, 64);
+            return new THREE.CanvasTexture(canvas);
+        }
+
+        const fingerTexture = createEmojiTexture('👆');
+        const fingerMat = new THREE.SpriteMaterial({ map: fingerTexture, transparent: true });
+        const fingerSprite = new THREE.Sprite(fingerMat);
+        fingerSprite.scale.set(7, 7, 1);
+        fingerSprite.visible = false; // Hidden initially
+
+        // --- Scene Setup ---
+        const container = document.getElementById('canvas-container');
+        const scene = new THREE.Scene();
+        // Fog removed to prevent white glare when zooming out
+
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(20, 15, 25);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setClearColor(0xffffff);
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        container.appendChild(renderer.domElement);
+
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.target.set(0, -2, 0);
+        controls.maxDistance = 200; // Increased max zoom out distance
+        controls.minDistance = 5;
+
+        // --- Lighting (Simulating Studio/Cast Metal look) ---
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+        scene.add(ambientLight);
+
+        const mainLight = new THREE.DirectionalLight(0xffffff, 1.1);
+        mainLight.position.set(15, 25, 10);
+        mainLight.castShadow = true;
+        mainLight.shadow.camera.left = -20;
+        mainLight.shadow.camera.right = 20;
+        mainLight.shadow.camera.top = 20;
+        mainLight.shadow.camera.bottom = -20;
+        mainLight.shadow.mapSize.width = 2048;
+        mainLight.shadow.mapSize.height = 2048;
+        scene.add(mainLight);
+
+        const fillLight = new THREE.DirectionalLight(0xaaccff, 0.4);
+        fillLight.position.set(-15, -5, -15);
+        scene.add(fillLight);
+
+        const rimLight = new THREE.PointLight(0xffffff, 0.6, 50);
+        rimLight.position.set(0, 10, -10);
+        scene.add(rimLight);
+
+        // --- Material ---
+        const metalMaterial = new THREE.MeshStandardMaterial({
+            color: 0x666670,      // Steel grey
+            roughness: 0.45,      // Slightly rough cast texture
+            metalness: 0.85,      // Highly metallic
+        });
+
+        // --- Geometry Generators ---
+
+        function createPinionGeometry() {
+            const shape = new THREE.Shape();
+            const R = pitchRadius;
+            const Ro = R + addendum;
+            const Rr = R - dedendum;
+            const N = pinionTeeth;
+            const baseAngle = (Math.PI * 2) / N;
+            
+            const tan_pa = Math.tan(pressureAngle * Math.PI / 180);
+            const w_pitch = Math.PI * module / 2;
+            const w_tip = w_pitch - 2 * addendum * tan_pa;
+            const w_root = w_pitch + 2 * dedendum * tan_pa;
+
+            const dTheta_tip = (w_tip / Ro) / 2;
+            const dTheta_root = (w_root / Rr) / 2;
+
+            for (let i = 0; i < N; i++) {
+                let center = i * baseAngle;
+                
+                let a_p1 = center - baseAngle / 2;
+                let a_p2 = center - dTheta_root;
+                let a_p3 = center - dTheta_tip;
+                let a_p4 = center + dTheta_tip;
+                let a_p5 = center + dTheta_root;
+                let a_p6 = center + baseAngle / 2;
+
+                if (i === 0) shape.moveTo(Math.cos(a_p1) * Rr, Math.sin(a_p1) * Rr);
+                else shape.lineTo(Math.cos(a_p1) * Rr, Math.sin(a_p1) * Rr);
+
+                shape.lineTo(Math.cos(a_p2) * Rr, Math.sin(a_p2) * Rr);
+                shape.lineTo(Math.cos(a_p3) * Ro, Math.sin(a_p3) * Ro);
+                shape.lineTo(Math.cos(a_p4) * Ro, Math.sin(a_p4) * Ro);
+                shape.lineTo(Math.cos(a_p5) * Rr, Math.sin(a_p5) * Rr);
+                shape.lineTo(Math.cos(a_p6) * Rr, Math.sin(a_p6) * Rr);
+            }
+
+            // Central Shaft Hole
+            const holePath = new THREE.Path();
+            holePath.absarc(0, 0, R * 0.25, 0, Math.PI * 2, false);
+            shape.holes.push(holePath);
+
+            const extrudeSettings = {
+                depth: thickness,
+                bevelEnabled: true,
+                bevelSegments: 3,
+                steps: 1,
+                bevelSize: 0.08,
+                bevelThickness: 0.08
+            };
+
+            const geo = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+            geo.translate(0, 0, -thickness / 2);
+            return geo;
+        }
+
+        function createHubGeometry() {
+            const R = pitchRadius;
+            const hubRadius = R * 0.55;
+            const hubThickness = 1.2;
+            
+            const shape = new THREE.Shape();
+            shape.absarc(0, 0, hubRadius, 0, Math.PI * 2, false);
+            
+            const holePath = new THREE.Path();
+            holePath.absarc(0, 0, R * 0.25, 0, Math.PI * 2, false);
+            shape.holes.push(holePath);
+
+            const extrudeSettings = {
+                depth: hubThickness,
+                bevelEnabled: true,
+                bevelSegments: 2,
+                steps: 1,
+                bevelSize: 0.05,
+                bevelThickness: 0.05
+            };
+
+            const geo = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+            // Position hub slightly overlapping to avoid seams, projecting out the front
+            geo.translate(0, 0, thickness/2 - 0.05); 
+            return geo;
+        }
+
+        function createRackGeometry() {
+            const shape = new THREE.Shape();
+            
+            const y_tip = addendum;
+            const y_root = -dedendum;
+            const y_base = y_root - (4.0 * module); // Rack base depth
+            const totalLength = rackTeeth * pitch;
+
+            const tan_pa = Math.tan(pressureAngle * Math.PI / 180);
+            const w_pitch_rack = pitch / 2;
+            const w_tip_rack = w_pitch_rack - 2 * addendum * tan_pa;
+            const w_root_rack = w_pitch_rack + 2 * dedendum * tan_pa;
+
+            shape.moveTo(0, y_base);
+            shape.lineTo(totalLength, y_base);
+            shape.lineTo(totalLength, y_root);
+
+            for (let i = rackTeeth - 1; i >= 0; i--) {
+                let x_center = i * pitch + pitch / 2;
+                
+                let x_p1 = x_center + pitch / 2;
+                let x_p2 = x_center + w_root_rack / 2;
+                let x_p3 = x_center + w_tip_rack / 2;
+                let x_p4 = x_center - w_tip_rack / 2;
+                let x_p5 = x_center - w_root_rack / 2;
+                let x_p6 = x_center - pitch / 2;
+
+                if (i === rackTeeth - 1) shape.lineTo(x_p1, y_root);
+                
+                shape.lineTo(x_p2, y_root); // flat root
+                shape.lineTo(x_p3, y_tip);  // right flank
+                shape.lineTo(x_p4, y_tip);  // tip flat
+                shape.lineTo(x_p5, y_root); // left flank
+                shape.lineTo(x_p6, y_root); // flat root
+            }
+
+            shape.lineTo(0, y_base);
+
+            const extrudeSettings = {
+                depth: thickness,
+                bevelEnabled: true,
+                bevelSegments: 3,
+                steps: 1,
+                bevelSize: 0.08,
+                bevelThickness: 0.08
+            };
+
+            const geo = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+            geo.translate(0, 0, -thickness / 2);
+            return geo;
+        }
+
+        // --- Build Mechanism ---
+        const pinionGroup = new THREE.Group();
+        scene.add(pinionGroup);
+
+        const gearGeo = createPinionGeometry();
+        const hubGeo = createHubGeometry();
+        
+        const gearMesh = new THREE.Mesh(gearGeo, metalMaterial);
+        gearMesh.castShadow = true;
+        gearMesh.receiveShadow = true;
+        
+        const hubMesh = new THREE.Mesh(hubGeo, metalMaterial);
+        hubMesh.castShadow = true;
+        hubMesh.receiveShadow = true;
+
+        pinionGroup.add(gearMesh);
+        pinionGroup.add(hubMesh);
+
+        const rackGeo = createRackGeometry();
+        const rackMesh = new THREE.Mesh(rackGeo, metalMaterial);
+        rackMesh.castShadow = true;
+        rackMesh.receiveShadow = true;
+        
+        // Position rack correctly relative to pinion.
+        // Pinion is at (0,0). Rack pitch line must be at Y = -pitchRadius.
+        rackMesh.position.set(baseRackX, -pitchRadius, 0);
+        scene.add(rackMesh);
+
+        scene.add(fingerSprite);
+
+        // --- Environment Floor ---
+        const floorGeo = new THREE.PlaneGeometry(200, 200);
+        const floorMat = new THREE.ShadowMaterial({ 
+            opacity: 0.15
+        });
+        const floor = new THREE.Mesh(floorGeo, floorMat);
+        floor.rotation.x = -Math.PI / 2;
+        floor.position.y = -pitchRadius - (4.0 * module) - 1.25 * module - 0.5; // Just below the rack
+        floor.receiveShadow = true;
+        scene.add(floor);
+
+        document.getElementById('loading').style.opacity = '0';
+
+        // --- UI & Interaction ---
+        const slider = document.getElementById('driveSlider');
+        const autoPlayCb = document.getElementById('autoPlay');
+        const toggleDriveBtn = document.getElementById('toggleDriveBtn');
+
+        toggleDriveBtn.addEventListener('click', () => {
+            driveMode = (driveMode + 1) % 2;
+            toggleDriveBtn.innerText = driveModeLabels[driveMode];
+            updateMechanism(parseFloat(slider.value)); // Force update sprite immediately
+        });
+
+        slider.addEventListener('input', () => {
+            autoPlayCb.checked = false;
+            autoPlay = false;
+            updateMechanism(parseFloat(slider.value));
+        });
+
+        autoPlayCb.addEventListener('change', (e) => {
+            autoPlay = e.target.checked;
+        });
+
+        function updateMechanism(angle) {
+            // Rotate pinion
+            pinionGroup.rotation.z = angle;
+            
+            // Translate rack linearly based on arc length (v = r * omega)
+            // Note: Positive angle (CCW) moves rack bottom to the right (positive X)
+            rackMesh.position.x = baseRackX + (angle * pitchRadius);
+
+            // Update Reversible Finger Indicator
+            if (driveMode === 0) { // Driving via Rack
+                fingerSprite.visible = true;
+                const rackCenterWorldX = rackMesh.position.x + (rackTeeth * pitch) / 2;
+                // Offset Y slightly and push further forward on Z to avoid floor and rack
+                fingerSprite.position.set(rackCenterWorldX, rackMesh.position.y - 1.5, 6);
+                fingerSprite.material.rotation = 0; // Pointing straight up at the rack
+            } else if (driveMode === 1) { // Driving via Pinion
+                fingerSprite.visible = true;
+                // Increase radius R and push forward on Z (4) to prevent clipping
+                const R = pitchRadius + 4.0;
+                const fingerAngle = Math.PI / 2 + angle; // Attach to the top of the gear
+                fingerSprite.position.set(Math.cos(fingerAngle) * R, Math.sin(fingerAngle) * R, 4);
+                fingerSprite.material.rotation = fingerAngle + Math.PI / 2; // Point inward towards the center
+            }
+        }
+
+        // --- Animation Loop ---
+        function animate() {
+            requestAnimationFrame(animate);
+
+            if (autoPlay) {
+                time += 0.0015;
+                // Oscillating movement
+                const angle = Math.sin(time) * 6;
+                slider.value = angle;
+                updateMechanism(angle);
+            }
+
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        // --- Window Resize Handling ---
+        window.addEventListener('resize', onWindowResize, false);
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        // Start!
+        // Adjust scene layout slightly
+        scene.position.y = 2;
+        animate();
+
+    </script>
+</body>
+</html>
