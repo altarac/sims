@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pressure Equalization Simulation</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            background-color: #1a202c; /* Tailwind gray-900 */
+            color: #e2e8f0; /* Tailwind gray-200 */
+            font-family: 'Inter', sans-serif;
+            margin: 0;
+            overflow: hidden; /* Prevent scrolling on the simulation */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+        }
+
+        #canvas-container {
+            position: relative;
+            width: 100%;
+            max-width: 800px;
+            aspect-ratio: 16 / 9; /* Maintain a good aspect ratio */
+            background-color: #2d3748; /* Tailwind gray-800 */
+            border-radius: 1rem;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 4px 6px -2px rgba(0, 0, 0, 0.25);
+            overflow: hidden;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none; /* Let clicks pass through to canvas or specific UI elements */
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 1rem;
+            box-sizing: border-box;
+        }
+
+        .stats-panel {
+            background-color: rgba(26, 32, 44, 0.8);
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            display: flex;
+            gap: 2rem;
+            pointer-events: auto; /* Re-enable clicks for buttons if needed later */
+        }
+        
+        .stat-group {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .stat-label {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #a0aec0;
+        }
+
+        .stat-value {
+            font-size: 1.25rem;
+            font-weight: bold;
+            color: #63b3ed; /* Tailwind blue-300 */
+        }
+
+        #valve-button {
+            position: absolute;
+            left: 50%;
+            bottom: 2rem;
+            transform: translateX(-50%);
+            padding: 0.5rem 1rem;
+            background-color: #e53e3e; /* Tailwind red-600 */
+            color: white;
+            border: none;
+            border-radius: 0.25rem;
+            font-weight: bold;
+            cursor: pointer;
+            pointer-events: auto; /* Ensure it's clickable */
+            transition: background-color 0.2s, transform 0.1s;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+            z-index: 10;
+        }
+
+        #valve-button:hover {
+            background-color: #c53030; /* Tailwind red-700 */
+        }
+        
+        #valve-button:active {
+            transform: translate(-50%, 2px);
+            box-shadow: 0 2px 4px -1px rgba(0, 0, 0, 0.3);
+        }
+
+        #valve-button.open {
+            background-color: #38a169; /* Tailwind green-500 */
+        }
+        
+        #valve-button.open:hover {
+             background-color: #2f855a; /* Tailwind green-600 */
+        }
+
+        .instructions {
+            text-align: center;
+            margin-top: 1rem;
+            color: #a0aec0;
+            max-width: 600px;
+        }
+        
+        #reset-btn {
+            background-color: #4a5568;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 0.25rem;
+            cursor: pointer;
+            pointer-events: auto;
+            transition: background-color 0.2s;
+        }
+        
+        #reset-btn:hover {
+            background-color: #2d3748;
+        }
+    </style>
+</head>
+<body>
+
+    <h1 class="text-2xl font-bold mb-4 text-blue-300 tracking-wider">Pressure Equalization Simulation</h1>
+
+    <div id="canvas-container">
+        <canvas id="simCanvas"></canvas>
+        
+        <div id="ui-layer">
+            <div class="flex justify-between w-full">
+                <!-- Left Balloon Stats -->
+                <div class="stats-panel">
+                    <div class="stat-group">
+                        <span class="stat-label">Left Particles</span>
+                        <span id="left-count" class="stat-value">0</span>
+                    </div>
+                </div>
+                
+                <!-- Controls -->
+                <div class="stats-panel flex items-center">
+                     <button id="reset-btn">Reset Simulation</button>
+                </div>
+
+                <!-- Right Balloon Stats -->
+                <div class="stats-panel">
+                    <div class="stat-group">
+                        <span class="stat-label">Right Particles</span>
+                        <span id="right-count" class="stat-value">0</span>
+                    </div>
+                </div>
+            </div>
+            
+            <button id="valve-button">VALVE CLOSED</button>
+        </div>
+    </div>
+
+    <p class="instructions text-sm">
+        Observe the air particles. The right balloon starts with high pressure. <br>
+        Click the valve in the center to open the connection and allow the pressure to equalize.
+    </p>
+
+    <script>
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d');
+        const valveBtn = document.getElementById('valve-button');
+        const leftCountSpan = document.getElementById('left-count');
+        const rightCountSpan = document.getElementById('right-count');
+        const resetBtn = document.getElementById('reset-btn');
+
+        let cw, ch;
+        let valveOpen = false;
+        let currentLeftCount = 0;
+        let currentRightCount = 400; // Starts equal to numParticles
+
+        // Physics constants
+        const numParticles = 400; 
+        const particleRadius = 2; // Small for "air"
+        const minSpeed = 1;
+        const maxSpeed = 4;
+        let particles = [];
+
+        // Hose geometry
+        let tubeStartX, tubeEndX;
+        const tubeHeight = 40; // Thickness of the hose
+
+        // Balloon geometry & physics
+        const minR = 30; // Empty balloon size
+        let maxR = 150;  // Will dynamically adjust based on screen size
+        let leftR = minR;
+        let rightR = maxR;
+        let leftV = 0;
+        let rightV = 0;
+        const springK = 0.1;
+        const damp = 0.4;
+
+        let leftCx, rightCx; // Dynamic centers
+
+        function resize() {
+            const container = document.getElementById('canvas-container');
+            cw = canvas.width = container.clientWidth;
+            ch = canvas.height = container.clientHeight;
+
+            tubeStartX = cw / 2 - 60;
+            tubeEndX = cw / 2 + 60;
+            
+            maxR = Math.min(cw * 0.3, ch * 0.4);
+        }
+
+        window.addEventListener('resize', resize);
+        
+        class Particle {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                const angle = Math.random() * Math.PI * 2;
+                const speed = minSpeed + Math.random() * (maxSpeed - minSpeed);
+                this.vx = Math.cos(angle) * speed;
+                this.vy = Math.sin(angle) * speed;
+                this.radius = particleRadius;
+            }
+
+            update() {
+                // Chaotic movement to simulate gas / Brownian motion
+                this.vx += (Math.random() - 0.5) * 0.8;
+                this.vy += (Math.random() - 0.5) * 0.8;
+
+                if (valveOpen) {
+                    let diff = currentRightCount - currentLeftCount;
+                    
+                    // Stop artificial forces when mostly equalized to prevent sloshing/oscillations
+                    if (Math.abs(diff) > 15) {
+                        let inTubeX = this.x >= tubeStartX && this.x <= tubeEndX;
+                        let isAlignedY = Math.abs(this.y - ch/2) < (tubeHeight / 2 + 15); // Wider vertical catch area
+
+                        if (inTubeX) {
+                            // Much stronger push through the tube to speed up transfer
+                            this.vx += (diff > 0 ? -1.5 : 1.5);
+                            // Dampen vertical movement heavily so they shoot straight across like a jet
+                            this.vy *= 0.8;
+                        } else {
+                            // Wider, stronger funnel near the entrance (doesn't affect the rest of the balloon)
+                            if (diff > 0 && this.x > tubeEndX && this.x < tubeEndX + 80 && isAlignedY) {
+                                this.vx -= 1.2; // Strong nudge left
+                                this.y += (ch/2 - this.y) * 0.1; // Pull towards center of tube opening
+                            } else if (diff < 0 && this.x < tubeStartX && this.x > tubeStartX - 80 && isAlignedY) {
+                                this.vx += 1.2; // Strong nudge right
+                                this.y += (ch/2 - this.y) * 0.1; // Pull towards center of tube opening
+                            }
+                        }
+                    }
+                }
+
+                let inTube = this.x >= tubeStartX && this.x <= tubeEndX;
+
+                // Final clamp for limits
+                let speed = Math.hypot(this.vx, this.vy);
+                // Allow a massive speed increase ONLY when inside the tube and the valve is open
+                let currentMaxSpeed = (inTube && valveOpen) ? maxSpeed * 6.0 : maxSpeed;
+                
+                if (speed > currentMaxSpeed) { this.vx *= currentMaxSpeed/speed; this.vy *= currentMaxSpeed/speed; }
+                if (speed < minSpeed) { this.vx *= minSpeed/speed; this.vy *= minSpeed/speed; }
+
+                this.x += this.vx;
+                this.y += this.vy;
+
+                const inTubeX = this.x >= tubeStartX && this.x <= tubeEndX;
+                const inTubeY = Math.abs(this.y - ch/2) <= tubeHeight/2 - this.radius;
+
+                if (inTubeX && inTubeY) {
+                    // In tube
+                    if (!valveOpen) {
+                        if (this.x < cw/2 && this.vx > 0 && this.x + this.radius > cw/2 - 8) {
+                            this.x = cw/2 - 8 - this.radius; this.vx *= -1;
+                        } else if (this.x > cw/2 && this.vx < 0 && this.x - this.radius < cw/2 + 8) {
+                            this.x = cw/2 + 8 + this.radius; this.vx *= -1;
+                        }
+                    }
+                    // Tube floor / ceiling
+                    if (this.y < ch/2 - tubeHeight/2 + this.radius) {
+                        this.y = ch/2 - tubeHeight/2 + this.radius; this.vy *= -1;
+                    } else if (this.y > ch/2 + tubeHeight/2 - this.radius) {
+                        this.y = ch/2 + tubeHeight/2 - this.radius; this.vy *= -1;
+                    }
+                } else {
+                    let distL = Math.hypot(this.x - leftCx, this.y - ch/2);
+                    let distR = Math.hypot(this.x - rightCx, this.y - ch/2);
+
+                    if (this.x < tubeStartX) {
+                        if (distL > leftR - this.radius) {
+                            let nx = (this.x - leftCx) / distL;
+                            let ny = (this.y - ch/2) / distL;
+                            this.x = leftCx + nx * (leftR - this.radius);
+                            this.y = ch/2 + ny * (leftR - this.radius);
+                            
+                            let dot = this.vx * nx + this.vy * ny;
+                            this.vx -= 2 * dot * nx;
+                            this.vy -= 2 * dot * ny;
+                            
+                            // Scatter on wall hit
+                            let angle = Math.atan2(this.vy, this.vx) + (Math.random()-0.5)*0.5;
+                            let s = Math.hypot(this.vx, this.vy);
+                            this.vx = Math.cos(angle) * s;
+                            this.vy = Math.sin(angle) * s;
+                        }
+                    } else if (this.x > tubeEndX) {
+                        if (distR > rightR - this.radius) {
+                            let nx = (this.x - rightCx) / distR;
+                            let ny = (this.y - ch/2) / distR;
+                            this.x = rightCx + nx * (rightR - this.radius);
+                            this.y = ch/2 + ny * (rightR - this.radius);
+                            
+                            let dot = this.vx * nx + this.vy * ny;
+                            this.vx -= 2 * dot * nx;
+                            this.vy -= 2 * dot * ny;
+                            
+                            let angle = Math.atan2(this.vy, this.vx) + (Math.random()-0.5)*0.5;
+                            let s = Math.hypot(this.vx, this.vy);
+                            this.vx = Math.cos(angle) * s;
+                            this.vy = Math.sin(angle) * s;
+                        }
+                    } else {
+                        // Missed the tube opening, hit the vertical flat rims
+                        if (this.vx > 0 && this.x - this.vx < tubeStartX) {
+                            this.x = tubeStartX - this.radius;
+                            this.vx *= -1;
+                        } else if (this.vx < 0 && this.x - this.vx > tubeEndX) {
+                            this.x = tubeEndX + this.radius;
+                            this.vx *= -1;
+                        } else {
+                            // Failsafe pull into nearest area
+                            if (this.x < cw/2) this.x = tubeStartX - 1;
+                            else this.x = tubeEndX + 1;
+                        }
+                    }
+                }
+            }
+
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+                ctx.fill();
+            }
+        }
+
+        function initSimulation() {
+            resize();
+            particles = [];
+            valveOpen = false;
+            updateValveUI();
+
+            leftR = minR;
+            rightR = maxR;
+            leftV = 0;
+            rightV = 0;
+
+            let offsetR = Math.sqrt(rightR*rightR - (tubeHeight/2)*(tubeHeight/2));
+            rightCx = tubeEndX + offsetR;
+
+            // All particles start in right balloon
+            for (let i = 0; i < numParticles; i++) {
+                let r = Math.random() * (rightR - 15);
+                let theta = Math.random() * 2 * Math.PI;
+                particles.push(new Particle(rightCx + r * Math.cos(theta), ch/2 + r * Math.sin(theta)));
+            }
+        }
+
+        function drawRealBalloon(cx, cy, r, isLeft) {
+            ctx.save();
+            
+            // Dynamic stretch offset calculation
+            let h = tubeHeight/2;
+            let angle = Math.asin(Math.min(1, h / r)); // protect against NaN if heavily squished
+
+            ctx.shadowColor = isLeft ? 'rgba(59, 130, 246, 0.5)' : 'rgba(239, 68, 68, 0.5)';
+            ctx.shadowBlur = 15;
+
+            // Radial gradient for 3D sphere look
+            let grad = ctx.createRadialGradient(cx - r*0.3 * (isLeft?1:-1), cy - r*0.3, r*0.1, cx, cy, r);
+            if (isLeft) {
+                grad.addColorStop(0, 'rgba(96, 165, 250, 0.85)'); // Blue
+                grad.addColorStop(1, 'rgba(37, 99, 235, 0.85)');
+            } else {
+                grad.addColorStop(0, 'rgba(248, 113, 113, 0.85)'); // Red
+                grad.addColorStop(1, 'rgba(220, 38, 38, 0.85)');
+            }
+
+            ctx.fillStyle = grad;
+            ctx.strokeStyle = isLeft ? 'rgba(30, 64, 175, 1)' : 'rgba(153, 27, 27, 1)';
+            ctx.lineWidth = 3;
+
+            ctx.beginPath();
+            if (isLeft) {
+                ctx.arc(cx, cy, r, angle, Math.PI * 2 - angle);
+            } else {
+                ctx.arc(cx, cy, r, Math.PI + angle, Math.PI - angle);
+            }
+            ctx.fill();
+            ctx.stroke();
+            ctx.shadowBlur = 0; // reset
+
+            // Specular shiny highlight (rubber reflection)
+            ctx.beginPath();
+            if (isLeft) {
+                ctx.arc(cx, cy, r*0.75, Math.PI*1.1, Math.PI*1.45);
+            } else {
+                ctx.arc(cx, cy, r*0.75, Math.PI*1.55, Math.PI*1.9);
+            }
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+            ctx.lineWidth = r*0.1;
+            ctx.lineCap = 'round';
+            ctx.stroke();
+
+            ctx.restore();
+        }
+
+        function drawHose() {
+            // Dark rubber hose background
+            ctx.fillStyle = '#1a202c';
+            ctx.fillRect(tubeStartX, ch/2 - tubeHeight/2, tubeEndX - tubeStartX, tubeHeight);
+            
+            // Hose top/bottom borders
+            ctx.strokeStyle = '#0f172a';
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.moveTo(tubeStartX, ch/2 - tubeHeight/2);
+            ctx.lineTo(tubeEndX, ch/2 - tubeHeight/2);
+            ctx.moveTo(tubeStartX, ch/2 + tubeHeight/2);
+            ctx.lineTo(tubeEndX, ch/2 + tubeHeight/2);
+            ctx.stroke();
+
+            // Hose ridges for realism
+            ctx.strokeStyle = '#334155';
+            ctx.lineWidth = 2;
+            for (let x = tubeStartX + 8; x < tubeEndX; x += 12) {
+                if (Math.abs(x - cw/2) < 20) continue; // Skip valve area
+                ctx.beginPath();
+                ctx.moveTo(x, ch/2 - tubeHeight/2 + 2);
+                ctx.lineTo(x, ch/2 + tubeHeight/2 - 2);
+                ctx.stroke();
+            }
+
+            // Draw balloon rubber ties over the hose
+            ctx.fillStyle = 'rgba(37, 99, 235, 1)'; // Left Blue tie
+            ctx.fillRect(tubeStartX - 5, ch/2 - tubeHeight/2 - 4, 10, tubeHeight + 8);
+            ctx.fillStyle = 'rgba(220, 38, 38, 1)'; // Right Red tie
+            ctx.fillRect(tubeEndX - 5, ch/2 - tubeHeight/2 - 4, 10, tubeHeight + 8);
+
+            // Valve Block
+            if (!valveOpen) {
+                // Closed: draw the block blocking the pipe
+                ctx.fillStyle = '#b91c1c';
+                ctx.fillRect(cw/2 - 8, ch/2 - tubeHeight/2 - 8, 16, tubeHeight + 16);
+                ctx.strokeStyle = '#7f1d1d';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(cw/2 - 8, ch/2 - tubeHeight/2 - 8, 16, tubeHeight + 16);
+            } else {
+                // Open: draw a groove or subtle background indicator
+                ctx.fillStyle = '#0f172a';
+                ctx.fillRect(cw/2 - 6, ch/2 - tubeHeight/2, 12, tubeHeight);
+            }
+        }
+
+        function animate() {
+            ctx.clearRect(0, 0, cw, ch);
+
+            let leftC = 0;
+            let rightC = 0;
+
+            // Process particles
+            particles.forEach(p => {
+                p.update();
+                if (p.x < cw / 2) leftC++;
+                else rightC++;
+            });
+
+            // 1. Calculate Hooke's Spring Physics for Balloon sizes based on pressure (particle count)
+            let targetLeftR = minR + (leftC / numParticles) * (maxR - minR);
+            let targetRightR = minR + (rightC / numParticles) * (maxR - minR);
+
+            leftV += (targetLeftR - leftR) * springK;
+            leftV *= damp;
+            leftR += leftV;
+
+            rightV += (targetRightR - rightR) * springK;
+            rightV *= damp;
+            rightR += rightV;
+
+            // Safety minimum radius to prevent NaN when doing math with tubeHeight
+            leftR = Math.max(leftR, tubeHeight/2 + 2);
+            rightR = Math.max(rightR, tubeHeight/2 + 2);
+
+            // Update centers so the balloon edges remain perfectly attached to the hose
+            let offsetL = Math.sqrt(leftR*leftR - (tubeHeight/2)*(tubeHeight/2));
+            leftCx = tubeStartX - offsetL;
+
+            let offsetR = Math.sqrt(rightR*rightR - (tubeHeight/2)*(tubeHeight/2));
+            rightCx = tubeEndX + offsetR;
+
+            // 2. Draw Environment Layers (Back to Front)
+            drawRealBalloon(leftCx, ch/2, leftR, true);
+            drawRealBalloon(rightCx, ch/2, rightR, false);
+            drawHose();
+
+            // 3. Draw particles
+            particles.forEach(p => p.draw());
+
+            // Save counts for physics calculation on the next frame
+            currentLeftCount = leftC;
+            currentRightCount = rightC;
+
+            // Update UI
+            leftCountSpan.textContent = leftC;
+            rightCountSpan.textContent = rightC;
+
+            requestAnimationFrame(animate);
+        }
+
+        function updateValveUI() {
+            if (valveOpen) {
+                valveBtn.textContent = 'VALVE OPEN';
+                valveBtn.classList.add('open');
+            } else {
+                valveBtn.textContent = 'VALVE CLOSED';
+                valveBtn.classList.remove('open');
+            }
+        }
+
+        valveBtn.addEventListener('click', () => {
+            valveOpen = !valveOpen;
+            updateValveUI();
+        });
+
+        resetBtn.addEventListener('click', () => {
+            initSimulation();
+        });
+
+        initSimulation();
+        animate();
+
+    </script>
+</body>
+</html>
