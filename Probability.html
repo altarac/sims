@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Variable Area Bin Dropper</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            background-color: #f0fdf4; /* Light green background */
+            font-family: 'Inter', sans-serif;
+        }
+        #simulationCanvas {
+            background-color: white;
+            border-radius: 0.5rem;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+        }
+        .bin-row {
+            transition: background-color 0.3s;
+        }
+        .bin-row:hover {
+            background-color: #e0f2fe; /* Light blue on hover */
+        }
+    </style>
+</head>
+<body class="h-screen w-screen flex flex-col items-center p-2 md:p-4 overflow-hidden">
+
+    <div class="w-full max-w-6xl flex flex-col gap-2 h-full min-h-0">
+        <header class="text-center shrink-0">
+            <h1 class="text-2xl md:text-3xl font-bold text-green-800 mb-1">Variable Area Bin Simulation</h1>
+            <p class="text-sm md:text-base text-gray-600">Balls are dropped from a uniform random horizontal position. The probability of landing in a bin is proportional to its width.</p>
+        </header>
+
+        <div class="flex flex-col lg:flex-row gap-4 w-full flex-1 min-h-0">
+            
+            <div class="w-full lg:w-2/3 flex flex-col gap-3 flex-1 min-h-0">
+                <div class="relative w-full flex-1 rounded-lg overflow-hidden shadow-lg border border-gray-200 min-h-[150px]">
+                    <canvas id="simulationCanvas" class="w-full h-full block"></canvas>
+                </div>
+                
+                <div class="flex flex-wrap gap-3 justify-center bg-white p-3 rounded-lg shadow shrink-0">
+                    <div class="flex items-center gap-2">
+                        <label for="numMarbles" class="text-sm font-medium text-gray-700">Marbles to drop:</label>
+                        <input type="number" id="numMarbles" value="100" min="1" max="10000" class="border border-gray-300 rounded px-3 py-1.5 text-sm w-24 focus:outline-none focus:ring-2 focus:ring-green-500">
+                    </div>
+                    <button id="dropBtn" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-6 rounded shadow transition duration-200 flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-8.707l-3-3a1 1 0 00-1.414 1.414L10.586 9H7a1 1 0 100 2h3.586l-1.293 1.293a1 1 0 101.414 1.414l3-3a1 1 0 000-1.414z" clip-rule="evenodd" />
+                        </svg>
+                        Drop Marbles
+                    </button>
+                    <button id="resetBtn" class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-2 px-6 rounded shadow transition duration-200">
+                        Reset Data
+                    </button>
+                    <button id="randomizeBinsBtn" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-6 rounded shadow transition duration-200">
+                        Randomize Bins
+                    </button>
+                    <div class="flex items-center gap-2 border-l border-gray-300 pl-4 ml-2">
+                        <label for="numBinsInput" class="text-sm font-medium text-gray-700">Bins:</label>
+                        <input type="number" id="numBinsInput" value="3" min="2" max="20" class="border border-gray-300 rounded px-3 py-1.5 text-sm w-16 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        <button id="applyBinsBtn" class="bg-indigo-500 hover:bg-indigo-600 text-white font-bold py-2 px-4 rounded shadow transition duration-200">
+                            Apply
+                        </button>
+                    </div>
+                </div>
+
+                <div id="binWeightControls" class="flex flex-wrap gap-2 bg-white p-3 rounded-lg shadow w-full shrink-0 max-h-[150px] overflow-y-auto">
+                    <!-- Bin weight sliders will be injected here -->
+                </div>
+            </div>
+
+            <div class="w-full lg:w-1/3 bg-white rounded-lg shadow border border-gray-200 overflow-hidden flex flex-col h-full min-h-[250px]">
+                <div class="p-3 bg-gray-50 border-b border-gray-200 flex justify-between items-center shrink-0">
+                    <h2 class="text-lg font-bold text-gray-800">Results Table</h2>
+                    <span id="totalDroppedLabel" class="text-sm font-semibold text-green-700 bg-green-100 px-2 py-1 rounded">Total: 0</span>
+                </div>
+                <div class="overflow-y-auto flex-1 p-0">
+                    <table class="w-full text-left border-collapse text-sm">
+                        <thead class="sticky top-0 bg-gray-100 z-10 shadow-sm text-xs md:text-sm">
+                            <tr>
+                                <th class="py-2 px-3 border-b font-semibold text-gray-700">Bin</th>
+                                <th class="py-2 px-3 border-b font-semibold text-gray-700 text-right">Theoretical</th>
+                                <th class="py-2 px-3 border-b font-semibold text-gray-700 text-right">Count</th>
+                                <th class="py-2 px-3 border-b font-semibold text-gray-700 text-right">Experimental</th>
+                            </tr>
+                        </thead>
+                        <tbody id="resultsBody">
+                            <!-- Rows will be populated by JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('simulationCanvas');
+        const ctx = canvas.getContext('2d');
+        const resultsBody = document.getElementById('resultsBody');
+        const dropBtn = document.getElementById('dropBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const randomizeBinsBtn = document.getElementById('randomizeBinsBtn');
+        const numMarblesInput = document.getElementById('numMarbles');
+        const numBinsInput = document.getElementById('numBinsInput');
+        const applyBinsBtn = document.getElementById('applyBinsBtn');
+        const binWeightControls = document.getElementById('binWeightControls');
+        const totalDroppedLabel = document.getElementById('totalDroppedLabel');
+
+        let animationId;
+        let bins = [];
+        let marbles = [];
+        let totalDropped = 0;
+        let isDropping = false;
+        let numBins = 3;
+        
+        // Colors for bins
+        const binColors = [
+            '#fca5a5', '#fcd34d', '#86efac', '#93c5fd', '#c4b5fd', '#f9a8d4',
+            '#f87171', '#fbbf24', '#4ade80', '#60a5fa', '#a78bfa', '#f472b6'
+        ];
+
+        function resizeCanvas() {
+            // Set actual canvas size to match display size for sharp rendering
+            const rect = canvas.parentElement.getBoundingClientRect();
+            canvas.width = rect.width * window.devicePixelRatio;
+            canvas.height = rect.height * window.devicePixelRatio;
+            
+            // Normalize coordinate system to use CSS pixels
+            ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+            
+            // Update bin dimensions based on new canvas width
+            if (bins.length > 0) {
+                updateBinDimensions();
+            }
+            drawStaticBackground();
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+
+        class Bin {
+            constructor(id, color, weight) {
+                this.id = id;
+                this.color = color;
+                this.weight = weight; // Relative width
+                this.x = 0;
+                this.width = 0;
+                this.count = 0;
+            }
+        }
+
+        function initBins() {
+            bins = [];
+            
+            numBins = parseInt(numBinsInput.value) || 3;
+            if (numBins < 2) numBins = 2;
+            if (numBins > 20) numBins = 20;
+            numBinsInput.value = numBins;
+            
+            // Distribute relative weights
+            for (let i = 0; i < numBins; i++) {
+                // Initialize with a weight of 1, add some randomness if desired, or keep flat
+                const initialWeight = Math.floor(Math.random() * 100) + 1; // Integer between 1 and 100
+                bins.push(new Bin(i, binColors[i % binColors.length], initialWeight));
+            }
+            
+            updateBinDimensions();
+            renderBinControls();
+            updateTable();
+        }
+
+        function renderBinControls() {
+            binWeightControls.innerHTML = '<h3 class="w-full text-sm font-semibold text-gray-700 mb-1 mt-0">Adjust Bin Widths (Relative Weights)</h3>';
+            bins.forEach(bin => {
+                const wrapper = document.createElement('div');
+                wrapper.className = 'flex flex-col items-center p-2 rounded bg-gray-50 border border-gray-200 min-w-[80px] flex-1 shadow-sm';
+                
+                const label = document.createElement('label');
+                label.className = 'text-xs font-bold mb-2 flex items-center gap-1 text-gray-700';
+                label.innerHTML = `<span class="inline-block w-3 h-3 rounded-full border border-gray-300" style="background-color: ${bin.color}"></span>Bin ${bin.id + 1}`;
+                
+                const slider = document.createElement('input');
+                slider.type = 'range';
+                slider.min = '1'; // Minimum weight to prevent zero-width bins
+                slider.max = '100';
+                slider.step = '1';
+                slider.value = bin.weight;
+                slider.className = 'w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-indigo-500';
+                
+                const valueDisplay = document.createElement('span');
+                valueDisplay.className = 'text-xs text-gray-500 mt-2 font-mono';
+                valueDisplay.textContent = Math.round(bin.weight);
+
+                slider.addEventListener('input', (e) => {
+                    if (isDropping) {
+                        e.target.value = bin.weight; // Prevent changes while dropping
+                        return;
+                    }
+                    
+                    bin.weight = parseInt(e.target.value, 10);
+                    valueDisplay.textContent = bin.weight;
+                    
+                    // Reset simulation data when modifying bins
+                    marbles = [];
+                    totalDropped = 0;
+                    bins.forEach(b => b.count = 0);
+                    
+                    updateBinDimensions();
+                    drawStaticBackground();
+                    updateTable();
+                });
+
+                wrapper.appendChild(label);
+                wrapper.appendChild(slider);
+                wrapper.appendChild(valueDisplay);
+                binWeightControls.appendChild(wrapper);
+            });
+        }
+
+        function updateBinDimensions() {
+            const rect = canvas.getBoundingClientRect();
+            const canvasWidth = rect.width;
+            
+            const totalWeight = bins.reduce((sum, bin) => sum + bin.weight, 0);
+            let currentX = 0;
+            
+            bins.forEach(bin => {
+                bin.percentage = bin.weight / totalWeight; 
+                bin.width = bin.percentage * canvasWidth;
+                bin.x = currentX;
+                currentX += bin.width;
+            });
+        }
+
+        class Marble {
+            constructor(targetX, targetY) {
+                const rect = canvas.getBoundingClientRect();
+                this.radius = Math.min(rect.width * 0.015, 8); // Size based on canvas width
+                
+                // Start at top, random x based on uniform distribution across total width
+                this.x = Math.random() * rect.width;
+                this.y = -this.radius;
+                
+                this.vy = 0;
+                this.gravity = 0.5;
+                this.bounce = -0.4;
+                
+                // Determine which bin it belongs to immediately based on start x
+                this.targetBin = bins.find(b => this.x >= b.x && this.x <= b.x + b.width) || bins[bins.length - 1];
+                this.color = this.targetBin.color;
+                
+                // Physics properties for falling into specific slot
+                this.settled = false;
+                
+                // Calculate target position inside the bin
+                // Target Y depends on how many marbles are already in this bin
+                this.targetY = targetY;
+            }
+
+            update() {
+                if (this.settled) return;
+
+                this.vy += this.gravity;
+                this.y += this.vy;
+
+                // Simple collision with "floor" (top of the stack in the bin)
+                if (this.y + this.radius >= this.targetY) {
+                    this.y = this.targetY - this.radius;
+                    this.vy *= this.bounce;
+                    
+                    // Friction/damping
+                    if (Math.abs(this.vy) < 1) {
+                        this.settled = true;
+                    }
+                }
+            }
+
+            draw(ctx) {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = this.color;
+                ctx.fill();
+                ctx.strokeStyle = 'rgba(0,0,0,0.5)';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+                
+                // Add a little shine
+                ctx.beginPath();
+                ctx.arc(this.x - this.radius * 0.3, this.y - this.radius * 0.3, this.radius * 0.2, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(255,255,255,0.6)';
+                ctx.fill();
+            }
+        }
+
+        function drawStaticBackground() {
+            const rect = canvas.getBoundingClientRect();
+            ctx.clearRect(0, 0, rect.width, rect.height);
+            
+            // Draw Bins
+            bins.forEach(bin => {
+                // Draw bin background (faint)
+                ctx.fillStyle = bin.color + '33'; // 20% opacity hex
+                ctx.fillRect(bin.x, 0, bin.width, rect.height);
+                
+                // Draw vertical dividers
+                ctx.beginPath();
+                ctx.moveTo(bin.x, 0);
+                ctx.lineTo(bin.x, rect.height);
+                ctx.strokeStyle = '#cbd5e1'; // tailwind slate-300
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                
+                // Draw bin label at bottom
+                ctx.fillStyle = '#475569';
+                ctx.font = 'bold 14px Inter';
+                ctx.textAlign = 'center';
+                // Only draw text if bin is wide enough
+                if (bin.width > 30) {
+                     ctx.fillText(`Bin ${bin.id + 1}`, bin.x + bin.width / 2, rect.height - 10);
+                }
+            });
+            
+            // Rightmost border
+            if (bins.length > 0) {
+                const lastBin = bins[bins.length - 1];
+                ctx.beginPath();
+                ctx.moveTo(lastBin.x + lastBin.width, 0);
+                ctx.lineTo(lastBin.x + lastBin.width, rect.height);
+                ctx.stroke();
+            }
+        }
+
+        function animate() {
+            drawStaticBackground();
+            
+            let allSettled = true;
+            
+            marbles.forEach(marble => {
+                marble.update();
+                marble.draw(ctx);
+                if (!marble.settled) allSettled = false;
+            });
+
+            if (!allSettled || isDropping) {
+                animationId = requestAnimationFrame(animate);
+            } else {
+                // Stop animation loop if nothing is moving
+                cancelAnimationFrame(animationId);
+            }
+        }
+
+        async function dropMarbles() {
+            if (isDropping) return;
+            
+            const count = parseInt(numMarblesInput.value);
+            if (isNaN(count) || count <= 0) {
+                alert("Please enter a valid number of marbles.");
+                return;
+            }
+
+            isDropping = true;
+            dropBtn.disabled = true;
+            dropBtn.classList.add('opacity-50', 'cursor-not-allowed');
+            
+            // Start animation loop if it's not running
+            cancelAnimationFrame(animationId);
+            animate();
+
+            const rect = canvas.getBoundingClientRect();
+            
+            // Calculate how many marbles fit in a row for each bin to stack them
+            const marbleRadius = Math.min(rect.width * 0.015, 8);
+            const marbleDiameter = marbleRadius * 2;
+            
+            // Store current heights of stacks in each bin
+            const stackHeights = bins.map(() => 0);
+
+            for (let i = 0; i < count; i++) {
+                totalDropped++;
+                
+                // Create a temporary marble to find its target bin
+                const tempX = Math.random() * rect.width;
+                const targetBinIndex = bins.findIndex(b => tempX >= b.x && tempX <= b.x + b.width);
+                const targetBin = targetBinIndex !== -1 ? bins[targetBinIndex] : bins[bins.length-1];
+                
+                targetBin.count++;
+                
+                // Calculate landing Y based on how many are in this bin
+                // Simple stacking: marbles per row = bin width / diameter
+                const marblesPerRow = Math.max(1, Math.floor(targetBin.width / marbleDiameter));
+                const row = Math.floor(stackHeights[targetBinIndex] / marblesPerRow);
+                
+                // Base Y starts from the text label area
+                const baseY = rect.height - 30;
+                let targetY = baseY - (row * marbleDiameter * 0.85); // 0.85 to nest them slightly
+                
+                // Increment stack counter for this bin
+                stackHeights[targetBinIndex]++;
+                
+                // Create actual marble and override its x to ensure it falls within its target bin
+                // (visual correction to ensure it doesn't clip walls if it landed right on edge)
+                const safeMargin = marbleRadius;
+                let safeX = tempX;
+                if (safeX < targetBin.x + safeMargin) safeX = targetBin.x + safeMargin;
+                if (safeX > targetBin.x + targetBin.width - safeMargin) safeX = targetBin.x + targetBin.width - safeMargin;
+
+                const marble = new Marble(targetY, targetY);
+                marble.x = safeX; // Set corrected X
+                marbles.push(marble);
+
+                // Update table frequently but not every single marble for large drops to save performance
+                if (i % 5 === 0 || i === count - 1) {
+                    updateTable();
+                }
+
+                // Delay between drops
+                // Dynamic delay: faster if dropping many
+                const delay = count > 500 ? 0 : (count > 100 ? 5 : 20);
+                if (delay > 0) {
+                     await new Promise(r => setTimeout(r, delay));
+                }
+            }
+
+            isDropping = false;
+            dropBtn.disabled = false;
+            dropBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+            updateTable(); // Final update
+        }
+
+        function updateTable() {
+            totalDroppedLabel.textContent = `Total: ${totalDropped}`;
+            resultsBody.innerHTML = '';
+            
+            bins.forEach(bin => {
+                const tr = document.createElement('tr');
+                tr.className = 'border-b hover:bg-gray-50 bin-row text-xs md:text-sm';
+                
+                // Experimental Probability
+                const expProb = totalDropped === 0 ? 0 : (bin.count / totalDropped);
+                const expProbPercent = (expProb * 100).toFixed(2);
+                
+                // Theoretical Probability
+                const theoProbPercent = (bin.percentage * 100).toFixed(2);
+                
+                // Highlight color logic
+                const diff = Math.abs(expProb - bin.percentage);
+                let colorClass = 'text-gray-900';
+                if (totalDropped > 50) {
+                    if (diff < 0.02) colorClass = 'text-green-600 font-medium'; // Very close
+                    else if (diff > 0.05) colorClass = 'text-red-500'; // Further away
+                }
+
+                tr.innerHTML = `
+                    <td class="py-2 px-3 flex items-center gap-2">
+                        <div class="w-3 h-3 rounded-full border border-gray-300 shrink-0" style="background-color: ${bin.color}"></div>
+                        Bin ${bin.id + 1}
+                    </td>
+                    <td class="py-2 px-3 font-mono text-gray-600 text-right">${theoProbPercent}%</td>
+                    <td class="py-2 px-3 font-mono text-right">${bin.count}</td>
+                    <td class="py-2 px-3 font-mono ${colorClass} text-right">${totalDropped > 0 ? expProbPercent : '0.00'}%</td>
+                `;
+                resultsBody.appendChild(tr);
+            });
+        }
+
+        dropBtn.addEventListener('click', dropMarbles);
+
+        resetBtn.addEventListener('click', () => {
+            if (isDropping) return;
+            marbles = [];
+            totalDropped = 0;
+            bins.forEach(bin => bin.count = 0);
+            drawStaticBackground();
+            updateTable();
+        });
+
+        randomizeBinsBtn.addEventListener('click', () => {
+            if (isDropping) return;
+            marbles = [];
+            totalDropped = 0;
+            initBins();
+            drawStaticBackground();
+        });
+
+        applyBinsBtn.addEventListener('click', () => {
+            if (isDropping) return;
+            marbles = [];
+            totalDropped = 0;
+            initBins();
+            drawStaticBackground();
+        });
+
+        window.onload = () => {
+            // Give DOM a tiny bit to settle layout before grabbing dimensions
+            setTimeout(() => {
+                resizeCanvas();
+                initBins();
+                drawStaticBackground();
+            }, 50);
+        };
+
+    </script>
+</body>
+</html>
