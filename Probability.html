@@ -185,7 +185,9 @@
                 slider.max = '100';
                 slider.step = '1';
                 slider.value = bin.weight;
-                slider.className = 'w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-indigo-500';
+                slider.className = 'w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer';
+                // Use inline styles to set an accent color that overrides default browser styles for the slider thumb
+                slider.style.accentColor = bin.color;
                 
                 const valueDisplay = document.createElement('span');
                 valueDisplay.className = 'text-xs text-gray-500 mt-2 font-mono';
