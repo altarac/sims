@@ -320,6 +320,26 @@
                 if (bin.width > 30) {
                      ctx.fillText(`Bin ${bin.id + 1}`, bin.x + bin.width / 2, rect.height - 10);
                 }
+                
+                // Draw width and height labels for area calculation
+                if (bin.width > 50) {
+                    ctx.fillStyle = '#64748b'; // slate-500
+                    ctx.font = '12px monospace';
+                    
+                    // Width label (centered at top)
+                    const displayWidth = (bin.percentage * 100).toFixed(1);
+                    ctx.fillText(`w: ${displayWidth}`, bin.x + bin.width / 2, 20);
+                    
+                    // Height label (left side, vertically centered)
+                    // We treat the height as '1' or '100%' for relative area purposes
+                    if (bin.id === 0) { // Only draw height label on the first bin to avoid clutter
+                        ctx.save();
+                        ctx.translate(bin.x + 15, rect.height / 2);
+                        ctx.rotate(-Math.PI / 2);
+                        ctx.fillText(`h: 1.0`, 0, 0);
+                        ctx.restore();
+                    }
+                }
             });
             
             // Rightmost border
