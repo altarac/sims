@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OmniLabs | Interactive Science Simulations</title>
+    <style>
+        :root {
+            --bg-color: #f8f9fa;
+            --card-bg: #ffffff;
+            --text-main: #212529;
+            --text-muted: #6c757d;
+            --primary-blue: #4285f4;
+            --border-color: #e9ecef;
+            --badge-bg: #f8f9fa;
+            --bmc-yellow: #ffdd00;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            margin: 0;
+            padding: 0;
+        }
+
+        /* Header Styles */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 2rem;
+            background-color: var(--card-bg);
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .logo {
+            font-size: 1.25rem;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .logo-icon {
+            background-color: var(--primary-blue);
+            color: white;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 6px;
+        }
+
+        .bmc-btn {
+            background-color: var(--bmc-yellow);
+            color: #000000;
+            text-decoration: none;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        /* Main Container */
+        main {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        /* Search Bar */
+        .search-container {
+            margin-bottom: 2rem;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 0.8rem 1rem 0.8rem 2.5rem;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            font-size: 1rem;
+            box-sizing: border-box;
+            background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="%236c757d" viewBox="0 0 16 16"><path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z"/></svg>') no-repeat 12px center;
+            background-color: var(--card-bg);
+        }
+
+        /* Grid Layout */
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 1.5rem;
+        }
+
+        /* Card Styles */
+        .card {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 1.5rem;
+            text-decoration: none;
+            color: inherit;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+            border-color: #d0d7de;
+        }
+
+        .card-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 1rem;
+        }
+
+        .card-icon {
+            color: var(--primary-blue);
+            font-size: 1.5rem;
+            background: rgba(66, 133, 244, 0.1);
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+        }
+
+        .card-arrow {
+            color: #adb5bd;
+            font-size: 1.2rem;
+        }
+
+        .card-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin: 0 0 1rem 0;
+            line-height: 1.4;
+        }
+
+        .card-badge {
+            align-self: flex-start;
+            background-color: var(--badge-bg);
+            color: var(--text-muted);
+            border: 1px solid var(--border-color);
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="logo">
+            <div class="logo-icon">O</div>
+            OmniLabs
+        </div>
+        <a href="https://buymeacoffee.com/altarac/e/540565" target="_blank" class="bmc-btn">
+            ☕ Buy me a coffee
+        </a>
+    </header>
+
+    <main>
+        <div class="search-container">
+            <input type="text" class="search-input" id="searchInput" placeholder="Search simulations...">
+        </div>
+        <div class="grid" id="simGrid">
+            </div>
+    </main>
+
+    <script>
+        // Array of simulations
+        const simulations = [
+            { title: "Acid-Base Identification Labs", category: "CHEMISTRY", icon: "⚗️" },
+            { title: "Addition and Subtraction Standard Algorithms", category: "SIMULATION", icon: "➕" },
+            { title: "Balancing Chemical Equations", category: "CHEMISTRY", icon: "⚖️" },
+            { title: "Bar Models", category: "SIMULATION", icon: "📊" },
+            { title: "Blood Compatibility", category: "BIOLOGY", icon: "🩸" },
+            { title: "Blood Typing Lab", category: "BIOLOGY", icon: "🔬" },
+            { title: "Bohr-Rutherford Builder", category: "SIMULATION", icon: "⚛️" },
+            { title: "Burning Iron Wool", category: "SIMULATION", icon: "🔥" },
+            { title: "Cell Division", category: "BIOLOGY", icon: "🦠" },
+            // Items 10+ will redirect
+            { title: "Chemical Reaction Indicators", category: "CHEMISTRY", icon: "🧪" },
+            { title: "Concentrations", category: "SIMULATION", icon: "💧" },
+            { title: "Conservation of Mass (LEGO)", category: "SIMULATION", icon: "🧱" },
+            { title: "Conservation of Mass", category: "SIMULATION", icon: "⚖️" },
+            { title: "Convection Currents", category: "SIMULATION", icon: "🌊" },
+            { title: "Dalton's Model", category: "SIMULATION", icon: "⚪" },
+            { title: "Density Column", category: "SIMULATION", icon: "📐" }
+        ];
+
+        const grid = document.getElementById('simGrid');
+        const searchInput = document.getElementById('searchInput');
+
+        // Function to render cards
+        function renderCards(filterText = "") {
+            grid.innerHTML = ''; // Clear grid
+
+            simulations.forEach((sim, index) => {
+                // Filter logic
+                if (filterText && !sim.title.toLowerCase().includes(filterText.toLowerCase())) {
+                    return;
+                }
+
+                // Determine URL based on index
+                // First 9 (index 0-8) get a functioning local link, the rest get the redirect
+                let simUrl;
+                if (index < 9) {
+                    // Create a mockup local URL based on the title
+                    const localLink = sim.title.toLowerCase().replace(/[^a-z0-9]+/g, '-') + '.html';
+                    simUrl = localLink;
+                } else {
+                    simUrl = "https://buymeacoffee.com/altarac/e/540565";
+                }
+
+                // Create card element
+                const card = document.createElement('a');
+                card.href = simUrl;
+                card.className = 'card';
+                // Open external links in a new tab
+                if (index >= 9) {
+                    card.target = "_blank"; 
+                }
+
+                card.innerHTML = `
+                    <div class="card-top">
+                        <div class="card-icon">${sim.icon}</div>
+                        <div class="card-arrow">↗</div>
+                    </div>
+                    <h3 class="card-title">${sim.title}</h3>
+                    <span class="card-badge">${sim.category}</span>
+                `;
+
+                grid.appendChild(card);
+            });
+        }
+
+        // Initial render
+        renderCards();
+
+        // Search functionality
+        searchInput.addEventListener('input', (e) => {
+            renderCards(e.target.value);
+        });
+    </script>
+</body>
+</html>
