@@ -1,6 +1,11 @@
 <!DOCTYPE html>
 <html lang="en" class="scroll-smooth">
 <head>
+    import memberstackDOM from '@memberstack/dom';
+const memberstack = memberstackDOM.init({
+  publicKey: "pk_26aadf86b2f52dfc0171",
+});
+    
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OmniLabs | Interactive Science Simulations</title>
@@ -46,6 +51,7 @@
             100% { background-position: -200% 0; }
         }
     </style>
+    
 </head>
 <body class="bg-background text-slate-700 min-h-screen font-sans flex flex-col relative">
 
