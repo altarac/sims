@@ -550,7 +550,13 @@
                 const fillPct = 35 + ((state.mass - 120) / 280) * 45;
                 els.substanceFill.style.height = `${fillPct}%`;
             }
-            els.substanceFill.style.backgroundColor = sub.color;
+            
+            // Mask the color if we are identifying an unknown substance
+            if (state.mode === 'calc_c') {
+                els.substanceFill.style.backgroundColor = 'rgba(100, 116, 139, 0.9)'; // Generic mysterious slate color
+            } else {
+                els.substanceFill.style.backgroundColor = sub.color;
+            }
 
             // Notebook status
             els.logT1.textContent = state.loggedT1 !== null ? `${state.loggedT1.toFixed(1)} °C` : 'Not Logged';
