@@ -1,0 +1,928 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Specific Heat Capacity Lab</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Configure and Load MathJax for beautiful LaTeX equations -->
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']]
+            },
+            options: {
+                skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
+
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            touch-action: none; /* Prevent scrolling while dragging on touch devices */
+        }
+        
+        /* Simulation Area Styles */
+        #sim-container {
+            background: linear-gradient(135deg, #0f172a, #1e293b);
+            position: relative;
+            overflow: hidden;
+            border-radius: 1rem;
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.6);
+        }
+
+        /* Beaker Styles */
+        #beaker {
+            position: absolute;
+            bottom: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 150px;
+            height: 190px;
+            border: 4px solid rgba(255, 255, 255, 0.4);
+            border-top: none;
+            border-bottom-left-radius: 20px;
+            border-bottom-right-radius: 20px;
+            z-index: 5;
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(2px);
+        }
+
+        #substance-fill {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            border-bottom-left-radius: 15px;
+            border-bottom-right-radius: 15px;
+            transition: all 0.5s ease;
+        }
+
+        /* Solid blocks styling */
+        .solid-metal {
+            left: 20px !important;
+            width: 102px !important;
+            border-top-left-radius: 8px !important;
+            border-top-right-radius: 8px !important;
+        }
+
+        /* Thermometer Styles */
+        #thermometer {
+            position: absolute;
+            top: 30px;
+            right: 40px;
+            width: 32px;
+            height: 260px;
+            background: rgba(255, 255, 255, 0.2);
+            border: 2px solid rgba(255,255,255,0.6);
+            border-radius: 15px;
+            cursor: grab;
+            z-index: 20;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(4px);
+        }
+
+        #thermometer:active {
+            cursor: grabbing;
+        }
+
+        #thermo-bulb {
+            position: absolute;
+            bottom: -10px;
+            width: 42px;
+            height: 42px;
+            background: #ef4444;
+            border-radius: 50%;
+            border: 2px solid rgba(255,255,255,0.6);
+            z-index: 21;
+        }
+
+        #thermo-fluid-container {
+            position: absolute;
+            bottom: 25px;
+            width: 10px;
+            height: 210px;
+            background: rgba(0,0,0,0.15);
+            border-radius: 5px;
+            overflow: hidden;
+        }
+
+        #thermo-fluid {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            height: 20%;
+            background: #ef4444;
+            transition: height 0.3s ease-out;
+        }
+
+        #thermo-readout {
+            position: absolute;
+            top: -40px;
+            background: #1e293b;
+            color: #38bdf8;
+            border: 2px solid #38bdf8;
+            padding: 4px 10px;
+            border-radius: 8px;
+            font-weight: 700;
+            font-family: monospace;
+            font-size: 15px;
+            pointer-events: none;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+            white-space: nowrap;
+        }
+
+        /* Stand/Holder for Thermometer when not used */
+        #thermo-stand {
+            position: absolute;
+            top: 20px;
+            right: 35px;
+            width: 42px;
+            height: 60px;
+            border-left: 4px solid #475569;
+            border-top: 4px solid #475569;
+            border-bottom: 4px solid #475569;
+            border-radius: 8px 0 0 8px;
+            opacity: 0.5;
+            z-index: 1;
+        }
+
+        /* Burner Styles */
+        #burner {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 160px;
+            height: 40px;
+            background: #334155;
+            border-radius: 10px;
+            border-top: 4px solid #475569;
+            z-index: 4;
+        }
+
+        #flame-container {
+            position: absolute;
+            bottom: 60px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: none;
+            font-size: 45px;
+            z-index: 10;
+            animation: flicker 0.2s infinite alternate;
+        }
+
+        @keyframes flicker {
+            0% { transform: translateX(-50%) scale(0.9) rotate(-2deg); opacity: 0.8; }
+            100% { transform: translateX(-50%) scale(1.1) rotate(2deg); opacity: 1; }
+        }
+
+        /* Math formula formatting */
+        .math-var { font-style: italic; font-family: serif; font-size: 1.1em;}
+        
+        /* Custom scrollbar for instructions */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    </style>
+</head>
+<body class="bg-slate-100 h-screen overflow-hidden text-slate-800 flex flex-col items-center py-2 px-2 md:px-4">
+
+    <div class="max-w-6xl w-full bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col md:flex-row h-full max-h-[96vh] border border-slate-200">
+        
+        <!-- Left Panel: Instruction & Lab Log -->
+        <div class="w-full md:w-5/12 bg-slate-50 border-r border-slate-200 p-3 md:p-4 flex flex-col h-full overflow-y-auto">
+            <div class="flex items-center gap-2 mb-1">
+                <div class="bg-rose-500 text-white p-1.5 rounded-lg">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
+                    </svg>
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold text-slate-800 leading-tight">Calorimetry Lab</h1>
+                    <p class="text-[11px] text-slate-500 font-medium">Topic: Specific Heat Capacity ($Q = mc\Delta T$)</p>
+                </div>
+            </div>
+
+            <hr class="border-slate-200 my-2">
+
+            <!-- Mode Selector -->
+            <div class="flex bg-slate-200 p-1 rounded-lg mb-2 text-[11px] uppercase tracking-wide font-bold shadow-inner">
+                <button onclick="setMode('calc_q')" id="tab-q" class="flex-1 py-1 rounded-md bg-white shadow text-slate-800 transition">Find Energy ($Q$)</button>
+                <button onclick="setMode('calc_c')" id="tab-c" class="flex-1 py-1 rounded-md text-slate-500 hover:text-slate-700 transition">Identify Substance ($c$)</button>
+            </div>
+
+            <!-- Active Lab Station Config -->
+            <div class="bg-blue-50 border border-blue-200 rounded-xl p-3 mb-2 shadow-sm">
+                <h2 class="text-sm font-bold text-blue-900 mb-2 flex items-center gap-1.5">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
+                    Lab Station Specs
+                </h2>
+                <div class="grid grid-cols-2 gap-2 text-xs text-slate-800">
+                    <div class="bg-white p-2 rounded-lg border border-blue-100 shadow-xs">
+                        <span class="block text-[10px] text-slate-400 uppercase font-bold">Substance</span>
+                        <span id="lab-substance" class="font-bold text-slate-800">-</span>
+                    </div>
+                    <div class="bg-white p-2 rounded-lg border border-blue-100 shadow-xs">
+                        <span class="block text-[10px] text-slate-400 uppercase font-bold">Mass ($m$)</span>
+                        <span id="lab-mass" class="font-bold text-slate-800">-</span>
+                    </div>
+                    <div class="bg-white p-2 rounded-lg border border-blue-100 shadow-xs col-span-2">
+                        <span class="block text-[10px] text-slate-400 uppercase font-bold">Specific Heat Capacity ($c$)</span>
+                        <span class="font-bold text-slate-800"><span id="lab-c">-</span> $\text{J}/(\text{g}\cdot^\circ\text{C})$</span>
+                    </div>
+                </div>
+                
+                <button onclick="generateMission()" class="mt-2 w-full bg-blue-600 hover:bg-blue-700 text-white py-1.5 rounded-lg text-xs font-semibold transition shadow-sm">
+                    Set Up New Lab Station
+                </button>
+            </div>
+
+            <!-- Lab Notebook (Logged variables) - Side by Side -->
+            <div class="bg-slate-100 border border-slate-300 rounded-xl p-3 mb-2 shadow-sm">
+                <h2 class="text-sm font-bold text-slate-700 mb-2 flex items-center gap-1.5">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                    Lab Notebook Log
+                </h2>
+                <div class="grid grid-cols-2 gap-2">
+                    <div class="flex flex-col justify-between bg-white p-2 rounded-lg border border-slate-200">
+                        <div class="text-xs mb-1 text-center">
+                            <span class="text-slate-400 font-bold text-[10px] uppercase block">Initial Temp ($T_1$)</span>
+                            <span id="log-t1" class="font-bold text-slate-600">Not Logged</span>
+                        </div>
+                        <button onclick="logTemp(1)" id="btn-log-t1" class="bg-emerald-500 hover:bg-emerald-600 text-white text-[10px] uppercase font-bold py-1 px-2 rounded transition w-full">
+                            Log $T_1$
+                        </button>
+                    </div>
+
+                    <div class="flex flex-col justify-between bg-white p-2 rounded-lg border border-slate-200">
+                        <div class="text-xs mb-1 text-center">
+                            <span class="text-slate-400 font-bold text-[10px] uppercase block">Final Temp ($T_2$)</span>
+                            <span id="log-t2" class="font-bold text-slate-600">Not Logged</span>
+                        </div>
+                        <button onclick="logTemp(2)" id="btn-log-t2" disabled class="bg-slate-300 text-slate-500 text-[10px] uppercase font-bold py-1 px-2 rounded cursor-not-allowed w-full">
+                            Log $T_2$
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Lab Interaction & Entry Form -->
+            <div class="flex-1 flex flex-col justify-end space-y-2">
+                <!-- Ignition Trigger -->
+                <div class="bg-amber-50 border border-amber-200 p-3 rounded-xl shadow-xs">
+                    <h3 class="font-bold text-amber-900 text-xs mb-1">Energy Injection System</h3>
+                    <p id="injection-desc" class="text-[10px] text-amber-700 mb-2 leading-tight">Press ignite to transfer a completely randomized, unknown amount of thermal energy directly to the sample.</p>
+                    <button onclick="ignite()" id="btn-ignite" class="w-full bg-amber-500 hover:bg-amber-600 text-white py-2 rounded-lg font-bold text-sm transition shadow-md flex justify-center items-center gap-2">
+                        <span>🔥 IGNITE BURNER</span>
+                    </button>
+                    <div id="injected-energy-display" class="hidden mt-2 bg-white p-1.5 rounded border border-amber-300 text-amber-900 text-center font-bold text-xs shadow-inner">
+                        Energy Transferred ($Q$): <span id="q-value">-</span> J
+                    </div>
+                </div>
+
+                <!-- Mathematical Submission (Q Mode) -->
+                <div id="submit-q-panel" class="bg-white border-2 border-slate-200 p-3 rounded-xl shadow-sm">
+                    <label class="block text-xs font-bold text-slate-700 mb-0.5">Calculated Energy ($Q$)</label>
+                    <p class="text-[10px] text-slate-500 mb-2">Use $Q = mc(T_2 - T_1)$. Round to <strong>2 decimal places</strong>.</p>
+                    <div class="flex gap-2">
+                        <div class="relative flex-1">
+                            <input type="number" step="0.01" id="student-q" placeholder="Enter Joules" class="w-full border-2 border-slate-300 rounded-lg py-1.5 px-2 focus:outline-none focus:border-blue-500 font-bold text-slate-800 text-sm">
+                            <span class="absolute right-2 top-1.5 font-bold text-slate-400 text-xs">J</span>
+                        </div>
+                        <button onclick="submitAnswer()" id="btn-submit" disabled class="bg-blue-300 text-white text-sm font-bold px-4 rounded-lg cursor-not-allowed transition">
+                            Submit
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Mathematical Submission (C Mode) -->
+                <div id="submit-c-panel" class="hidden bg-white border-2 border-slate-200 p-3 rounded-xl shadow-sm">
+                    <label class="block text-xs font-bold text-slate-700 mb-0.5">Calculated Specific Heat ($c$)</label>
+                    <p class="text-[10px] text-slate-500 mb-2">Use $c = \frac{Q}{m(T_2 - T_1)}$. Round to 2 decimal places.</p>
+                    <div class="flex gap-2 mb-2">
+                        <div class="relative flex-1">
+                            <input type="number" step="0.01" id="student-c" placeholder="Enter c value" class="w-full border-2 border-slate-300 rounded-lg py-1.5 px-2 focus:outline-none focus:border-purple-500 font-bold text-slate-800 text-sm">
+                            <span class="absolute right-2 top-1.5 font-bold text-slate-400 text-[10px]">J/(g·°C)</span>
+                        </div>
+                    </div>
+                    <label class="block text-xs font-bold text-slate-700 mb-0.5">Identify Substance</label>
+                    <div class="flex gap-2">
+                        <select id="student-substance" class="flex-1 border-2 border-slate-300 rounded-lg py-1.5 px-2 focus:outline-none focus:border-purple-500 font-bold text-slate-800 text-xs">
+                            <option value="">Select...</option>
+                            <option value="water">Water</option>
+                            <option value="ethanol">Ethanol</option>
+                            <option value="aluminum">Aluminum</option>
+                            <option value="copper">Copper</option>
+                        </select>
+                        <button onclick="submitAnswer()" id="btn-submit-c" disabled class="bg-slate-300 text-slate-500 text-sm font-bold px-4 rounded-lg cursor-not-allowed transition">
+                            Submit
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Dynamic Feedback Panel -->
+            <div id="feedback-panel" class="hidden mt-2 rounded-xl p-3 text-left font-medium border text-xs">
+                <!-- Content injected via JS -->
+            </div>
+            
+        </div>
+
+        <!-- Right Panel: Simulation Visual -->
+        <div class="w-full md:w-7/12 h-[45vh] md:h-full p-4 md:p-6 bg-slate-800 flex flex-col relative">
+            <div id="sim-container" class="flex-1 w-full rounded-2xl relative shadow-2xl border border-slate-700">
+                
+                <!-- Environment Info -->
+                <div class="absolute top-4 left-4 flex flex-col gap-1 z-10">
+                    <span class="text-slate-400 text-xs font-bold uppercase tracking-wider">Lab Space</span>
+                    <span class="text-white/80 text-sm font-semibold bg-slate-900/60 px-3 py-1 rounded-full backdrop-blur-md">
+                        Ambient Room Temp: 20.0°C
+                    </span>
+                </div>
+
+                <div id="thermo-stand"></div>
+                
+                <!-- Draggable Thermometer -->
+                <div id="thermometer">
+                    <div id="thermo-readout">20.0 °C</div>
+                    <div id="thermo-fluid-container">
+                        <div id="thermo-fluid"></div>
+                    </div>
+                    <div id="thermo-bulb"></div>
+                </div>
+
+                <!-- Vessel Station -->
+                <div id="beaker">
+                    <div id="substance-fill" class="bg-blue-400/80"></div>
+                </div>
+
+                <!-- Burner Flames -->
+                <div id="flame-container">🔥💨🔥</div>
+
+                <!-- Burner Unit -->
+                <div id="burner"></div>
+
+                <!-- Live Assist Tooltips -->
+                <div id="instruction-overlay" class="absolute inset-x-0 bottom-4 pointer-events-none flex items-center justify-center z-30 transition-opacity duration-500">
+                    <div class="bg-slate-900/90 text-white text-xs px-4 py-2 rounded-lg shadow-xl font-medium border border-slate-700 animate-bounce flex items-center gap-2">
+                        <span>💡</span>
+                        <span id="instruction-text">Drag the thermometer into the substance to read initial temperature!</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Initialization and Physics Simulation Scripts -->
+    <script>
+        // --- Setup Physical Constant Maps ---
+        const ROOM_TEMP = 20.0;
+        
+        const SUBSTANCES = {
+            water: { name: 'Water (Liquid)', c: 4.18, color: 'rgba(56, 189, 248, 0.75)', isSolid: false },
+            ethanol: { name: 'Ethanol (Liquid)', c: 2.44, color: 'rgba(168, 85, 247, 0.65)', isSolid: false },
+            aluminum: { name: 'Aluminum (Solid)', c: 0.90, color: 'rgba(148, 163, 184, 0.95)', isSolid: true },
+            copper: { name: 'Copper (Solid)', c: 0.39, color: 'rgba(249, 115, 22, 0.9)', isSolid: true }
+        };
+        const MASS_OPTIONS = [120, 150, 180, 200, 250, 300, 350, 400];
+
+        // --- State Space ---
+        let state = {
+            mode: 'calc_q',
+            qInjected: 0,
+            substance: 'water',
+            mass: 200,
+            initialTemp: ROOM_TEMP,
+            substanceTemp: ROOM_TEMP,
+            deltaT: 0.0,
+            
+            loggedT1: null,
+            loggedT2: null,
+            
+            isHeated: false,
+            isBurning: false,
+            thermoInBeaker: false,
+            thermoValue: ROOM_TEMP
+        };
+
+        // --- Active Elements ---
+        const els = {
+            tabQ: document.getElementById('tab-q'),
+            tabC: document.getElementById('tab-c'),
+            submitQPanel: document.getElementById('submit-q-panel'),
+            submitCPanel: document.getElementById('submit-c-panel'),
+            injectionDesc: document.getElementById('injection-desc'),
+            injectedEnergyDisplay: document.getElementById('injected-energy-display'),
+            qValue: document.getElementById('q-value'),
+            studentC: document.getElementById('student-c'),
+            studentSubstance: document.getElementById('student-substance'),
+            btnSubmitC: document.getElementById('btn-submit-c'),
+
+            labSubstance: document.getElementById('lab-substance'),
+            labMass: document.getElementById('lab-mass'),
+            labC: document.getElementById('lab-c'),
+            logT1: document.getElementById('log-t1'),
+            logT2: document.getElementById('log-t2'),
+            btnLogT1: document.getElementById('btn-log-t1'),
+            btnLogT2: document.getElementById('btn-log-t2'),
+            btnIgnite: document.getElementById('btn-ignite'),
+            studentQ: document.getElementById('student-q'),
+            btnSubmit: document.getElementById('btn-submit'),
+            feedbackPanel: document.getElementById('feedback-panel'),
+            
+            simContainer: document.getElementById('sim-container'),
+            beaker: document.getElementById('beaker'),
+            substanceFill: document.getElementById('substance-fill'),
+            thermometer: document.getElementById('thermometer'),
+            thermoBulb: document.getElementById('thermo-bulb'),
+            thermoFluid: document.getElementById('thermo-fluid'),
+            thermoReadout: document.getElementById('thermo-readout'),
+            flameContainer: document.getElementById('flame-container'),
+            instructionOverlay: document.getElementById('instruction-overlay'),
+            instructionText: document.getElementById('instruction-text')
+        };
+
+        // --- Mode Control ---
+        function setMode(newMode) {
+            if (state.mode === newMode) return;
+            state.mode = newMode;
+            
+            if (newMode === 'calc_q') {
+                els.tabQ.className = "flex-1 py-1 rounded-md bg-white shadow text-slate-800 transition";
+                els.tabC.className = "flex-1 py-1 rounded-md text-slate-500 hover:text-slate-700 transition";
+                els.submitQPanel.classList.remove('hidden');
+                els.submitCPanel.classList.add('hidden');
+                els.injectionDesc.textContent = "Press ignite to transfer a completely randomized, unknown amount of thermal energy directly to the sample.";
+            } else {
+                els.tabC.className = "flex-1 py-1 rounded-md bg-white shadow text-slate-800 transition";
+                els.tabQ.className = "flex-1 py-1 rounded-md text-slate-500 hover:text-slate-700 transition";
+                els.submitCPanel.classList.remove('hidden');
+                els.submitQPanel.classList.add('hidden');
+                els.injectionDesc.textContent = "Press ignite to transfer a known, measured amount of thermal energy to the unknown sample.";
+            }
+            
+            generateMission();
+        }
+
+        // --- Initialization Procedures ---
+        function init() {
+            setupDragAndDrop();
+            generateMission();
+            setInterval(updatePhysicalReadings, 80);
+        }
+
+        function generateMission() {
+            // Generate clean random physics conditions
+            const keys = Object.keys(SUBSTANCES);
+            state.substance = keys[Math.floor(Math.random() * keys.length)];
+            state.mass = MASS_OPTIONS[Math.floor(Math.random() * MASS_OPTIONS.length)];
+            
+            // Random initial temp from 15.2 to 22.8 °C
+            state.initialTemp = 15.0 + (Math.floor(Math.random() * 80) / 10);
+            state.substanceTemp = state.initialTemp;
+            
+            // Reset logs
+            state.loggedT1 = null;
+            state.loggedT2 = null;
+            state.isHeated = false;
+            state.isBurning = false;
+            
+            // UI elements
+            els.studentQ.value = '';
+            if (els.studentC) els.studentC.value = '';
+            if (els.studentSubstance) els.studentSubstance.value = '';
+            els.feedbackPanel.classList.add('hidden');
+            
+            // Move thermometer back to starting position automatically
+            snapThermometerHome();
+            
+            updateUI();
+            setHint("Drag the thermometer into the substance to read and log the initial temperature ($T_1$).");
+        }
+
+        function snapThermometerHome() {
+            const thermo = els.thermometer;
+            thermo.style.right = '40px';
+            thermo.style.top = '30px';
+            thermo.style.left = 'auto';
+            state.thermoValue = ROOM_TEMP;
+        }
+
+        function updateUI() {
+            const sub = SUBSTANCES[state.substance];
+            
+            // Info updates
+            if (state.mode === 'calc_q') {
+                els.labSubstance.textContent = sub.name;
+                els.labC.textContent = sub.c.toFixed(2);
+            } else {
+                els.labSubstance.textContent = "Unknown Sample";
+                els.labC.textContent = "?";
+            }
+            els.labMass.textContent = `${state.mass.toFixed(1)} g`;
+
+            // Graphical block vs liquid mapping
+            if (sub.isSolid) {
+                els.substanceFill.classList.add('solid-metal');
+                const fillPct = 25 + ((state.mass - 120) / 280) * 45;
+                els.substanceFill.style.height = `${fillPct}%`;
+            } else {
+                els.substanceFill.classList.remove('solid-metal');
+                const fillPct = 35 + ((state.mass - 120) / 280) * 45;
+                els.substanceFill.style.height = `${fillPct}%`;
+            }
+            els.substanceFill.style.backgroundColor = sub.color;
+
+            // Notebook status
+            els.logT1.textContent = state.loggedT1 !== null ? `${state.loggedT1.toFixed(1)} °C` : 'Not Logged';
+            els.logT2.textContent = state.loggedT2 !== null ? `${state.loggedT2.toFixed(1)} °C` : 'Not Logged';
+
+            // Active/Inactive state tracking
+            els.btnLogT1.disabled = state.isHeated || state.isBurning;
+            els.btnLogT2.disabled = !state.isHeated || state.isBurning;
+            
+            if (els.btnLogT1.disabled) {
+                els.btnLogT1.className = "bg-slate-300 text-slate-500 text-[10px] uppercase font-bold py-1 px-2 rounded cursor-not-allowed w-full";
+            } else {
+                els.btnLogT1.className = "bg-emerald-500 hover:bg-emerald-600 text-white text-[10px] uppercase font-bold py-1 px-2 rounded transition shadow-xs w-full";
+            }
+
+            if (els.btnLogT2.disabled) {
+                els.btnLogT2.className = "bg-slate-300 text-slate-500 text-[10px] uppercase font-bold py-1 px-2 rounded cursor-not-allowed w-full";
+            } else {
+                els.btnLogT2.className = "bg-emerald-500 hover:bg-emerald-600 text-white text-[10px] uppercase font-bold py-1 px-2 rounded transition shadow-xs w-full";
+            }
+
+            els.btnIgnite.disabled = state.isHeated || state.isBurning;
+            if (els.btnIgnite.disabled) {
+                els.btnIgnite.className = "w-full bg-slate-300 text-slate-500 py-2 rounded-lg font-bold text-sm cursor-not-allowed flex justify-center items-center gap-2";
+            } else {
+                els.btnIgnite.className = "w-full bg-amber-500 hover:bg-amber-600 text-white py-2 rounded-lg font-bold text-sm transition shadow-md flex justify-center items-center gap-2";
+            }
+
+            // Display Q if heated in C mode
+            if (state.mode === 'calc_c' && state.isHeated) {
+                els.injectedEnergyDisplay.classList.remove('hidden');
+                els.qValue.textContent = state.qInjected.toFixed(2);
+            } else {
+                els.injectedEnergyDisplay.classList.add('hidden');
+            }
+
+            // Calculation inputs lock checks
+            const canSubmit = state.loggedT1 !== null && state.loggedT2 !== null && !state.isBurning;
+            
+            // Q Mode Submit Button
+            els.btnSubmit.disabled = !canSubmit;
+            if (els.btnSubmit.disabled) {
+                els.btnSubmit.className = "bg-slate-300 text-slate-500 text-sm font-bold px-4 rounded-lg cursor-not-allowed transition";
+            } else {
+                els.btnSubmit.className = "bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold px-4 rounded-lg transition shadow-md";
+            }
+
+            // C Mode Submit Button
+            els.btnSubmitC.disabled = !canSubmit;
+            if (els.btnSubmitC.disabled) {
+                els.btnSubmitC.className = "bg-slate-300 text-slate-500 text-sm font-bold px-4 rounded-lg cursor-not-allowed transition";
+            } else {
+                els.btnSubmitC.className = "bg-purple-600 hover:bg-purple-700 text-white text-sm font-bold px-4 rounded-lg transition shadow-md";
+            }
+
+            // Render equations inside static areas
+            triggerMathTypeset();
+        }
+
+        function logTemp(slot) {
+            // Must have thermometer stabilized inside liquid to capture true measurement
+            if (!state.thermoInBeaker) {
+                alert("Make sure the thermometer bulb is completely dipped inside the substance before logging!");
+                return;
+            }
+            
+            if (slot === 1) {
+                state.loggedT1 = parseFloat(state.thermoValue.toFixed(1));
+                setHint("Initial temperature logged successfully! Click 'IGNITE BURNER' to introduce energy.");
+            } else if (slot === 2) {
+                state.loggedT2 = parseFloat(state.thermoValue.toFixed(1));
+                setHint("Both temps logged! Use the formula $Q = mc(T_2 - T_1)$ to calculate $Q$.");
+            }
+            updateUI();
+        }
+
+        function setHint(text) {
+            els.instructionText.textContent = text;
+            els.instructionOverlay.style.opacity = '1';
+            triggerMathTypeset();
+        }
+
+        function ignite() {
+            if (state.isBurning || state.isHeated) return;
+            
+            state.isBurning = true;
+            updateUI();
+            
+            // Trigger visual flame
+            els.flameContainer.style.display = 'block';
+            setHint("Heating system in progress... energy is transferring...");
+
+            // Select random clean target Delta T (between 8.0°C and 32.0°C)
+            state.deltaT = 8.0 + (Math.floor(Math.random() * 240) / 10);
+            
+            // Calculate exact Q for calc_c mode
+            const sub = SUBSTANCES[state.substance];
+            state.qInjected = state.mass * sub.c * state.deltaT;
+            
+            const targetFinalTemp = state.initialTemp + state.deltaT;
+
+            const duration = 2500;
+            const startTime = performance.now();
+
+            function animateBurn(currentTime) {
+                let progress = (currentTime - startTime) / duration;
+                if (progress > 1) progress = 1;
+
+                // Non-linear temperature curve mimicking heat decay losses slightly
+                let curve = 1 - Math.pow(1 - progress, 2);
+                state.substanceTemp = state.initialTemp + (state.deltaT * curve);
+
+                if (progress < 1) {
+                    requestAnimationFrame(animateBurn);
+                } else {
+                    // Lock-in physical value
+                    state.substanceTemp = targetFinalTemp;
+                    state.isBurning = false;
+                    state.isHeated = true;
+                    els.flameContainer.style.display = 'none';
+                    updateUI();
+                    setHint("Burn complete! Re-dip the thermometer and log the new Final Temp ($T_2$).");
+                }
+            }
+            requestAnimationFrame(animateBurn);
+        }
+
+        // --- Physics Engine & Collisions ---
+        function updatePhysicalReadings() {
+            const bulbRect = els.thermoBulb.getBoundingClientRect();
+            const beakerRect = els.beaker.getBoundingClientRect();
+            
+            // Check dynamic fill height percentage
+            const sub = SUBSTANCES[state.substance];
+            let fillHeightPct = 35 + ((state.mass - 120) / 280) * 45;
+            if (sub.isSolid) {
+                fillHeightPct = 25 + ((state.mass - 120) / 280) * 45;
+            }
+            const fillTop = beakerRect.bottom - (beakerRect.height * (fillHeightPct / 100));
+
+            const bulbCenterX = bulbRect.left + bulbRect.width / 2;
+            const bulbCenterY = bulbRect.top + bulbRect.height / 2;
+
+            // Establish physical boundaries
+            let inside = false;
+            if (sub.isSolid) {
+                // Solids are narrow blocks centered in the beaker
+                const solidLeft = beakerRect.left + 20;
+                const solidRight = beakerRect.right - 20;
+                inside = (
+                    bulbCenterX > solidLeft &&
+                    bulbCenterX < solidRight &&
+                    bulbCenterY > fillTop &&
+                    bulbCenterY < beakerRect.bottom
+                );
+            } else {
+                // Liquids fill the beaker container walls completely
+                inside = (
+                    bulbCenterX > beakerRect.left &&
+                    bulbCenterX < beakerRect.right &&
+                    bulbCenterY > fillTop &&
+                    bulbCenterY < beakerRect.bottom
+                );
+            }
+
+            state.thermoInBeaker = inside;
+
+            // Fluid expansion/relaxation toward ambient space
+            const targetReading = inside ? state.substanceTemp : ROOM_TEMP;
+            const delta = targetReading - state.thermoValue;
+
+            if (Math.abs(delta) > 0.05) {
+                state.thermoValue += delta * 0.18; // smooth sensor delay
+            } else {
+                state.thermoValue = targetReading;
+            }
+
+            renderThermometer(state.thermoValue);
+        }
+
+        function renderThermometer(temp) {
+            els.thermoReadout.textContent = temp.toFixed(1) + ' °C';
+            // Display range 0°C to 120°C
+            let fluidPct = (temp / 120) * 100;
+            if (fluidPct < 3) fluidPct = 3;
+            if (fluidPct > 100) fluidPct = 100;
+            els.thermoFluid.style.height = `${fluidPct}%`;
+        }
+
+        // --- Analytical Task Validation ---
+        function submitAnswer() {
+            if (state.mode === 'calc_q') {
+                submitAnswerQ();
+            } else {
+                submitAnswerC();
+            }
+        }
+
+        function submitAnswerQ() {
+            const rawInput = els.studentQ.value.trim();
+            if (rawInput === '') {
+                alert("Please enter a numeric prediction for the energy transferred!");
+                return;
+            }
+
+            const parsedStudentQ = parseFloat(rawInput);
+            if (isNaN(parsedStudentQ)) {
+                alert("Please enter a valid decimal number!");
+                return;
+            }
+
+            // Standard variables
+            const m = state.mass;
+            const c = SUBSTANCES[state.substance].c;
+            const measuredDT = state.loggedT2 - state.loggedT1;
+            
+            // Expected mathematical result
+            const expectedQ = m * c * measuredDT;
+
+            // Verify with rounding tolerance margin of 1.0 J to accommodate subtle calculator precision variance
+            const error = Math.abs(parsedStudentQ - expectedQ);
+            const isCorrect = error <= 1.0;
+
+            els.feedbackPanel.classList.remove('hidden', 'bg-green-100', 'text-green-800', 'border-green-300', 'bg-red-100', 'text-red-800', 'border-red-300');
+            
+            if (isCorrect) {
+                els.feedbackPanel.innerHTML = `
+                    <div class="flex gap-2">
+                        <span class="text-base">🎉</span>
+                        <div>
+                            <p class="font-bold text-sm">Correct Calculation!</p>
+                            <p class="text-[11px] mt-0.5">Excellent job! Your calculation matches the experimental thermal data perfectly!</p>
+                        </div>
+                    </div>
+                `;
+                els.feedbackPanel.className = "mt-2 rounded-xl p-3 text-left font-medium border text-xs bg-green-100 text-green-800 border-green-300 block";
+            } else {
+                els.feedbackPanel.innerHTML = `
+                    <div class="flex gap-2">
+                        <span class="text-base">❌</span>
+                        <div>
+                            <p class="font-bold text-sm">Incorrect Calculation</p>
+                            <div class="bg-white/80 p-2 rounded border border-red-200 text-[10px] font-mono my-1.5 space-y-0.5 text-slate-700">
+                                <div>$Q = m \\cdot c \\cdot (T_2 - T_1)$</div>
+                                <div>$Q = ${m.toFixed(1)} \\cdot ${c.toFixed(2)} \\cdot ${measuredDT.toFixed(1)}$</div>
+                                <div>$Q = ${expectedQ.toFixed(2)}\\text{ J}$</div>
+                            </div>
+                            <p class="text-[11px]">Your value: <strong>${parsedStudentQ.toFixed(2)} J</strong>. Try again!</p>
+                        </div>
+                    </div>
+                `;
+                els.feedbackPanel.className = "mt-2 rounded-xl p-3 text-left font-medium border text-xs bg-red-100 text-red-800 border-red-300 block";
+            }
+
+            // Immediately render Math inside feedback panel
+            triggerMathTypeset();
+        }
+
+        function submitAnswerC() {
+            const rawC = els.studentC.value.trim();
+            const selectedSub = els.studentSubstance.value;
+            
+            if (rawC === '' || selectedSub === '') {
+                alert("Please enter a numeric specific heat and select a substance!");
+                return;
+            }
+
+            const parsedStudentC = parseFloat(rawC);
+            if (isNaN(parsedStudentC)) {
+                alert("Please enter a valid decimal number for c!");
+                return;
+            }
+
+            const m = state.mass;
+            const actualSub = SUBSTANCES[state.substance];
+            const q = state.qInjected;
+            const measuredDT = state.loggedT2 - state.loggedT1;
+            
+            const expectedC = q / (m * measuredDT);
+            const error = Math.abs(parsedStudentC - expectedC);
+            const isCorrectC = error <= 0.15; // allowance for rounding
+            const isCorrectSub = (selectedSub === state.substance);
+
+            els.feedbackPanel.classList.remove('hidden', 'bg-green-100', 'text-green-800', 'border-green-300', 'bg-red-100', 'text-red-800', 'border-red-300');
+            
+            if (isCorrectC && isCorrectSub) {
+                els.feedbackPanel.innerHTML = `
+                    <div class="flex gap-2">
+                        <span class="text-base">🎉</span>
+                        <div>
+                            <p class="font-bold text-sm">Perfect Identification!</p>
+                            <p class="text-[11px] mt-0.5">You correctly calculated $c \\approx ${expectedC.toFixed(2)}$ and identified the substance as <strong>${actualSub.name}</strong>!</p>
+                        </div>
+                    </div>
+                `;
+                els.feedbackPanel.className = "mt-2 rounded-xl p-3 text-left font-medium border text-xs bg-green-100 text-green-800 border-green-300 block";
+            } else {
+                els.feedbackPanel.innerHTML = `
+                    <div class="flex gap-2">
+                        <span class="text-base">❌</span>
+                        <div>
+                            <p class="font-bold text-sm">Incorrect Identification</p>
+                            <div class="bg-white/80 p-2 rounded border border-red-200 text-[10px] font-mono my-1.5 space-y-0.5 text-slate-700">
+                                <div>$c = \\frac{Q}{m \\cdot (T_2 - T_1)}$</div>
+                                <div>$c = \\frac{${q.toFixed(2)}}{${m.toFixed(1)} \\cdot ${measuredDT.toFixed(1)}}$</div>
+                                <div>$c \\approx ${expectedC.toFixed(2)}\\,\\text{J}/(\\text{g}\\cdot^\\circ\\text{C})$</div>
+                            </div>
+                            <p class="text-[11px]">Based on $c$, the substance is <strong>${actualSub.name}</strong>. Check your math and selection!</p>
+                        </div>
+                    </div>
+                `;
+                els.feedbackPanel.className = "mt-2 rounded-xl p-3 text-left font-medium border text-xs bg-red-100 text-red-800 border-red-300 block";
+            }
+
+            triggerMathTypeset();
+        }
+
+        // --- MathJax Refresh trigger ---
+        function triggerMathTypeset() {
+            if (window.MathJax && typeof MathJax.typesetPromise === 'function') {
+                MathJax.typesetPromise().catch((err) => console.log('MathJax typesetting failed:', err));
+            }
+        }
+
+        // --- Drag & Drop Support ---
+        let dragState = {
+            isDragging: false,
+            offsetX: 0,
+            offsetY: 0
+        };
+
+        function setupDragAndDrop() {
+            const thermo = els.thermometer;
+            
+            const startDrag = (e) => {
+                dragState.isDragging = true;
+                const clientX = e.type.includes('mouse') ? e.clientX : e.touches[0].clientX;
+                const clientY = e.type.includes('mouse') ? e.clientY : e.touches[0].clientY;
+                
+                const rect = thermo.getBoundingClientRect();
+                dragState.offsetX = clientX - rect.left;
+                dragState.offsetY = clientY - rect.top;
+                
+                thermo.style.transition = 'none'; // Lock fluid animations during active moves
+            };
+
+            const drag = (e) => {
+                if (!dragState.isDragging) return;
+                e.preventDefault();
+                
+                const clientX = e.type.includes('mouse') ? e.clientX : e.touches[0].clientX;
+                const clientY = e.type.includes('mouse') ? e.clientY : e.touches[0].clientY;
+                
+                const simRect = els.simContainer.getBoundingClientRect();
+                
+                let newLeft = clientX - simRect.left - dragState.offsetX;
+                let newTop = clientY - simRect.top - dragState.offsetY;
+                
+                if (newLeft < 0) newLeft = 0;
+                if (newTop < 0) newTop = 0;
+                if (newLeft + thermo.offsetWidth > simRect.width) newLeft = simRect.width - thermo.offsetWidth;
+                if (newTop + thermo.offsetHeight > simRect.height) newTop = simRect.height - thermo.offsetHeight;
+
+                thermo.style.right = 'auto'; 
+                thermo.style.left = `${newLeft}px`;
+                thermo.style.top = `${newTop}px`;
+            };
+
+            const endDrag = () => {
+                dragState.isDragging = false;
+            };
+
+            thermo.addEventListener('mousedown', startDrag);
+            window.addEventListener('mousemove', drag);
+            window.addEventListener('mouseup', endDrag);
+
+            thermo.addEventListener('touchstart', startDrag, {passive: false});
+            window.addEventListener('touchmove', drag, {passive: false});
+            window.addEventListener('touchend', endDrag);
+        }
+
+        window.onload = init;
+    </script>
+</body>
+</html>
