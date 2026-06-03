@@ -9,10 +9,39 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
   <!-- js-aruco computer vision library files -->
-  <script src="https://cdn.jsdelivr.net/npm/js-aruco/src/svd.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/js-aruco/src/posit1.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/js-aruco/src/cv.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/js-aruco/src/aruco.js"></script>
+  <script>
+    /*
+      js-aruco's npm package ships CommonJS source files. Browser script tags do
+      not provide require/module, so load the two scanner dependencies through a
+      small compatibility shim and expose the globals used below.
+    */
+    (function () {
+      const modules = {};
+
+      window.__clickersCaptureModule = function (name) {
+        modules[name] = window.module.exports;
+        if (name === './cv') window.CV = modules[name];
+        if (name === './aruco') window.AR = modules[name];
+        window.module = { exports: {} };
+      };
+
+      window.require = function (name) {
+        if (modules[name]) return modules[name];
+        throw new Error('Unable to load js-aruco dependency: ' + name);
+      };
+
+      window.module = { exports: {} };
+    })();
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/js-aruco@0.1.0/src/cv.js"></script>
+  <script>window.__clickersCaptureModule('./cv');</script>
+  <script src="https://cdn.jsdelivr.net/npm/js-aruco@0.1.0/src/aruco.js"></script>
+  <script>
+    window.__clickersCaptureModule('./aruco');
+    delete window.__clickersCaptureModule;
+    delete window.require;
+    delete window.module;
+  </script>
   <!-- Lucide Icons -->
   <script src="https://unpkg.com/lucide@latest"></script>
 
@@ -1674,6 +1703,7 @@
         
         // Hide print tab custom views, clean routes
         document.getElementById('main-content').style.display = 'flex';
+        document.getElementById('main-content').style.marginLeft = '';
         document.getElementById('sidebar-nav').style.display = 'flex';
 
         document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
@@ -1726,7 +1756,6 @@
     } else {
       // Normal application view
       safeCreateIcons();
-      initLiveSetup();
     }
 
     // ----------------------------------------------------
@@ -2061,10 +2090,14 @@
       
       // Shift main container states to Print View
       document.getElementById('sidebar-nav').style.display = 'none';
-      document.getElementById('main-content').style.display = 'none';
+      document.getElementById('main-content').style.display = 'flex';
+      document.getElementById('main-content').style.marginLeft = '0';
+      document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+      document.querySelectorAll('.view-pane').forEach(v => v.classList.remove('active'));
       
       const printTab = document.getElementById('print-tab');
       printTab.classList.add('active');
+      document.getElementById('page-title-text').innerText = 'Print Cards';
       
       document.getElementById('print-class-title').innerText = `Print Cards for ${cls.name}`;
       
@@ -2123,6 +2156,8 @@
       // Restore panels
       document.getElementById('sidebar-nav').style.display = 'flex';
       document.getElementById('main-content').style.display = 'flex';
+      document.getElementById('main-content').style.marginLeft = '';
+      document.querySelectorAll('.view-pane').forEach(v => v.classList.remove('active'));
       document.getElementById('print-tab').classList.remove('active');
       
       // Go back to Classes tab
@@ -2772,6 +2807,10 @@
 
     function closeModal(id) {
       document.getElementById(id).classList.remove('active');
+    }
+
+    if (!isProjectorWindow) {
+      initLiveSetup();
     }
   </script>
 </body>
